@@ -46,3 +46,14 @@ research_agent/*_tmp/*
 
 # Large example images (>5MB paper screenshots)
 examples/*/paper.png
+
+# Non-essential directories (not required for running)
+examples/
+docs/
+paper_db/
+PHASE_2C_COMPLETION_REPORT.md
+PLUGIN_FRAMEWORK_COMPARISON.md
+QUICK_START_IMPLEMENTATION.md
+RESEARCH_DOCUMENTATION_INDEX.md
+TOOL_DISCOVERY_EXECUTIVE_SUMMARY.md
+TOOL_DISCOVERY_RESEARCH.md
