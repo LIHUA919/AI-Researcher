@@ -12,7 +12,7 @@ Read, create, write files, list directories, and generate code tree
 structures.
 
 ## Author
-HKUDS
+HKUDS (tools), Lihua (skill manifest & parameters)
 
 ## Tools
 - read_file

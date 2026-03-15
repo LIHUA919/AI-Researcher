@@ -11,7 +11,7 @@ Search GitHub for public repositories and code snippets relevant to a
 research topic. Supports date filtering and result limiting.
 
 ## Author
-HKUDS
+HKUDS (tools), Lihua (skill manifest & parameters)
 
 ## Tools
 - search_github_repos

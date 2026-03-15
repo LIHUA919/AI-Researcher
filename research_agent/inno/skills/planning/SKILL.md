@@ -11,7 +11,7 @@ Plan the components of a machine learning research project: dataset
 preparation, model architecture, training pipeline, and testing strategy.
 
 ## Author
-HKUDS
+HKUDS (tools), Lihua (skill manifest & parameters)
 
 ## Tools
 - plan_dataset

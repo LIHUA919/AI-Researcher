@@ -11,7 +11,7 @@ Agent-callable tools for memory operations: recall past knowledge,
 store new facts, search conversation episodes, and inspect agent state.
 
 ## Author
-HKUDS
+Lihua
 
 ## Tools
 - recall_memory

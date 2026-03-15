@@ -12,7 +12,7 @@ querying the arXiv API by keyword or title, downloading LaTeX source
 files, and extracting .tex content from tar.gz archives.
 
 ## Author
-HKUDS
+HKUDS (tools), Lihua (skill manifest & parameters)
 
 ## Tools
 - search_arxiv

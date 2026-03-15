@@ -11,7 +11,7 @@ Retrieve metadata for academic papers from arXiv, including title,
 authors, abstract, categories, DOI, and publication date.
 
 ## Author
-HKUDS
+HKUDS (tools), Lihua (skill manifest & parameters)
 
 ## Tools
 - get_arxiv_paper_meta
