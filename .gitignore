@@ -30,3 +30,19 @@ research_agent/.env
 research_agent/*_tmp/*
 
 .env
+
+# Large binary files
+*.gif
+*.pkl
+*.npz
+*.bin
+*.h5
+*.hdf5
+*.ckpt
+*.pth
+*.pt
+*.avi
+*.mp4
+
+# Large example images (>5MB paper screenshots)
+examples/*/paper.png
