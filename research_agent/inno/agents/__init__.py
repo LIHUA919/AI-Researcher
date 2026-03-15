@@ -55,7 +55,7 @@ def import_agents_recursively(base_dir: str, base_package: str):
 
 # get the current directory and import all agents
 current_dir = os.path.dirname(__file__)
-import_agents_recursively(current_dir, 'inno.agents')
+import_agents_recursively(current_dir, 'research_agent.inno.agents')
 
 # export all agent creation functions
 globals().update(registry.agents)

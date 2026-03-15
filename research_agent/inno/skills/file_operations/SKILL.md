@@ -28,6 +28,56 @@ HKUDS
 - docker
 - terminal
 
+## Parameters
+```json
+{
+  "read_file": {
+    "type": "object",
+    "properties": {
+      "file_path": {"type": "string", "description": "Path to the file to read"}
+    },
+    "required": ["file_path"]
+  },
+  "create_file": {
+    "type": "object",
+    "properties": {
+      "path": {"type": "string", "description": "Path for the new file"},
+      "content": {"type": "string", "description": "File content"}
+    },
+    "required": ["path", "content"]
+  },
+  "write_file": {
+    "type": "object",
+    "properties": {
+      "path": {"type": "string", "description": "Path to the file to overwrite"},
+      "content": {"type": "string", "description": "New file content"}
+    },
+    "required": ["path", "content"]
+  },
+  "list_files": {
+    "type": "object",
+    "properties": {
+      "path": {"type": "string", "description": "Directory path to list"}
+    },
+    "required": ["path"]
+  },
+  "create_directory": {
+    "type": "object",
+    "properties": {
+      "path": {"type": "string", "description": "Directory path to create"}
+    },
+    "required": ["path"]
+  },
+  "gen_code_tree_structure": {
+    "type": "object",
+    "properties": {
+      "directory": {"type": "string", "description": "Root directory for tree generation"}
+    },
+    "required": ["directory"]
+  }
+}
+```
+
 ## Instructions
 Use file operation tools to interact with the workspace:
 - `read_file(file_path)`: Read the contents of a file.

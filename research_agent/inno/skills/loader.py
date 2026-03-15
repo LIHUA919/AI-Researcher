@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import json as _json
 import logging
 import re
 from pathlib import Path
@@ -150,12 +151,15 @@ class SkillLoader:
 
         instructions = sections.get("instructions", "").strip()
 
+        tool_schemas = self._parse_parameters(sections.get("parameters", ""))
+
         return SkillManifest(
             name=name,
             version=version,
             description=description,
             author=author,
             tools=tools,
+            tool_schemas=tool_schemas,
             dependencies=dependencies,
             required_config=required_config,
             instructions=instructions,
@@ -204,3 +208,31 @@ class SkillLoader:
             raise SkillLoadError(
                 f"Cannot determine module path for {skill_dir}"
             )
+
+    @staticmethod
+    def _parse_parameters(text: str) -> Dict[str, dict]:
+        """Parse a ## Parameters section containing JSON Schema per tool.
+
+        Expects one or more fenced JSON blocks like:
+
+            ```json
+            {
+              "tool_name": { ... schema ... }
+            }
+            ```
+
+        Returns dict of {tool_name: schema}.
+        """
+        if not text.strip():
+            return {}
+        # Extract all fenced code blocks (```json ... ``` or ``` ... ```)
+        blocks = re.findall(r"```(?:json)?\s*\n(.*?)```", text, re.DOTALL)
+        result: Dict[str, dict] = {}
+        for block in blocks:
+            try:
+                parsed = _json.loads(block)
+                if isinstance(parsed, dict):
+                    result.update(parsed)
+            except _json.JSONDecodeError:
+                continue
+        return result

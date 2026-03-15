@@ -21,6 +21,19 @@ HKUDS
 - academic
 - metadata
 
+## Parameters
+```json
+{
+  "get_arxiv_paper_meta": {
+    "type": "object",
+    "properties": {
+      "arxiv_url": {"type": "string", "description": "arXiv URL or paper ID"}
+    },
+    "required": ["arxiv_url"]
+  }
+}
+```
+
 ## Instructions
 Use `get_arxiv_paper_meta` with an arXiv URL or ID to retrieve paper
 metadata including title, authors, abstract, publication date, and

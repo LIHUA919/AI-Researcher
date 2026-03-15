@@ -6,7 +6,10 @@ from typing import Callable, Dict, List, Optional
 
 from research_agent.inno.registry import Registry, registry
 from research_agent.inno.skills.base import Skill, SkillManifest
+from research_agent.inno.skills.agent_card import AgentCard, build_agent_card
+from research_agent.inno.skills.events import SkillEvent, skill_event_bus
 from research_agent.inno.skills.loader import SkillLoader
+from research_agent.inno.skills.search import ToolSearchIndex, ToolSearchResult
 
 
 class SkillRegistry:
@@ -24,6 +27,7 @@ class SkillRegistry:
             cls._instance._skills: Dict[str, Skill] = {}
             cls._instance._loader = SkillLoader()
             cls._instance._base_registry = registry
+            cls._instance._search_index: Optional[ToolSearchIndex] = None
         return cls._instance
 
     @property
@@ -35,6 +39,13 @@ class SkillRegistry:
         self._skills[skill.name] = skill
         for func in skill.functions:
             self._base_registry._registry["tools"][func.__name__] = func
+        skill_event_bus.publish(
+            SkillEvent(
+                event_type="loaded",
+                skill_name=skill.name,
+                manifest=skill.manifest,
+            )
+        )
 
     def get_skill(self, name: str) -> Optional[Skill]:
         return self._skills.get(name)
@@ -75,6 +86,41 @@ class SkillRegistry:
         if skill:
             for func in skill.functions:
                 self._base_registry._registry["tools"].pop(func.__name__, None)
+            skill_event_bus.publish(
+                SkillEvent(
+                    event_type="unloaded",
+                    skill_name=name,
+                    manifest=skill.manifest,
+                )
+            )
+
+    # --- Tool Search ---
+
+    def build_search_index(self) -> None:
+        """Build the embedding-based tool search index from all scanned manifests."""
+        if self._search_index is None:
+            self._search_index = ToolSearchIndex()
+        manifests = self._loader.scan()
+        self._search_index.build_index(manifests)
+
+    def search_tools(
+        self, query: str, top_k: int = 5
+    ) -> List[ToolSearchResult]:
+        """Search for tools by natural language query (lazy index build)."""
+        if self._search_index is None:
+            self.build_search_index()
+        return self._search_index.search(query, top_k=top_k)
+
+    # --- A2A Agent Card ---
+
+    def to_agent_card(
+        self,
+        name: str = "AI-Researcher",
+        url: str = "",
+        description: str = "",
+    ) -> AgentCard:
+        """Export an A2A-compatible Agent Card from registered skills."""
+        return build_agent_card(self, name=name, url=url, description=description)
 
 
 skill_registry = SkillRegistry()

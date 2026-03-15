@@ -25,6 +25,40 @@ HKUDS
 - ml
 - experiment
 
+## Parameters
+```json
+{
+  "plan_dataset": {
+    "type": "object",
+    "properties": {
+      "description": {"type": "string", "description": "Dataset preparation plan"}
+    },
+    "required": ["description"]
+  },
+  "plan_model": {
+    "type": "object",
+    "properties": {
+      "description": {"type": "string", "description": "Model architecture plan"}
+    },
+    "required": ["description"]
+  },
+  "plan_training": {
+    "type": "object",
+    "properties": {
+      "description": {"type": "string", "description": "Training pipeline plan"}
+    },
+    "required": ["description"]
+  },
+  "plan_testing": {
+    "type": "object",
+    "properties": {
+      "description": {"type": "string", "description": "Testing strategy plan"}
+    },
+    "required": ["description"]
+  }
+}
+```
+
 ## Instructions
 Use the planning tools to structure your ML experiment:
 - `plan_dataset`: Define dataset loading, preprocessing, and dataloader steps.
