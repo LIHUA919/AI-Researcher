@@ -446,36 +446,40 @@ class MetaChain:
             )
         except (ContextWindowExceededError, BadRequestError) as e:
             error_msg = str(e)
-            # 检查是否是上下文长度超限错误
-            if "context length" in error_msg.lower() or "context_length_exceeded" in error_msg:
-                # 提取超出的token数量
-                # match = re.search(r'resulted in (\d+) tokens.*maximum context length is (\d+)', error_msg)
-                # if match:
-                # current_tokens = int(match.group(1))
-                # max_tokens = int(match.group(2))
-                
-                # 修改最后一条消息
+            if "context length" in error_msg.lower() or "context_length_exceeded" in error_msg or "max_seq_len" in error_msg or "prompt_tokens" in error_msg:
                 if history and len(history) > 0:
-                    last_message = history[-1]
-                    if isinstance(last_message.get('content'), str):
-                        last_message['content'] = truncate_message(
-                            last_message['content'],
-                        )
-                        self.logger.info(
-                            f"消息已截断以适应上下文长度限制", 
-                            title="Message Truncated", 
-                            color="yellow"
-                        )
-                        # 重试一次
-                        return await self.get_chat_completion_async(
-                            agent=agent,
-                            history=history,
-                            context_variables=context_variables,
-                            model_override=model_override,
-                            stream=stream,
-                            debug=debug,
-                        )
-            # 如果不是上下文长度问题或无法处理，则重新抛出异常
+                    # Strategy: truncate long tool result messages in history
+                    history_changed = False
+                    for msg in history:
+                        content = msg.get('content', '')
+                        if isinstance(content, str) and len(content) > 5000:
+                            tokens = encode_string_by_tiktoken(content)
+                            if len(tokens) > 3000:
+                                msg['content'] = decode_tokens_by_tiktoken(tokens[:3000]) + "\n...[truncated]"
+                                history_changed = True
+                    if not history_changed:
+                        last_message = history[-1]
+                        last_content = last_message.get("content")
+                        if isinstance(last_content, str):
+                            truncated_content = truncate_message(last_content)
+                            if truncated_content != last_content:
+                                last_message["content"] = truncated_content
+                                history_changed = True
+                    if not history_changed:
+                        raise e
+                    self.logger.info(
+                        "Messages truncated to fit context length limit",
+                        title="Message Truncated",
+                        color="yellow"
+                    )
+                    return await self.get_chat_completion_async(
+                        agent=agent,
+                        history=history,
+                        context_variables=context_variables,
+                        model_override=model_override,
+                        stream=stream,
+                        debug=debug,
+                    )
             raise e
     
     async def run_async(

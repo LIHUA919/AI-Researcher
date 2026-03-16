@@ -96,12 +96,31 @@ class DockerEnv:
                 return
         
         # if the container does not exist, create and start a new container
+        # Copy tcp_server.py to local workplace so it's available inside the container
+        tcp_server_src = osp.join(osp.dirname(__file__), "tcp_server.py")
+        os.makedirs(self.local_workplace, exist_ok=True)
+        tcp_server_dst = osp.join(self.local_workplace, "tcp_server.py")
+        if osp.exists(tcp_server_src) and not osp.exists(tcp_server_dst):
+            import shutil
+            shutil.copy2(tcp_server_src, tcp_server_dst)
         gpu_cmd = ["--gpus", GPUS] if GPUS else []
         docker_command = [
-            "docker", "run", "-d", "--platform", PLATFORM, "--userns=host",] + gpu_cmd + ["--name", self.container_name, 
-            "--user", "root", "-v", f"{self.local_workplace}:{self.docker_workplace}",
-            "-w", f"{self.docker_workplace}", "-p", f"{self.communication_port}:8000", 
-            "--restart", "unless-stopped", BASE_IMAGES
+            "docker", "run", "-d", "--platform", PLATFORM, "--userns=host",
+        ] + gpu_cmd + [
+            "--name", self.container_name,
+            "--user", "root",
+            "-v", f"{self.local_workplace}:{self.docker_workplace}",
+            "-w", f"{self.docker_workplace}",
+            "-p", f"{self.communication_port}:12345",
+            "--restart", "unless-stopped",
+            BASE_IMAGES,
+            "/bin/bash", "-lc",
+            (
+                f"python3 {self.docker_workplace}/tcp_server.py "
+                f"--workplace {self.workplace_name} "
+                "--conda_path /home/user/micromamba "
+                "--port 12345"
+            ),
         ]
         print(docker_command)
         # execute the docker command
@@ -127,9 +146,8 @@ class DockerEnv:
                 # 额外检查 tcp_server 是否运行
                 try:
                     port_info = check_container_ports(self.container_name)
-                    assert port_info and (port_info[0] == port_info[1])
-                    available_port = port_info[0]
-                    self.communication_port = available_port
+                    if port_info:
+                        self.communication_port = port_info[0]  # use host port
                     result = self.run_command('ps aux')
                     print("result", result)
                     if "tcp_server.py" in result['result']:
