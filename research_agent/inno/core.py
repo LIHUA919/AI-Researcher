@@ -137,11 +137,15 @@ class MetaChain:
             if __CTX_VARS_NAME__ in params["required"]:
                 params["required"].remove(__CTX_VARS_NAME__)
 
+        # Downgrade tool_choice="required" to "auto" for providers that don't support "required"
+        effective_tool_choice = agent.tool_choice
+        if effective_tool_choice == "required" and API_BASE_URL and "siliconflow" in API_BASE_URL:
+            effective_tool_choice = "auto"
         create_params = {
             "model": model_override or agent.model,
             "messages": messages,
             "tools": tools or None,
-            "tool_choice": agent.tool_choice,
+            "tool_choice": effective_tool_choice,
             "stream": stream,
             "base_url": API_BASE_URL,
         }
@@ -153,7 +157,7 @@ class MetaChain:
                     del message['sender']
             create_params["messages"] = messages
 
-        if tools and create_params['model'].startswith("gpt"):
+        if tools:
             create_params["parallel_tool_calls"] = agent.parallel_tool_calls
 
         return completion(**create_params)
@@ -202,7 +206,27 @@ class MetaChain:
                     }
                 )
                 continue
-            args = json.loads(tool_call.function.arguments)
+            try:
+                args = json.loads(tool_call.function.arguments)
+                # Handle double-encoded JSON (model returns string instead of dict)
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except (json.JSONDecodeError, TypeError):
+                        args = {"command": args}  # fallback: treat as single arg
+                if not isinstance(args, dict):
+                    args = {"input": args}
+            except (json.JSONDecodeError, TypeError) as e:
+                self.logger.info(f"[Tool Call Error] Failed to parse arguments for {name}: {e}", title="Tool Call Error", color="red")
+                partial_response.messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "name": name,
+                        "content": f"[Tool Call Error] Failed to parse arguments for tool {name}. Please provide valid JSON arguments.",
+                    }
+                )
+                continue
             
             # debug_print(
             #     debug, f"Processing tool call: {name} with arguments {args}")
@@ -374,11 +398,15 @@ class MetaChain:
         if create_model not in NOT_USE_FN_CALL:
             
             # assert litellm.supports_function_calling(model = create_model) == True, f"Model {create_model} does not support function calling, please set `FN_CALL=False` to use non-function calling mode"
+            # Downgrade tool_choice="required" to "auto" for providers that don't support "required"
+            effective_tool_choice = agent.tool_choice
+            if effective_tool_choice == "required" and API_BASE_URL and "siliconflow" in API_BASE_URL:
+                effective_tool_choice = "auto"
             create_params = {
                 "model": create_model,
                 "messages": messages,
                 "tools": tools or None,
-                "tool_choice": agent.tool_choice,
+                "tool_choice": effective_tool_choice,
                 "stream": stream,
                 "base_url": API_BASE_URL,
             }
@@ -395,7 +423,7 @@ class MetaChain:
                         del message['sender']
                 create_params["messages"] = messages
 
-            if tools and create_params['model'].startswith("gpt"):
+            if tools:
                 create_params["parallel_tool_calls"] = agent.parallel_tool_calls
             completion_response = await acompletion(**create_params)
         elif create_model in NOT_USE_FN_CALL:
