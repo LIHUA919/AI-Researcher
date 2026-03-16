@@ -59,6 +59,19 @@ class TestDelegation:
         cv = call_kwargs.kwargs.get("context_variables") or call_kwargs[1].get("context_variables", {})
         assert "a" in cv
 
+    def test_isolates_other_agent_namespace(self, wrapper, store, mock_chain):
+        agent = FakeAgent()
+        store.session.set("OtherAgent/secret", "hidden", agent_name="OtherAgent")
+        store.session.set("shared_key", "shared", agent_name="OtherAgent")
+
+        wrapper.run(agent, [{"role": "user", "content": "hi"}])
+
+        call_kwargs = mock_chain.run.call_args
+        cv = call_kwargs.kwargs.get("context_variables") or call_kwargs[1].get("context_variables", {})
+        assert "shared_key" in cv
+        assert "secret" not in cv
+        assert "OtherAgent/secret" not in cv
+
 
 class TestMemoryRecording:
     def test_records_episode(self, wrapper, store):
@@ -70,7 +83,19 @@ class TestMemoryRecording:
     def test_merges_response_context(self, wrapper, store):
         agent = FakeAgent()
         wrapper.run(agent, [{"role": "user", "content": "test"}])
-        assert store.session.get("result") == "ok"
+        assert store.session.get("TestAgent/result") == "ok"
+
+    def test_preserves_existing_shared_keys(self, wrapper, store, mock_chain):
+        agent = FakeAgent()
+        store.session.set("result", "old", agent_name="OtherAgent")
+        mock_chain.run.return_value = FakeResponse(
+            messages=[{"role": "assistant", "content": "done"}],
+            context_variables={"result": "shared-update"},
+        )
+
+        wrapper.run(agent, [{"role": "user", "content": "test"}])
+
+        assert store.session.get("result") == "shared-update"
 
 
 class TestEventLog:

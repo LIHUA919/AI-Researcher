@@ -15,12 +15,18 @@ class MetaChainLogger:
     def _write_log(self, message: str):
         with open(self.log_path, 'a') as f:
             f.write(message + '\n')
-    def _warp_args(self, args_dict: str):
-        args_dict = json.loads(args_dict)
+    def _warp_args(self, args_dict):
+        if isinstance(args_dict, str):
+            try:
+                args_dict = json.loads(args_dict)
+            except (json.JSONDecodeError, TypeError):
+                return args_dict
+        if not isinstance(args_dict, dict):
+            return str(args_dict)
         args_str = ''
         for k, v in args_dict.items():
             args_str += f"{repr(k)}={repr(v)}, "
-        return args_str[:-2]
+        return args_str[:-2] if args_str else ''
     def _wrap_title(self, title: str, color: str = None):
         single_len = (BAR_LENGTH - len(title)) // 2
         color_bos = f"[{color}]" if color else ""

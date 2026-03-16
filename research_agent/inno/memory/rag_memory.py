@@ -2,6 +2,7 @@ import uuid
 import os.path
 from datetime import datetime
 from typing import List, Dict
+import hashlib
 import chromadb
 from chromadb.utils import embedding_functions
 from abc import ABC, abstractmethod
@@ -39,8 +40,19 @@ class Memory:
             openai_client = OpenAI(api_key=api_key or os.environ["OPENAI_API_KEY"], base_url=API_BASE_URL)
             self.embedder = lambda x: [i.embedding for i in openai_client.embeddings.create(input=x, model=embedding_model).data]
         else:
-            # self.embedder = embedding_functions.DefaultEmbeddingFunction()
-            self.embedder = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+            try:
+                self.embedder = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+            except Exception:
+                self.embedder = self._hash_embedder
+
+    @staticmethod
+    def _hash_embedder(texts: List[str]):
+        """Offline-safe deterministic embedder for local-only environments."""
+        embeddings = []
+        for text in texts:
+            digest = hashlib.md5(text.encode("utf-8")).digest()
+            embeddings.append([float(b) / 255.0 for b in (digest * 24)])
+        return embeddings
 
     def add_query(
             self,

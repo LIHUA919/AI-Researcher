@@ -42,6 +42,26 @@ class MemoryAwareMetaChain:
     def event_log(self) -> EventLog:
         return self._event_log
 
+    def _merge_agent_response_context(
+        self,
+        agent_name: str,
+        context_variables: dict,
+    ) -> None:
+        """Merge response context back while preserving agent isolation.
+
+        Existing shared keys remain shared. Newly introduced keys are stored
+        in the agent namespace by default to avoid cross-agent leakage.
+        """
+        ns = AgentNamespace(agent_name, self._store.session)
+        shared_keys = {key for key in self._store.session.keys() if "/" not in key}
+        for key, value in context_variables.items():
+            if "/" in key:
+                self._store.session.set(key, value, agent_name=agent_name)
+            elif key in shared_keys:
+                self._store.session.set(key, value, agent_name=agent_name)
+            else:
+                ns.set(key, value)
+
     def run(
         self,
         agent: "Agent",
@@ -63,7 +83,7 @@ class MemoryAwareMetaChain:
         )
 
         # Delegate to real MetaChain
-        cv = self._store.session.to_context_variables()
+        cv = ns.to_context_variables()
         response = self._chain.run(
             agent=agent,
             messages=messages,
@@ -80,8 +100,8 @@ class MemoryAwareMetaChain:
 
         # Merge returned context back into session state
         if response.context_variables:
-            self._store.session.merge(
-                response.context_variables, agent_name=agent.name
+            self._merge_agent_response_context(
+                agent.name, response.context_variables
             )
 
         # Log completion event
@@ -106,7 +126,8 @@ class MemoryAwareMetaChain:
             make_event("agent_transfer", agent.name, {"action": "start"})
         )
 
-        cv = self._store.session.to_context_variables()
+        ns = AgentNamespace(agent.name, self._store.session)
+        cv = ns.to_context_variables()
         response = await self._chain.run_async(
             agent=agent,
             messages=messages,
@@ -121,8 +142,8 @@ class MemoryAwareMetaChain:
         )
 
         if response.context_variables:
-            self._store.session.merge(
-                response.context_variables, agent_name=agent.name
+            self._merge_agent_response_context(
+                agent.name, response.context_variables
             )
 
         self._event_log.append(
