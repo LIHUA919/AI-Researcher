@@ -77,6 +77,10 @@ def print_markdown(md_path: str, console: Optional[Console] = None):
     console.print(Markdown(md_content))
 
 def single_select_menu(options, message: str = ""):
+    import sys
+    if not sys.stdin.isatty():
+        # No TTY available, auto-select first option
+        return options[0]
     questions = [
         inquirer.List(
             'choice',

@@ -49,7 +49,7 @@ class InnoFlow(FlowModule):
     async def forward(self, instance_path: str, task_level: str, local_root: str, workplace_name: str, max_iter_times: int, category: str, ideas: str, references: str, *args, **kwargs):
         metadata = self.load_ins({"instance_path": instance_path, "task_level": task_level})
         context_variables = {
-            "working_dir": f"/{workplace_name}", # TODO: change to the codebase path
+            "working_dir": workplace_name,  # Agent instructions already prepend "/"
             "date_limit": metadata["date_limit"],
         }
 
@@ -464,7 +464,11 @@ def main(args, ideas, references):
 
 if __name__ == "__main__":
     args = get_args()
-    main(args)
+    with open(args.instance_path, "r", encoding="utf-8") as f:
+        eval_instance = json.load(f)
+    ideas = eval_instance.get(args.task_level, "")
+    references = warp_source_papers(eval_instance["source_papers"])
+    main(args, ideas, references)
 
 
 

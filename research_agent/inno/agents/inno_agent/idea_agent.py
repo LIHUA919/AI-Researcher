@@ -280,7 +280,7 @@ IMPORTANT NOTES:
 
 Your goal is to create a complete knowledge base that bridges theoretical concepts with practical implementations for the proposed innovation.
 """
-    paper_survey_agent = get_paper_survey_agent(model, file_env=file_env)
+    paper_survey_agent = get_idea_agent(model, file_env=file_env)
     code_survey_agent = get_code_survey_agent(model, code_env=code_env)
     survey_agent = Agent(
         name="Survey Agent",

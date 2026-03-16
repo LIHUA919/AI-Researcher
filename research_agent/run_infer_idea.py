@@ -496,7 +496,10 @@ def main(args, references):
 
 if __name__ == "__main__":
     args = get_args()
-    main(args)
+    with open(args.instance_path, "r", encoding="utf-8") as f:
+        eval_instance = json.load(f)
+    references = warp_source_papers(eval_instance["source_papers"])
+    main(args, references)
 
 
 
