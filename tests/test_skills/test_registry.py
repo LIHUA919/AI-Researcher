@@ -15,6 +15,7 @@ def _make_registry():
     reg._skills = {}
     reg._loader = SkillLoader()
     reg._base_registry = Registry()
+    reg._tool_stacks = {}
     return reg
 
 
@@ -75,6 +76,35 @@ class TestUnload:
     def test_unload_nonexistent_is_noop(self):
         reg = _make_registry()
         reg.unload_skill("does_not_exist")  # Should not raise
+
+    def test_unload_restores_previous_tool_binding(self):
+        reg = _make_registry()
+
+        def original():
+            return "original"
+
+        def tool_a():
+            return "a"
+
+        def tool_b():
+            return "b"
+
+        tool_a.__name__ = "shared_tool"
+        tool_b.__name__ = "shared_tool"
+        reg._base_registry._registry["tools"]["shared_tool"] = original
+
+        reg.register_skill(
+            Skill(manifest=SkillManifest(name="a"), functions=[tool_a])
+        )
+        reg.register_skill(
+            Skill(manifest=SkillManifest(name="b"), functions=[tool_b])
+        )
+
+        reg.unload_skill("a")
+        assert reg._base_registry._registry["tools"]["shared_tool"] is tool_b
+
+        reg.unload_skill("b")
+        assert reg._base_registry._registry["tools"]["shared_tool"] is original
 
 
 class TestInstructions:

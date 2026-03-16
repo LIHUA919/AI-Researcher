@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from typing import Dict, List, Optional
 
 import chromadb
@@ -35,13 +36,23 @@ class ToolSearchIndex:
                 model_name=model_name
             )
         except Exception:
-            self._embedder = embedding_functions.DefaultEmbeddingFunction()
+            self._embedder = self._hash_embed
         self._client = chromadb.Client()  # in-memory, not persistent
         self._collection = self._client.get_or_create_collection(
             name="tool_search",
             embedding_function=self._embedder,
         )
         self._built = False
+
+    @staticmethod
+    def _hash_embed(input: List[str]) -> List[List[float]]:
+        """Offline-safe deterministic embedder used as a last-resort fallback."""
+        results: List[List[float]] = []
+        for doc in input:
+            digest = hashlib.md5(doc.encode("utf-8")).digest()
+            vec = [float(b) / 255.0 for b in (digest * 24)]
+            results.append(vec)
+        return results
 
     def build_index(self, manifests: Dict[str, SkillManifest]) -> None:
         """Embed all tool descriptions from scanned manifests."""

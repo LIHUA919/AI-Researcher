@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 from research_agent.inno.registry import Registry, registry
 from research_agent.inno.skills.base import Skill, SkillManifest
@@ -28,6 +28,7 @@ class SkillRegistry:
             cls._instance._loader = SkillLoader()
             cls._instance._base_registry = registry
             cls._instance._search_index: Optional[ToolSearchIndex] = None
+            cls._instance._tool_stacks: Dict[str, List[Tuple[Optional[str], Callable]]] = {}
         return cls._instance
 
     @property
@@ -38,7 +39,14 @@ class SkillRegistry:
         """Register a loaded skill and inject its tools into the base registry."""
         self._skills[skill.name] = skill
         for func in skill.functions:
-            self._base_registry._registry["tools"][func.__name__] = func
+            tool_name = func.__name__
+            stack = self._tool_stacks.setdefault(tool_name, [])
+            if not stack:
+                existing = self._base_registry._registry["tools"].get(tool_name)
+                if existing is not None:
+                    stack.append((None, existing))
+            stack.append((skill.name, func))
+            self._base_registry._registry["tools"][tool_name] = func
         skill_event_bus.publish(
             SkillEvent(
                 event_type="loaded",
@@ -85,7 +93,15 @@ class SkillRegistry:
         skill = self._skills.pop(name, None)
         if skill:
             for func in skill.functions:
-                self._base_registry._registry["tools"].pop(func.__name__, None)
+                tool_name = func.__name__
+                stack = self._tool_stacks.get(tool_name, [])
+                stack = [entry for entry in stack if entry[0] != name]
+                if stack:
+                    self._tool_stacks[tool_name] = stack
+                    self._base_registry._registry["tools"][tool_name] = stack[-1][1]
+                else:
+                    self._tool_stacks.pop(tool_name, None)
+                    self._base_registry._registry["tools"].pop(tool_name, None)
             skill_event_bus.publish(
                 SkillEvent(
                     event_type="unloaded",

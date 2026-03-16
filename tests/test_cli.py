@@ -12,6 +12,11 @@ class TestResearchAgentCli:
         assert result.exit_code == 0
         assert "command line interface" in result.output.lower()
 
+    def test_default_dummy_agent_is_importable(self):
+        import research_agent.inno.agents as agents
+
+        assert hasattr(agents, "get_dummy_agent")
+
 
 class TestPaperAgentCli:
     def test_help(self):
