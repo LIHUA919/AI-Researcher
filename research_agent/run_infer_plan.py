@@ -77,6 +77,12 @@ class InnoFlow(FlowModule):
         metadata = self.load_ins({"instance_path": instance_path, "task_level": task_level})
         runtime = MasterRuntime(self.cache_path)
         runtime.sync_stage_state()
+        run_id = metadata.get("instance_id", task_level)
+        runtime.write_runtime_status(
+            run_id=run_id,
+            status="running",
+            metadata={"entrypoint": "run_infer_plan", "task_level": task_level},
+        )
         stage_state = runtime.load_state()
         context_variables = {
             "working_dir": workplace_name,  # Agent instructions already prepend "/"
@@ -603,6 +609,11 @@ Note that you should fully utilize the existing code in the directory `/{workpla
 
         runtime.sync_stage_state()
         goal_evaluation = runtime.evaluate_goal()
+        runtime.write_runtime_status(
+            run_id=run_id,
+            status="completed" if goal_evaluation.all_criteria_met else "running",
+            metadata={"entrypoint": "run_infer_plan", "task_level": task_level},
+        )
         return {
             "task_id": metadata.get("instance_id", task_level),
             "query": plan_query,
@@ -691,9 +702,18 @@ def main(args, ideas, references):
     web_env = BrowserEnv(browsergym_eval_env = None, local_root=env_config.local_root, workplace_name=env_config.workplace_name)
     file_env = RequestsMarkdownBrowser(viewport_size=1024 * 4, local_root=env_config.local_root, workplace_name=env_config.workplace_name, downloads_folder=os.path.join(env_config.local_root, env_config.workplace_name, "downloads"))
     flow = InnoFlow(cache_path=cache_path, log_path="log_" + instance_id, code_env=code_env, web_env=web_env, file_env=file_env, model=args.model)
-    # ml_result = await flow(instance_path=instance_path)
-    result = asyncio.run(flow(instance_path=args.instance_path, task_level=args.task_level, local_root=local_root, workplace_name=args.workplace_name, max_iter_times=args.max_iter_times, category=args.category, ideas = ideas, references = references))
-    return build_and_save_eval_result(result, cache_path)
+    runtime = MasterRuntime(cache_path)
+    try:
+        result = asyncio.run(flow(instance_path=args.instance_path, task_level=args.task_level, local_root=local_root, workplace_name=args.workplace_name, max_iter_times=args.max_iter_times, category=args.category, ideas = ideas, references = references))
+        return build_and_save_eval_result(result, cache_path)
+    except Exception as exc:
+        runtime.write_failure_status(
+            run_id=instance_id,
+            error_message=str(exc),
+            stage_name=runtime.next_stage(),
+            metadata={"entrypoint": "run_infer_plan", "task_level": args.task_level},
+        )
+        raise
     # print(judge_result)
 
 

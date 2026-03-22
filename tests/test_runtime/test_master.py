@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from research_agent.runtime import MasterRuntime, validate_stage_artifacts
@@ -90,3 +91,89 @@ def test_master_runtime_record_stage_completion_persists_state(tmp_dir):
 
     assert state["prepare"]["status"] == "completed"
     assert state["prepare"]["metadata"]["source"] == "runtime"
+
+
+def test_master_runtime_writes_heartbeat_and_run_status(tmp_dir):
+    prepare_stage = Path(tmp_dir) / "prepare_stage"
+    prepare_stage.mkdir()
+    prepare_result = prepare_stage / "prepare_result.json"
+    prepare_result.write_text("{}", encoding="utf-8")
+
+    runtime = MasterRuntime(tmp_dir)
+    runtime.sync_stage_state()
+    outputs = runtime.write_runtime_status(run_id="run-1", status="running")
+
+    heartbeat_payload = json.loads(Path(outputs["heartbeat"]).read_text(encoding="utf-8"))
+    run_status_payload = json.loads(Path(outputs["run_status"]).read_text(encoding="utf-8"))
+
+    assert heartbeat_payload["status"] == "running"
+    assert heartbeat_payload["current_stage"] == "survey"
+    assert run_status_payload["run_id"] == "run-1"
+    assert run_status_payload["current_stage"] == "survey"
+    assert run_status_payload["latest_artifact"].endswith("prepare_result.json")
+
+
+def test_master_runtime_writes_failure_status(tmp_dir):
+    runtime = MasterRuntime(tmp_dir)
+    outputs = runtime.write_failure_status(
+        run_id="run-2",
+        error_message="llm timeout",
+        stage_name="survey",
+        metadata={"source": "test"},
+    )
+
+    run_status_payload = json.loads(Path(outputs["run_status"]).read_text(encoding="utf-8"))
+    heartbeat_payload = json.loads(Path(outputs["heartbeat"]).read_text(encoding="utf-8"))
+    state_payload = runtime.load_state()
+
+    assert run_status_payload["status"] == "failed"
+    assert run_status_payload["last_error"] == "llm timeout"
+    assert heartbeat_payload["status"] == "failed"
+    assert state_payload["survey"]["status"] == "failed"
+    assert state_payload["survey"]["metadata"]["last_error"] == "llm timeout"
+
+
+def test_master_runtime_evaluates_stall_from_stale_heartbeat(tmp_dir):
+    runtime = MasterRuntime(tmp_dir)
+    stale_time = (datetime.now(timezone.utc) - timedelta(seconds=600)).isoformat()
+    heartbeat_path = Path(tmp_dir) / "heartbeat.json"
+    heartbeat_path.write_text(
+        json.dumps(
+            {
+                "current_stage": "implement",
+                "status": "running",
+                "updated_at": stale_time,
+                "last_error": None,
+                "metadata": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    evaluation = runtime.evaluate_stall(max_stale_seconds=300)
+
+    assert evaluation.stalled is True
+    assert evaluation.current_stage == "implement"
+    assert evaluation.reason == "heartbeat_stale"
+    assert evaluation.age_seconds is not None
+    assert evaluation.age_seconds >= 300
+
+
+def test_master_runtime_writes_stalled_status(tmp_dir):
+    runtime = MasterRuntime(tmp_dir)
+    outputs = runtime.write_stalled_status(
+        run_id="run-3",
+        reason="no_heartbeat_progress",
+        stage_name="implement",
+        metadata={"source": "monitor"},
+    )
+
+    run_status_payload = json.loads(Path(outputs["run_status"]).read_text(encoding="utf-8"))
+    heartbeat_payload = json.loads(Path(outputs["heartbeat"]).read_text(encoding="utf-8"))
+    state_payload = runtime.load_state()
+
+    assert run_status_payload["status"] == "stalled"
+    assert run_status_payload["last_error"] == "no_heartbeat_progress"
+    assert heartbeat_payload["status"] == "stalled"
+    assert state_payload["implement"]["status"] == "stalled"
+    assert state_payload["implement"]["metadata"]["stalled_reason"] == "no_heartbeat_progress"
