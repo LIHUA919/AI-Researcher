@@ -28,7 +28,9 @@ def evidence_coverage(trace: ResearchRunTrace) -> Dict[str, object]:
         f"{item.title} {item.content}".strip() for item in trace.retrieved_items
     )
     evidence_texts.extend(
-        f"{call.tool_name} {call.output_summary}".strip() for call in trace.tool_calls
+        f"{call.tool_name} {call.output_summary}".strip()
+        for call in trace.tool_calls
+        if call.success
     )
 
     supported, unsupported = [], []

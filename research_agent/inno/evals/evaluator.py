@@ -82,7 +82,7 @@ class GoalDrivenEvaluator:
 
         return GoalDrivenEvalReport(
             task_id=trace.task_id,
-            goal=self.goal or trace.goal,
+            goal=trace.goal or self.goal,
             passed=all(item.passed for item in criteria_scores),
             criteria_scores=criteria_scores,
             failure_reasons=failure_reasons,

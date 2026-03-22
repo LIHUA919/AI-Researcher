@@ -1,6 +1,12 @@
 """Goal-driven evaluation primitives for AI-Researcher."""
 
+from research_agent.inno.evals.adapter import (
+    build_and_save_eval_result,
+    build_research_run_trace,
+    save_eval_artifacts,
+)
 from research_agent.inno.evals.bench_runner import BenchmarkRunner, BenchmarkTask
+from research_agent.inno.evals.bench_runner import AsyncBenchmarkRunner
 from research_agent.inno.evals.evaluator import (
     CriterionScore,
     EvalCriterion,
@@ -18,6 +24,7 @@ from research_agent.inno.evals.trace import (
 
 __all__ = [
     "AgentStepTrace",
+    "AsyncBenchmarkRunner",
     "BenchmarkRunner",
     "BenchmarkTask",
     "CriterionScore",
@@ -27,6 +34,9 @@ __all__ = [
     "ResearchRunTrace",
     "RetrievalItem",
     "ToolCallTrace",
+    "build_and_save_eval_result",
+    "build_research_run_trace",
+    "save_eval_artifacts",
     "build_default_research_evaluator",
     "evidence_coverage",
     "plan_executability",
