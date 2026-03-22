@@ -2,9 +2,12 @@ import json
 from pathlib import Path
 
 from research_agent.inno_common import (
+    build_project_manifest,
     load_cached_plan_result,
+    load_cached_stage_result,
     load_cached_survey_result,
     load_stage_state,
+    persist_stage_result,
     persist_survey_result,
     update_stage_state,
 )
@@ -71,3 +74,32 @@ def test_load_cached_plan_result_reads_plan_bundle(tmp_path):
     assert payload["dataset_plan"]["dataset_description"] == "CIFAR-10"
     assert payload["training_plan"]["training_pipeline"] == "train"
     assert payload["testing_plan"]["test_metric"] == "fid"
+
+
+def test_persist_stage_result_round_trips_payload(tmp_path):
+    output_path = persist_stage_result(
+        str(tmp_path),
+        "judge",
+        "judge_report.json",
+        {"judge_report": "looks good"},
+    )
+
+    payload = load_cached_stage_result(str(tmp_path), "judge", "judge_report.json")
+
+    assert output_path.endswith("judge_stage/judge_report.json")
+    assert payload["judge_report"] == "looks good"
+
+
+def test_build_project_manifest_lists_project_contents(tmp_path):
+    project_dir = tmp_path / "workplace" / "project"
+    (project_dir / "model").mkdir(parents=True)
+    (project_dir / "training").mkdir()
+    run_script = project_dir / "run_training_testing.py"
+    run_script.write_text("print('ok')", encoding="utf-8")
+
+    manifest = build_project_manifest(str(tmp_path), "workplace")
+
+    assert manifest["exists"] is True
+    assert "model" in manifest["directories"]
+    assert "run_training_testing.py" in manifest["files"]
+    assert manifest["key_paths"]["main_script"].endswith("project/run_training_testing.py")

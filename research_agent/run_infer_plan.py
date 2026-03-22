@@ -29,22 +29,24 @@ from research_agent.inno.environment.utils import (
     ensure_legacy_workspace_aliases,
     normalize_workplace_layout,
 )
+from research_agent.runtime import MasterRuntime
 from research_agent.inno.evals import (
     build_and_save_eval_result,
 )
 from research_agent.inno_common import (
+    build_project_manifest,
     build_plan_result,
     build_survey_result,
     ensure_plan_artifacts,
+    load_cached_stage_result,
     load_cached_plan_result,
     warp_source_papers,
     extract_json_from_output,
     load_cached_survey_result,
     load_cached_prepare_result,
+    persist_stage_result,
     resolve_prepare_result,
     persist_survey_result,
-    update_stage_state,
-    load_stage_state,
     get_args,
     EvalMetadata,
     load_instance,
@@ -73,7 +75,9 @@ class InnoFlow(FlowModule):
         self.exp_analyser = AgentModule(get_exp_analyser_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
     async def forward(self, instance_path: str, task_level: str, local_root: str, workplace_name: str, max_iter_times: int, category: str, ideas: str, references: str, *args, **kwargs):
         metadata = self.load_ins({"instance_path": instance_path, "task_level": task_level})
-        stage_state = load_stage_state(self.cache_path)
+        runtime = MasterRuntime(self.cache_path)
+        runtime.sync_stage_state()
+        stage_state = runtime.load_state()
         context_variables = {
             "working_dir": workplace_name,  # Agent instructions already prepend "/"
             "date_limit": metadata["date_limit"],
@@ -102,10 +106,8 @@ Your task is to choose at least 5 repositories as the reference codebases.
         if prepare_dict:
             context_variables["prepare_result"] = prepare_dict
             prepare_res = json.dumps(prepare_dict, ensure_ascii=False, indent=4)
-            update_stage_state(
-                self.cache_path,
+            runtime.record_stage_completion(
                 "prepare",
-                "completed",
                 artifacts={"prepare_result": os.path.join(self.cache_path, "prepare_stage", "prepare_result.json")},
             )
         else:
@@ -123,12 +125,11 @@ Your task is to choose at least 5 repositories as the reference codebases.
             if not prepare_dict:
                 raise ValueError("Prepare Agent did not produce a usable prepare_result and no fallback could be derived.")
             prepare_res = json.dumps(prepare_dict, ensure_ascii=False, indent=4)
-            update_stage_state(
-                self.cache_path,
+            runtime.record_stage_completion(
                 "prepare",
-                "completed",
                 artifacts={"prepare_result": os.path.join(self.cache_path, "prepare_stage", "prepare_result.json")},
             )
+        context_variables["stage_state"] = runtime.load_state()
         paper_list = prepare_dict["reference_papers"]
         download_res = self.download_papaer({"paper_list": paper_list, "local_root": local_root, "workplace_name": workplace_name})
         survey_query = f"""\
@@ -150,10 +151,8 @@ Note that the math formula should be as complete as possible, and the code imple
         if cached_survey.get("survey_report"):
             survey_res = cached_survey["survey_report"]
             context_variables["model_survey"] = survey_res
-            update_stage_state(
-                self.cache_path,
+            runtime.record_stage_completion(
                 "survey",
-                "completed",
                 artifacts={"survey_result": os.path.join(self.cache_path, "survey_stage", "survey_result.json")},
             )
         else:
@@ -168,12 +167,11 @@ Note that the math formula should be as complete as possible, and the code imple
                 survey_query,
                 survey_res,
             )
-            update_stage_state(
-                self.cache_path,
+            runtime.record_stage_completion(
                 "survey",
-                "completed",
                 artifacts={"survey_result": survey_result_path},
             )
+        context_variables["stage_state"] = runtime.load_state()
 
         data_module = importlib.import_module(f"benchmark.process.dataset_candidate.{category}.metaprompt")
 
@@ -216,10 +214,8 @@ Your task is to carefully review the existing resources and understand the task,
             context_variables["testing_plan"] = cached_plan.get("testing_plan", context_variables.get("testing_plan"))
             context_variables["plan_artifacts"] = cached_plan.get("plan_artifacts", context_variables.get("plan_artifacts", {}))
             plan_res = cached_plan["plan_report"]
-            update_stage_state(
-                self.cache_path,
+            runtime.record_stage_completion(
                 "plan",
-                "completed",
                 artifacts=context_variables.get("plan_artifacts", {}),
             )
         else:
@@ -242,12 +238,14 @@ Your task is to carefully review the existing resources and understand the task,
                     "plan_artifacts": context_variables.get("plan_artifacts", {}),
                 },
             )
-            update_stage_state(
-                self.cache_path,
+            runtime.record_stage_completion(
                 "plan",
-                "completed",
                 artifacts=context_variables.get("plan_artifacts", {}),
             )
+        context_variables["stage_state"] = runtime.load_state()
+
+        if not runtime.can_run_stage("implement"):
+            raise RuntimeError("Implement stage cannot start before required prior stages are completed.")
 
         # write the model based on the model survey notes
         ml_dev_query = f"""\
@@ -367,8 +365,31 @@ Remember:
 - MUST complete 2 epochs of training and testing
 """
         messages = [{"role": "user", "content": ml_dev_query}]
-        ml_dev_messages, context_variables = await self.ml_agent(messages, context_variables)
-        ml_dev_res = ml_dev_messages[-1]["content"]
+        cached_implement = load_cached_stage_result(self.cache_path, "implement", "project_manifest.json")
+        if not runtime.should_run_stage("implement") and cached_implement:
+            ml_dev_res = cached_implement.get("implementation_report", "")
+        else:
+            ml_dev_messages, context_variables = await self.ml_agent(messages, context_variables)
+            ml_dev_res = ml_dev_messages[-1]["content"]
+            project_manifest = build_project_manifest(local_root, workplace_name)
+            implement_path = persist_stage_result(
+                self.cache_path,
+                "implement",
+                "project_manifest.json",
+                {
+                    "task_id": metadata.get("instance_id", task_level),
+                    "implementation_report": ml_dev_res,
+                    "project_manifest": project_manifest,
+                },
+            )
+            runtime.record_stage_completion(
+                "implement",
+                artifacts={"project_manifest": implement_path},
+            )
+        context_variables["stage_state"] = runtime.load_state()
+
+        if not runtime.can_run_stage("judge"):
+            raise RuntimeError("Judge stage cannot start before implement stage is completed.")
 
         query = f"""\
 INPUT:
@@ -395,8 +416,28 @@ Your task is to evaluate the implementation, and give a suggestion about the imp
             "role": "user",
             "content": query
         }]
-        judge_messages, context_variables = await self.judge_agent(input_messages, context_variables)
-        judge_res = judge_messages[-1]["content"]
+        cached_judge = load_cached_stage_result(self.cache_path, "judge", "judge_report.json")
+        if not runtime.should_run_stage("judge") and cached_judge:
+            judge_res = cached_judge.get("judge_report", "")
+            judge_messages = [{"role": "assistant", "content": judge_res}]
+        else:
+            judge_messages, context_variables = await self.judge_agent(input_messages, context_variables)
+            judge_res = judge_messages[-1]["content"]
+            judge_path = persist_stage_result(
+                self.cache_path,
+                "judge",
+                "judge_report.json",
+                {
+                    "task_id": metadata.get("instance_id", task_level),
+                    "judge_query": query,
+                    "judge_report": judge_res,
+                },
+            )
+            runtime.record_stage_completion(
+                "judge",
+                artifacts={"judge_report": judge_path},
+            )
+        context_variables["stage_state"] = runtime.load_state()
 
         MAX_ITER_TIMES = max_iter_times
         for i in range(MAX_ITER_TIMES):
@@ -473,12 +514,32 @@ Your task is to submit the code to the environment by running the script `run_tr
 
 Note that if your last implementation is not runable, you should finalize the submission with `case_not_resolved` function. But you can temporarily ignore the judgement of the `Judge Agent` which contains the suggestions about the implementation.
 After you get the result, you should return the result with your analysis and suggestions about the implementation with `case_resolved` function.
-"""
-        judge_messages.append({"role": "user", "content": ml_submit_query})
-        judge_messages, context_variables = await self.ml_agent(judge_messages, context_variables, iter_times="submit")
-        submit_res = judge_messages[-1]["content"]
+        """
+        cached_submit = load_cached_stage_result(self.cache_path, "submit", "submit_result.json")
+        if not runtime.should_run_stage("submit") and cached_submit:
+            submit_res = cached_submit.get("submission_report", "")
+        else:
+            judge_messages.append({"role": "user", "content": ml_submit_query})
+            judge_messages, context_variables = await self.ml_agent(judge_messages, context_variables, iter_times="submit")
+            submit_res = judge_messages[-1]["content"]
+            submit_path = persist_stage_result(
+                self.cache_path,
+                "submit",
+                "submit_result.json",
+                {
+                    "task_id": metadata.get("instance_id", task_level),
+                    "submission_query": ml_submit_query,
+                    "submission_report": submit_res,
+                },
+            )
+            runtime.record_stage_completion(
+                "submit",
+                artifacts={"submit_result": submit_path},
+            )
+        context_variables["stage_state"] = runtime.load_state()
 
         EXP_ITER_TIMES = 2
+        analysis_report = ""
         for i in range(EXP_ITER_TIMES):
             exp_planner_query = f"""\
 You are given an innovative idea:
@@ -524,6 +585,24 @@ Note that you should fully utilize the existing code in the directory `/{workpla
             judge_messages, context_variables = await self.ml_agent(judge_messages, context_variables, iter_times=f"refine_{i+1}")
             refine_res = judge_messages[-1]["content"]
 
+        analysis_path = persist_stage_result(
+            self.cache_path,
+            "analyze",
+            "analysis_report.json",
+            {
+                "task_id": metadata.get("instance_id", task_level),
+                "analysis_report": analysis_report,
+                "further_plan": further_plan if "further_plan" in locals() else {},
+                "latest_refine_report": refine_res if "refine_res" in locals() else "",
+            },
+        )
+        runtime.record_stage_completion(
+            "analyze",
+            artifacts={"analysis_report": analysis_path},
+        )
+
+        runtime.sync_stage_state()
+        goal_evaluation = runtime.evaluate_goal()
         return {
             "task_id": metadata.get("instance_id", task_level),
             "query": plan_query,
@@ -546,6 +625,14 @@ Note that you should fully utilize the existing code in the directory `/{workpla
                 "task_level": task_level,
                 "category": category,
                 "workplace_name": workplace_name,
+                "stage_state": runtime.load_state(),
+                "goal_evaluation": {
+                    "current_stage": goal_evaluation.current_stage,
+                    "completed_stages": goal_evaluation.completed_stages,
+                    "incomplete_stages": goal_evaluation.incomplete_stages,
+                    "all_criteria_met": goal_evaluation.all_criteria_met,
+                    "next_stage": runtime.next_stage(),
+                },
             },
             "tool_calls": self.export_runtime_trace()["tool_calls"],
             "agent_steps": self.export_runtime_trace()["agent_steps"],

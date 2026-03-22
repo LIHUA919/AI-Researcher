@@ -9,7 +9,7 @@ import json
 import logging
 import os
 import re
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
 from tqdm import tqdm
@@ -54,6 +54,59 @@ def load_stage_state(cache_path: str | None) -> Dict:
     if not cache_path:
         return {}
     return _read_json_file(os.path.join(cache_path, "stage_state.json"))
+
+
+def persist_stage_result(
+    cache_path: str,
+    stage_name: str,
+    file_name: str,
+    payload: Dict[str, Any],
+) -> str:
+    stage_dir = os.path.join(cache_path, f"{stage_name}_stage")
+    os.makedirs(stage_dir, exist_ok=True)
+    output_path = os.path.join(stage_dir, file_name)
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=4)
+    return output_path
+
+
+def load_cached_stage_result(
+    cache_path: str | None,
+    stage_name: str,
+    file_name: str,
+) -> Dict:
+    if not cache_path:
+        return {}
+    return _read_json_file(os.path.join(cache_path, f"{stage_name}_stage", file_name))
+
+
+def build_project_manifest(local_root: str, workplace_name: str) -> Dict[str, Any]:
+    project_root = os.path.join(local_root, workplace_name, "project")
+    files: List[str] = []
+    directories: List[str] = []
+    if os.path.exists(project_root):
+        for current_root, dirnames, filenames in os.walk(project_root):
+            rel_root = os.path.relpath(current_root, project_root)
+            if rel_root == ".":
+                rel_root = ""
+            for dirname in sorted(dirnames):
+                directories.append(os.path.join(rel_root, dirname).strip("/"))
+            for filename in sorted(filenames):
+                files.append(os.path.join(rel_root, filename).strip("/"))
+
+    return {
+        "project_root": project_root,
+        "exists": os.path.exists(project_root),
+        "directories": directories,
+        "files": files,
+        "key_paths": {
+            "main_script": os.path.join(project_root, "run_training_testing.py"),
+            "model_dir": os.path.join(project_root, "model"),
+            "training_dir": os.path.join(project_root, "training"),
+            "testing_dir": os.path.join(project_root, "testing"),
+            "data_dir": os.path.join(project_root, "data"),
+        },
+    }
 
 
 def _persist_plan_artifact_bundle(artifact_dir: str, artifacts: Dict[str, Dict]) -> Dict[str, str]:
