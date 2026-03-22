@@ -1,4 +1,5 @@
-
+import json
+import os
 from research_agent.inno.tools.file_surfer_tool import with_env as with_env_file
 from research_agent.inno.tools.file_surfer_tool import (
     open_local_file,
@@ -17,6 +18,29 @@ from inspect import signature
 from research_agent.inno.types import Result
 from research_agent.inno.tools.terminal_tools import gen_code_tree_structure, read_file, terminal_page_down, terminal_page_up, terminal_page_to
 from typing import List
+
+
+def _resolve_reference_paths(context_variables: dict, workplace_name: str) -> List[str]:
+    prepare_result = context_variables.get("prepare_result", {}) or {}
+    reference_paths = prepare_result.get("reference_paths", [])
+    if reference_paths:
+        return reference_paths
+
+    prepare_artifact_dir = context_variables.get("prepare_artifact_dir")
+    if prepare_artifact_dir:
+        prepare_result_path = os.path.join(prepare_artifact_dir, "prepare_result.json")
+        if os.path.exists(prepare_result_path):
+            try:
+                with open(prepare_result_path, "r", encoding="utf-8") as f:
+                    cached_prepare = json.load(f)
+                reference_paths = cached_prepare.get("reference_paths", [])
+                if reference_paths:
+                    context_variables["prepare_result"] = cached_prepare
+                    return reference_paths
+            except (OSError, json.JSONDecodeError):
+                pass
+
+    return [f"/{workplace_name}"]
 
 def get_paper_survey_agent(model: str, **kwargs):
     file_env: RequestsMarkdownBrowser = kwargs.get("file_env", None)
@@ -41,7 +65,8 @@ AVAILABLE TOOLS:
    Example: "What is the math formula for Transformer?"
 
 WORKFLOW:
-1. Open and read the relevant papers
+1. First open `{file_env.docker_workplace}/papers/index.md` to see which paper files are available.
+2. Open and read the relevant paper files listed in the index.
 2. Search for the specified academic definition
 3. Extract:
    - Formal definitions
@@ -83,6 +108,8 @@ def get_code_survey_agent(model: str, **kwargs):
     code_env: DockerEnv = kwargs.get("code_env", None)
     assert code_env is not None, "code_env is required"
     def instructions(context_variables):
+        reference_paths = _resolve_reference_paths(context_variables, code_env.workplace_name)
+        reference_paths_text = "\n".join(f"- {path}" for path in reference_paths) if reference_paths else f"- /{code_env.workplace_name}"
         return f"""\
 You are a `Code Survey Agent` specialized in analyzing code implementations of academic concepts. Your task is to examine codebases and match theoretical concepts with their practical implementations.
 
@@ -104,13 +131,21 @@ AVAILABLE TOOLS:
 
 WORKFLOW:
 1. Review provided academic definitions and formulas from `Paper Survey Agent`
-2. Generate and analyze codebase structure
-3. Locate relevant implementation files
-4. Extract and document:
+2. Focus on the prepared reference codebases first. Primary reference paths:
+{reference_paths_text}
+3. Generate and analyze codebase structure only for the most relevant reference paths.
+4. Do NOT scan the entire `/{code_env.workplace_name}` tree unless the prepared reference paths are clearly insufficient.
+5. Locate relevant implementation files
+6. Extract and document:
    - Code implementations
    - Implementation details
    - Key functions and classes
-5. Merge findings with `Paper Survey Agent`'s notes and transfer complete documentation back to `Survey Agent`using the `transfer_back_to_survey_agent` function
+7. Merge findings with `Paper Survey Agent`'s notes and transfer complete documentation back to `Survey Agent`using the `transfer_back_to_survey_agent` function
+
+EFFICIENCY RULES:
+- Avoid `gen_code_tree_structure` on very broad roots like `/{code_env.workplace_name}`.
+- Prefer directly reading targeted files under the prepared reference paths.
+- Once you have enough concrete code to explain the concept, immediately call `transfer_back_to_survey_agent`.
 
 REQUIREMENTS:
 - Ensure code examples directly correspond to theoretical concepts
@@ -138,6 +173,7 @@ Remember: Your analysis bridges the gap between theoretical concepts and practic
         functions=tool_list,
         tool_choice="required",
         parallel_tool_calls=False,
+        max_turns=8,
     )
 
 
@@ -274,8 +310,15 @@ You should explore the papers and extract the math formula for the academic defi
             math_formula: the full math formula to be implemented. [IMPORTANT] It should be as complete as possible and it should be the real math formula. 
             reference_papers: the list of reference papers. If you don't have reference papers, you can set it to `None`.
         """
+        reference_paths = _resolve_reference_paths(context_variables, code_env.workplace_name)
+        reference_paths_text = "\n".join(f"- {path}" for path in reference_paths) if reference_paths else f"- /{code_env.workplace_name}"
         ret_val = f"""\
 You should explore the codebases and extract the code implementation for the academic definition: {academic_definition} and math formula: {math_formula}.
+
+Primary reference paths:
+{reference_paths_text}
+
+Focus on these prepared reference paths first. Do not scan the entire workplace unless they are insufficient.
 """
         context_variables["notes"][-1]["math_formula"] = math_formula
         context_variables["notes"][-1]["reference_papers"] = reference_papers

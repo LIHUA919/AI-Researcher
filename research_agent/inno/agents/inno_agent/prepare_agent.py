@@ -4,10 +4,11 @@ from research_agent.inno.util import make_message, make_tool_message
 from research_agent.inno.registry import register_agent
 from research_agent.inno.types import Result
 import json
+import os
 from inspect import signature
 from research_agent.inno.environment.docker_env import DockerEnv, with_env
 
-def case_resolved(reference_codebases: list[str], reference_paths: list[str], reference_papers: list[str]):
+def case_resolved(reference_codebases: list[str], reference_paths: list[str], reference_papers: list[str], context_variables=None):
     """
     The function to output the determined reference codebases. Use this function only after you have carefully reviewed the existing resources and understand the task.
     Args:
@@ -20,13 +21,20 @@ def case_resolved(reference_codebases: list[str], reference_paths: list[str], re
         "reference_paths": reference_paths,
         "reference_papers": reference_papers
     }
+    artifact_map = {}
+    if context_variables and context_variables.get("prepare_artifact_dir"):
+        os.makedirs(context_variables["prepare_artifact_dir"], exist_ok=True)
+        prepare_result_path = os.path.join(context_variables["prepare_artifact_dir"], "prepare_result.json")
+        with open(prepare_result_path, "w", encoding="utf-8") as f:
+            json.dump(prepare_result, f, ensure_ascii=False, indent=4)
+        artifact_map["prepare_result"] = prepare_result_path
 
     return Result(
         value=f"""\
 I have determined the reference codebases and paths according to the existing resources and the innovative ideas.
 {json.dumps(prepare_result, ensure_ascii=False, indent=4)}
 """, 
-        context_variables={"prepare_result": prepare_result}
+        context_variables={"prepare_result": prepare_result, "prepare_artifacts": artifact_map}
     )
 @register_agent("get_prepare_agent")
 def get_prepare_agent(model: str, **kwargs):
@@ -47,6 +55,18 @@ You should choose at least 5 repositories as the reference codebases.
 
 I should use the determined repositories as reference codebases to implement the innovative ideas, so your decision should be as accurate as possible, and the number of repositories should be as less as possible. 
 
+STRICT BOUNDARIES:
+1. Prefer repositories that are already present in `/{working_dir}`. Do NOT re-clone an existing repository.
+2. Clone at most 2 additional repositories total. Only clone when the current workspace clearly lacks coverage for a required method.
+3. Inspect at most 6 repositories in detail. A detailed inspection means one tree read plus at most two file reads per repository.
+4. As soon as you have 5 strong candidates, stop exploring and call `case_resolved`.
+5. Do NOT keep browsing for marginal improvements once the selected 5 repositories cover:
+   - a main VQ/VQGAN implementation
+   - a simpler VQ-VAE baseline
+   - at least one anti-collapse or alternative quantization reference
+   - runnable PyTorch-oriented training code
+6. Your final answer MUST be produced via `case_resolved`, with exactly 5 reference repositories unless the search results make 5 impossible.
+
 During the decision process, you can use the following tools:
 1. You can use `execute_command` to git clone the repository to the working directory `/{working_dir}`. Choose 5-8 repositories you really need. And you should reserve the names of the repositories.
 
@@ -66,5 +86,6 @@ During the decision process, you can use the following tools:
     instructions=instructions,
     functions=tools, 
     tool_choice = "required", 
-    parallel_tool_calls = False
+    parallel_tool_calls = False,
+    max_turns=14,
     )

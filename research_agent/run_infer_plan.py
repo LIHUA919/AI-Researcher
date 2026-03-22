@@ -24,33 +24,55 @@ import os
 from typing import List, Dict, Any, Union
 from research_agent.inno.logger import MetaChainLogger
 import importlib
-from research_agent.inno.environment.utils import setup_dataset
+from research_agent.inno.environment.utils import (
+    setup_dataset,
+    ensure_legacy_workspace_aliases,
+    normalize_workplace_layout,
+)
+from research_agent.inno.evals import (
+    build_and_save_eval_result,
+)
 from research_agent.inno_common import (
+    build_plan_result,
+    build_survey_result,
+    ensure_plan_artifacts,
     warp_source_papers,
     extract_json_from_output,
+    load_cached_prepare_result,
+    resolve_prepare_result,
     get_args,
     EvalMetadata,
     load_instance,
     github_search,
 )
 
+def _persist_stage_output(cache_path: str, stage_name: str, payload: Dict[str, Any]) -> str:
+    stage_dir = os.path.join(cache_path, "plan_stages")
+    os.makedirs(stage_dir, exist_ok=True)
+    stage_path = os.path.join(stage_dir, f"{stage_name}.json")
+    with open(stage_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=4)
+    return stage_path
+
 class InnoFlow(FlowModule):
     def __init__(self, cache_path: str, log_path: Union[str, None, MetaChainLogger] = None, model: str = "gpt-4o-2024-08-06", code_env: DockerEnv = None, web_env: BrowserEnv = None, file_env: RequestsMarkdownBrowser = None):
         super().__init__(cache_path, log_path, model)
-        self.load_ins = ToolModule(load_instance, cache_path)
-        self.git_search = ToolModule(github_search, cache_path)
-        self.prepare_agent = AgentModule(get_prepare_agent(model=CHEEP_MODEL, code_env=code_env), self.client, cache_path)
-        self.download_papaer = ToolModule(download_arxiv_source_by_title, cache_path)
-        self.coding_plan_agent = AgentModule(get_coding_plan_agent(model=CHEEP_MODEL, code_env=code_env), self.client, cache_path)
-        self.ml_agent = AgentModule(get_ml_agent(model=COMPLETION_MODEL, code_env=code_env), self.client, cache_path)
-        self.judge_agent = AgentModule(get_judge_agent(model=CHEEP_MODEL, code_env=code_env, web_env=web_env, file_env=file_env), self.client, cache_path)
-        self.survey_agent = AgentModule(get_survey_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path)
-        self.exp_analyser = AgentModule(get_exp_analyser_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path)
+        self.load_ins = ToolModule(load_instance, cache_path, trace_recorder=self.record_tool_call)
+        self.git_search = ToolModule(github_search, cache_path, trace_recorder=self.record_tool_call)
+        self.prepare_agent = AgentModule(get_prepare_agent(model=CHEEP_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
+        self.download_papaer = ToolModule(download_arxiv_source_by_title, cache_path, trace_recorder=self.record_tool_call)
+        self.coding_plan_agent = AgentModule(get_coding_plan_agent(model=CHEEP_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
+        self.ml_agent = AgentModule(get_ml_agent(model=COMPLETION_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
+        self.judge_agent = AgentModule(get_judge_agent(model=CHEEP_MODEL, code_env=code_env, web_env=web_env, file_env=file_env), self.client, cache_path, trace_recorder=self.record_agent_step)
+        self.survey_agent = AgentModule(get_survey_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
+        self.exp_analyser = AgentModule(get_exp_analyser_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
     async def forward(self, instance_path: str, task_level: str, local_root: str, workplace_name: str, max_iter_times: int, category: str, ideas: str, references: str, *args, **kwargs):
         metadata = self.load_ins({"instance_path": instance_path, "task_level": task_level})
         context_variables = {
             "working_dir": workplace_name,  # Agent instructions already prepend "/"
             "date_limit": metadata["date_limit"],
+            "prepare_artifact_dir": os.path.join(self.cache_path, "prepare_stage"),
+            "plan_artifact_dir": os.path.join(self.cache_path, "plan_stages"),
         }
 
         github_result = self.git_search({"metadata": metadata})
@@ -69,10 +91,25 @@ innovative ideas:
 
 Your task is to choose at least 5 repositories as the reference codebases.
 """
-        messages = [{"role": "user", "content": query}]
-        prepare_messages, context_variables = await self.prepare_agent(messages, context_variables)
-        prepare_res = prepare_messages[-1]["content"]
-        prepare_dict = extract_json_from_output(prepare_res)
+        prepare_dict = load_cached_prepare_result(self.cache_path)
+        if prepare_dict:
+            context_variables["prepare_result"] = prepare_dict
+            prepare_res = json.dumps(prepare_dict, ensure_ascii=False, indent=4)
+        else:
+            messages = [{"role": "user", "content": query}]
+            prepare_messages, context_variables = await self.prepare_agent(messages, context_variables)
+            prepare_res = prepare_messages[-1]["content"]
+            prepare_dict = resolve_prepare_result(
+                prepare_res=prepare_res,
+                context_variables=context_variables,
+                local_root=local_root,
+                workplace_name=workplace_name,
+                category=category,
+                cache_path=self.cache_path,
+            )
+            if not prepare_dict:
+                raise ValueError("Prepare Agent did not produce a usable prepare_result and no fallback could be derived.")
+            prepare_res = json.dumps(prepare_dict, ensure_ascii=False, indent=4)
         paper_list = prepare_dict["reference_papers"]
         download_res = self.download_papaer({"paper_list": paper_list, "local_root": local_root, "workplace_name": workplace_name})
         survey_query = f"""\
@@ -93,7 +130,7 @@ Note that the math formula should be as complete as possible, and the code imple
         messages = [{"role": "user", "content": survey_query}]
         context_variables["notes"] = []
         survey_messages, context_variables = await self.survey_agent(messages, context_variables)
-        survey_res = survey_messages[-1]["content"]
+        survey_res = build_survey_result(survey_messages[-1]["content"], context_variables)
         context_variables["model_survey"] = survey_res
 
         data_module = importlib.import_module(f"benchmark.process.dataset_candidate.{category}.metaprompt")
@@ -132,7 +169,23 @@ Your task is to carefully review the existing resources and understand the task,
 """
         messages = [{"role": "user", "content": plan_query}]
         plan_messages, context_variables = await self.coding_plan_agent(messages, context_variables)
-        plan_res = plan_messages[-1]["content"]
+        context_variables = ensure_plan_artifacts(
+            context_variables=context_variables,
+            dataset_description=dataset_description,
+            idea_text=ideas,
+            workplace_name=workplace_name,
+        )
+        plan_res = build_plan_result(plan_messages[-1]["content"], context_variables)
+        _persist_stage_output(
+            self.cache_path,
+            "plan_report",
+            {
+                "task_id": metadata.get("instance_id", task_level),
+                "query": plan_query,
+                "plan_report": plan_res,
+                "plan_artifacts": context_variables.get("plan_artifacts", {}),
+            },
+        )
 
         # write the model based on the model survey notes
         ml_dev_query = f"""\
@@ -409,6 +462,33 @@ Note that you should fully utilize the existing code in the directory `/{workpla
             judge_messages, context_variables = await self.ml_agent(judge_messages, context_variables, iter_times=f"refine_{i+1}")
             refine_res = judge_messages[-1]["content"]
 
+        return {
+            "task_id": metadata.get("instance_id", task_level),
+            "query": plan_query,
+            "goal": "deliver an executable research plan",
+            "claims": [ideas] if ideas else [],
+            "plan": {
+                "dataset": context_variables.get("dataset_plan", ""),
+                "model": context_variables.get("model_survey", ""),
+                "training": context_variables.get("training_plan", ""),
+                "testing": context_variables.get("testing_plan", ""),
+            },
+            "final_output": {
+                "plan_report": plan_res,
+                "survey_report": survey_res,
+                "judge_report": judge_res,
+                "submission_report": submit_res,
+            },
+            "metadata": {
+                "instance_path": instance_path,
+                "task_level": task_level,
+                "category": category,
+                "workplace_name": workplace_name,
+            },
+            "tool_calls": self.export_runtime_trace()["tool_calls"],
+            "agent_steps": self.export_runtime_trace()["agent_steps"],
+        }
+
 #         print(refine_res)
         
 def main(args, ideas, references):
@@ -440,7 +520,12 @@ def main(args, ideas, references):
     with open(args.instance_path, "r", encoding="utf-8") as f:
         eval_instance = json.load(f)
     instance_id = eval_instance["instance_id"]
-    local_root = os.path.join(os.getcwd(),"workplace_paper" , f"task_{instance_id}" + "_" + COMPLETION_MODEL.replace("/", "__"),  args.workplace_name)
+    cache_path = args.cache_path + "_" + instance_id + "_" + COMPLETION_MODEL.replace("/", "__")
+    local_root = os.path.join(
+        os.getcwd(),
+        "workplace_paper",
+        f"task_{instance_id}" + "_" + COMPLETION_MODEL.replace("/", "__"),
+    )
     container_name = args.container_name + "_" + instance_id + "_" + COMPLETION_MODEL.replace("/", "__")
     os.makedirs(local_root, exist_ok=True)
     env_config = DockerConfig(container_name = container_name, 
@@ -450,13 +535,16 @@ def main(args, ideas, references):
                               )
     
     code_env = DockerEnv(env_config)
+    normalize_workplace_layout(code_env.local_workplace)
     code_env.init_container()
     setup_dataset(args.category, code_env.local_workplace)
+    ensure_legacy_workspace_aliases(code_env.local_workplace)
     web_env = BrowserEnv(browsergym_eval_env = None, local_root=env_config.local_root, workplace_name=env_config.workplace_name)
     file_env = RequestsMarkdownBrowser(viewport_size=1024 * 4, local_root=env_config.local_root, workplace_name=env_config.workplace_name, downloads_folder=os.path.join(env_config.local_root, env_config.workplace_name, "downloads"))
-    flow = InnoFlow(cache_path="cache_" + instance_id + "_" + COMPLETION_MODEL.replace("/", "__"), log_path="log_" + instance_id, code_env=code_env, web_env=web_env, file_env=file_env, model=args.model)
+    flow = InnoFlow(cache_path=cache_path, log_path="log_" + instance_id, code_env=code_env, web_env=web_env, file_env=file_env, model=args.model)
     # ml_result = await flow(instance_path=instance_path)
-    asyncio.run(flow(instance_path=args.instance_path, task_level=args.task_level, local_root=local_root, workplace_name=args.workplace_name, max_iter_times=args.max_iter_times, category=args.category, ideas = ideas, references = references))
+    result = asyncio.run(flow(instance_path=args.instance_path, task_level=args.task_level, local_root=local_root, workplace_name=args.workplace_name, max_iter_times=args.max_iter_times, category=args.category, ideas = ideas, references = references))
+    return build_and_save_eval_result(result, cache_path)
     # print(judge_result)
 
 

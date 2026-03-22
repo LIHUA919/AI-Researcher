@@ -14,6 +14,7 @@ class Agent(BaseModel):
     functions: List[AgentFunction] = []
     tool_choice: str = None
     parallel_tool_calls: bool = False
+    max_turns: Optional[int] = None
     examples: Union[List[Tuple[dict, str]], Callable[[], str]] = []
     handle_mm_func: Callable[[], str] = None
 
