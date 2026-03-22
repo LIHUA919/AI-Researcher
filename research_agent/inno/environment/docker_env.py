@@ -80,27 +80,49 @@ class DockerEnv:
             else:
                 print(f"Successfully created and switched to new branch: {new_branch_name}")
 
+        desired_host_port = self.communication_port
+
         if existing_container.stdout.strip() == self.container_name:
+            port_info = check_container_ports(self.container_name)
+            existing_host_port = port_info[0] if port_info else None
             # check if the container is running
             running_check_command = ["docker", "ps", "--filter", f"name={self.container_name}", "--format", "{{.Names}}"]
             running_container = subprocess.run(running_check_command, capture_output=True, text=True)
 
             if running_container.stdout.strip() == self.container_name:
-                print(f"Container '{self.container_name}' is already running. Skipping creation.")
-                return  # container is already running, skip creation
+                if existing_host_port and existing_host_port != desired_host_port:
+                    print(
+                        f"Container '{self.container_name}' is running on host port "
+                        f"{existing_host_port}, expected {desired_host_port}. Recreating."
+                    )
+                    subprocess.run(["docker", "rm", "-f", self.container_name], check=True)
+                else:
+                    if existing_host_port:
+                        self.communication_port = existing_host_port
+                    print(f"Container '{self.container_name}' is already running. Skipping creation.")
+                    return  # container is already running, skip creation
             else:
-                # container exists but is not running, start it
-                start_command = ["docker", "start", self.container_name]
-                subprocess.run(start_command)
-                print(f"Container '{self.container_name}' has been started.")
-                return
+                if existing_host_port and existing_host_port != desired_host_port:
+                    print(
+                        f"Container '{self.container_name}' exists on host port "
+                        f"{existing_host_port}, expected {desired_host_port}. Recreating."
+                    )
+                    subprocess.run(["docker", "rm", "-f", self.container_name], check=True)
+                else:
+                    # container exists but is not running, start it
+                    start_command = ["docker", "start", self.container_name]
+                    subprocess.run(start_command, check=True)
+                    if existing_host_port:
+                        self.communication_port = existing_host_port
+                    print(f"Container '{self.container_name}' has been started.")
+                    return
         
         # if the container does not exist, create and start a new container
         # Copy tcp_server.py to local workplace so it's available inside the container
         tcp_server_src = osp.join(osp.dirname(__file__), "tcp_server.py")
         os.makedirs(self.local_workplace, exist_ok=True)
         tcp_server_dst = osp.join(self.local_workplace, "tcp_server.py")
-        if osp.exists(tcp_server_src) and not osp.exists(tcp_server_dst):
+        if osp.exists(tcp_server_src):
             import shutil
             shutil.copy2(tcp_server_src, tcp_server_dst)
         gpu_cmd = ["--gpus", GPUS] if GPUS else []

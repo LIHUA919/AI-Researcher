@@ -6,6 +6,27 @@ import re
 import tarfile
 import os
 from typing import List
+
+
+def _safe_paper_basename(title: str) -> str:
+    return title.replace(" ", "_").replace("/", "_").lower()
+
+
+def _write_paper_index(local_root: str, workplace_name: str, entries: List[dict]):
+    paper_tex_dir = os.path.join(local_root, workplace_name, "papers")
+    os.makedirs(paper_tex_dir, exist_ok=True)
+    index_path = os.path.join(paper_tex_dir, "index.md")
+    lines = ["# Paper Index", ""]
+    for entry in entries:
+        lines.append(f"## {entry['title']}")
+        lines.append(f"- status: {entry['status']}")
+        lines.append(f"- message: {entry['message']}")
+        if entry.get("path"):
+            lines.append(f"- local_path: {entry['path']}")
+        lines.append("")
+    with open(index_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    return index_path
 def search_arxiv(query, max_results=10):
     """
     search arxiv papers
@@ -118,15 +139,15 @@ def download_arxiv_source(arxiv_url, local_root, workplace_name, title: str):
             try: 
                 paper_src_dir = os.path.join(local_root, workplace_name, "paper_source")
                 os.makedirs(paper_src_dir, exist_ok=True)
-                filepath = os.path.join(paper_src_dir, f"{title.replace(' ', '_').lower()}.tar.gz")
+                filepath = os.path.join(paper_src_dir, f"{_safe_paper_basename(title)}.tar.gz")
                 with open(filepath, 'wb') as f:
                     f.write(response.content)
                 tex_content = extract_tex_content(filepath)
                 paper_tex_dir = os.path.join(local_root, workplace_name, "papers")
                 os.makedirs(paper_tex_dir, exist_ok=True)
-                with open(os.path.join(paper_tex_dir, f"{title.replace(' ', '_').lower()}.tex"), 'w') as f:
+                with open(os.path.join(paper_tex_dir, f"{_safe_paper_basename(title)}.tex"), 'w') as f:
                     f.write(tex_content)
-                return {"status": 0, "message": f"Download paper '{title}' successfully", "path": f"/{workplace_name}/papers/{title.replace(' ', '_').lower()}.tex"}
+                return {"status": 0, "message": f"Download paper '{title}' successfully", "path": f"/{workplace_name}/papers/{_safe_paper_basename(title)}.tex"}
             except Exception as e:
                 return {"status": -1, "message": f"Download paper '{title}' failed with error: {str(e)}", "path": None}
         else:
@@ -144,16 +165,52 @@ def download_arxiv_source_by_title(paper_list: List[str], local_root: str, workp
         paper_dir: paper directory
     """
     ret_msg = []
+    index_entries = []
+    paper_tex_dir = os.path.join(local_root, workplace_name, "papers")
+    os.makedirs(paper_tex_dir, exist_ok=True)
     for title in paper_list:
         papers = search_arxiv(title, max_results=1)
         if len(papers) == 0:
-            ret_msg.append(f"Cannot find the paper '{title}' in arxiv")
+            placeholder_path = os.path.join(paper_tex_dir, f"{_safe_paper_basename(title)}.md")
+            with open(placeholder_path, "w", encoding="utf-8") as f:
+                f.write(f"# {title}\n\nArXiv source was not found automatically for this paper.\n")
+            message = f"Cannot find the paper '{title}' in arxiv"
+            ret_msg.append(message)
+            index_entries.append(
+                {
+                    "title": title,
+                    "status": "missing",
+                    "message": message,
+                    "path": f"/{workplace_name}/papers/{_safe_paper_basename(title)}.md",
+                }
+            )
             continue
         paper = papers[0]
         download_info =  download_arxiv_source(paper['url'], local_root, workplace_name, title)
         if download_info["status"] == -1:
             ret_msg.append(download_info["message"])
+            placeholder_path = os.path.join(paper_tex_dir, f"{_safe_paper_basename(title)}.md")
+            with open(placeholder_path, "w", encoding="utf-8") as f:
+                f.write(f"# {title}\n\n{download_info['message']}\n")
+            index_entries.append(
+                {
+                    "title": title,
+                    "status": "failed",
+                    "message": download_info["message"],
+                    "path": f"/{workplace_name}/papers/{_safe_paper_basename(title)}.md",
+                }
+            )
         else:
             ret_msg.append(download_info["message"] + f"\nThe paper is downloaded to path: {download_info['path']}")
+            index_entries.append(
+                {
+                    "title": title,
+                    "status": "downloaded",
+                    "message": download_info["message"],
+                    "path": download_info["path"],
+                }
+            )
+    index_path = _write_paper_index(local_root, workplace_name, index_entries)
+    ret_msg.append(f"Paper index is available at /{workplace_name}/papers/index.md")
     return "\n".join(ret_msg)
     

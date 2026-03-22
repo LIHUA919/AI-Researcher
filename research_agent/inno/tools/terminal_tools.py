@@ -251,7 +251,13 @@ def gen_code_tree_structure(directory: str, env: DockerEnv) -> str:
         A string representation of the tree structure of the code in the specified directory.
     """
     try:
-        command = f"tree {directory}"
+        command = (
+            f"if command -v tree >/dev/null 2>&1; then "
+            f"tree {directory}; "
+            "else "
+            f"find -L {directory} -maxdepth 4 -print 2>/dev/null\n"
+            "fi"
+        )
         response = env.run_command(command)
         return response
     except Exception as e:

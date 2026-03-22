@@ -39,7 +39,14 @@ if __name__ == "__main__":
             
             # Execute the command
             try:
-                modified_command = f"/bin/bash -c 'source {args.conda_path}/etc/profile.d/conda.sh && conda activate autogpt && cd /{args.workplace} && {command}'"
+                conda_setup = (
+                    f"if [ -f {args.conda_path}/etc/profile.d/conda.sh ]; then "
+                    f"source {args.conda_path}/etc/profile.d/conda.sh && conda activate autogpt; "
+                    "fi;"
+                )
+                modified_command = (
+                    f"/bin/bash -c '{conda_setup} cd /{args.workplace} && {command}'"
+                )
                 process = subprocess.Popen(modified_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 output = ''
                 while True:

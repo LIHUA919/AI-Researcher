@@ -1,6 +1,8 @@
 # Standard library imports
 import copy
 import json
+import os
+import asyncio
 from collections import defaultdict
 from typing import List, Callable, Union
 from datetime import datetime
@@ -21,23 +23,21 @@ from .types import (
 from litellm import completion, acompletion
 from pathlib import Path
 from .logger import MetaChainLogger, LoggerManager
-from httpx import RemoteProtocolError, ConnectError
+from httpx import RemoteProtocolError, ConnectError, TimeoutException
 from litellm.exceptions import APIError
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type, 
-    RetryCallState
-)
+from tenacity import RetryCallState
 from openai import AsyncOpenAI
-from research_agent.constant import  API_BASE_URL, NOT_SUPPORT_SENDER, MUST_ADD_USER, NOT_SUPPORT_FN_CALL, NOT_USE_FN_CALL
+from research_agent.constant import  API_BASE_URL, CHEEP_MODEL, COMPLETION_MODEL, NOT_SUPPORT_SENDER, MUST_ADD_USER, NOT_SUPPORT_FN_CALL, NOT_USE_FN_CALL
 from research_agent.inno.fn_call_converter import convert_tools_to_description, convert_non_fncall_messages_to_fncall_messages, SYSTEM_PROMPT_SUFFIX_TEMPLATE, convert_fn_messages_to_non_fn_messages, interleave_user_into_messages
 from research_agent.inno.memory.utils import encode_string_by_tiktoken, decode_tokens_by_tiktoken
 import re
 
 # litellm.set_verbose=True
 # litellm.num_retries = 3
+
+LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "180"))
+LLM_RETRY_ATTEMPTS = int(os.getenv("LLM_RETRY_ATTEMPTS", "3"))
+LLM_RETRY_BACKOFF_SECONDS = int(os.getenv("LLM_RETRY_BACKOFF_SECONDS", "5"))
 
 def should_retry_error(retry_state: RetryCallState):
     """检查是否应该重试错误
@@ -58,7 +58,7 @@ def should_retry_error(retry_state: RetryCallState):
     print(f"Caught exception: {type(exception).__name__} - {str(exception)}")
     
     # 匹配更多错误类型
-    if isinstance(exception, (APIError, RemoteProtocolError, ConnectError)):
+    if isinstance(exception, (APIError, RemoteProtocolError, ConnectError, TimeoutException, TimeoutError)):
         return True
     
     # 通过错误消息匹配
@@ -107,6 +107,83 @@ class MetaChain:
         if self.logger.log_path is None: self.logger.info("[Warning] Not specific log path, so log will not be saved", "...", title="Log Path", color="light_cyan3")
         else: self.logger.info("Log file is saved to", self.logger.log_path, "...", title="Log Path", color="light_cyan3")
 
+    def _normalize_model_name(self, model_name: str, primary_model: str) -> str:
+        if not model_name:
+            return model_name
+        if "/" in model_name:
+            return model_name
+        if "/" in primary_model:
+            provider = primary_model.split("/", 1)[0]
+            return f"{provider}/{model_name}"
+        return f"openai/{model_name}"
+
+    def _get_model_fallbacks(self, primary_model: str) -> List[str]:
+        fallback_candidates = [primary_model]
+        env_fallbacks = os.getenv("MODEL_FALLBACKS") or os.getenv("LLM_FALLBACK_MODELS")
+        if env_fallbacks:
+            fallback_candidates.extend(
+                [model.strip() for model in env_fallbacks.split(",") if model.strip()]
+            )
+        fallback_candidates.extend([CHEEP_MODEL, COMPLETION_MODEL, "deepseek-chat"])
+
+        deduped_models: List[str] = []
+        for index, model_name in enumerate(fallback_candidates):
+            if index > 0:
+                model_name = self._normalize_model_name(model_name, primary_model)
+            if model_name and model_name not in deduped_models:
+                deduped_models.append(model_name)
+        return deduped_models
+
+    async def _acompletion_with_retry_and_fallback(self, create_params: dict):
+        last_exception = None
+        for model_name in self._get_model_fallbacks(create_params["model"]):
+            for attempt in range(1, LLM_RETRY_ATTEMPTS + 1):
+                try:
+                    request_params = dict(create_params)
+                    request_params["model"] = model_name
+                    request_params["timeout"] = LLM_REQUEST_TIMEOUT
+                    return await asyncio.wait_for(
+                        acompletion(**request_params),
+                        timeout=LLM_REQUEST_TIMEOUT + 15,
+                    )
+                except Exception as exc:
+                    last_exception = exc
+                    retryable = isinstance(
+                        exc,
+                        (APIError, RemoteProtocolError, ConnectError, TimeoutException, TimeoutError),
+                    ) or any(
+                        token in str(exc).lower()
+                        for token in (
+                            "connection error",
+                            "server disconnected",
+                            "eof occurred",
+                            "timeout",
+                            "rate limit",
+                            "rate_limit_error",
+                            "too many requests",
+                            "overloaded",
+                            "overloaded_error",
+                            "负载已饱和",
+                            "error code: 429",
+                        )
+                    )
+                    self.logger.warning(
+                        f"LLM request failed for model={model_name} attempt={attempt}/{LLM_RETRY_ATTEMPTS}: {exc}",
+                        title="LLM Retry",
+                        color="yellow",
+                    )
+                    if not retryable:
+                        break
+                    if attempt < LLM_RETRY_ATTEMPTS:
+                        await asyncio.sleep(LLM_RETRY_BACKOFF_SECONDS * attempt)
+            if model_name != create_params["model"]:
+                self.logger.warning(
+                    f"Falling back from model {create_params['model']} to {model_name}",
+                    title="LLM Fallback",
+                    color="yellow",
+                )
+        raise last_exception
+
     def get_chat_completion(
         self,
         agent: Agent,
@@ -148,6 +225,7 @@ class MetaChain:
             "tool_choice": effective_tool_choice,
             "stream": stream,
             "base_url": API_BASE_URL,
+            "timeout": LLM_REQUEST_TIMEOUT,
         }
 
         if create_params['model'].startswith("mistral"):
@@ -159,7 +237,6 @@ class MetaChain:
 
         if tools:
             create_params["parallel_tool_calls"] = agent.parallel_tool_calls
-
         return completion(**create_params)
 
     def handle_function_result(self, result, debug) -> Result:
@@ -359,12 +436,6 @@ class MetaChain:
             agent=active_agent,
             context_variables=context_variables,
         )
-    @retry(
-        stop=stop_after_attempt(6),
-        wait=wait_exponential(multiplier=2, min=30, max=1200),
-        retry=should_retry_error,
-        before_sleep=lambda retry_state: (logger.warning(f"Retrying... (attempt {retry_state.attempt_number})") if logger else None)
-    )
     async def get_chat_completion_async(
         self,
         agent: Agent,
@@ -425,7 +496,7 @@ class MetaChain:
 
             if tools:
                 create_params["parallel_tool_calls"] = agent.parallel_tool_calls
-            completion_response = await acompletion(**create_params)
+            completion_response = await self._acompletion_with_retry_and_fallback(create_params)
         elif create_model in NOT_USE_FN_CALL:
             assert agent.tool_choice == "required", f"Non-function calling mode MUST use tool_choice = 'required' rather than {agent.tool_choice}"
             last_content = messages[-1]["content"]
@@ -454,7 +525,7 @@ class MetaChain:
                 "stream": stream,
                 "base_url": API_BASE_URL,
             }
-            completion_response = await acompletion(**create_params)
+            completion_response = await self._acompletion_with_retry_and_fallback(create_params)
             last_message = [{"role": "assistant", "content": completion_response.choices[0].message.content}]
             converted_message = convert_non_fncall_messages_to_fncall_messages(last_message, tools)
             converted_tool_calls = [ChatCompletionMessageToolCall(**tool_call) for tool_call in converted_message[0]["tool_calls"]]

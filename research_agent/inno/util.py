@@ -77,8 +77,12 @@ def print_markdown(md_path: str, console: Optional[Console] = None):
     console.print(Markdown(md_content))
 
 def single_select_menu(options, message: str = ""):
+    import os
     import sys
-    if not sys.stdin.isatty():
+    if (
+        not sys.stdin.isatty()
+        or os.environ.get("AUTO_SELECT_FIRST_OPTION", "").lower() in {"1", "true", "yes"}
+    ):
         # No TTY available, auto-select first option
         return options[0]
     questions = [
@@ -457,4 +461,3 @@ def pretty_print_messages(message, **kwargs) -> None:
                 name, args = f["name"], f["arguments"]
                 arg_str = json.dumps(json.loads(args)).replace(":", "=")
                 file.write(f"{name}({arg_str[1:-1]})\n")
-
