@@ -20,6 +20,42 @@ from research_agent.inno.tools.inno_tools.paper_search import get_arxiv_paper_me
 logger = logging.getLogger(__name__)
 
 
+def _read_json_file(path: str) -> Dict:
+    if not path or not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        return payload if isinstance(payload, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def update_stage_state(
+    cache_path: str,
+    stage_name: str,
+    status: str,
+    artifacts: Dict[str, str] | None = None,
+    metadata: Dict | None = None,
+) -> str:
+    stage_state_path = os.path.join(cache_path, "stage_state.json")
+    stage_state = _read_json_file(stage_state_path)
+    stage_state[stage_name] = {
+        "status": status,
+        "artifacts": artifacts or {},
+        "metadata": metadata or {},
+    }
+    with open(stage_state_path, "w", encoding="utf-8") as f:
+        json.dump(stage_state, f, ensure_ascii=False, indent=4)
+    return stage_state_path
+
+
+def load_stage_state(cache_path: str | None) -> Dict:
+    if not cache_path:
+        return {}
+    return _read_json_file(os.path.join(cache_path, "stage_state.json"))
+
+
 def _persist_plan_artifact_bundle(artifact_dir: str, artifacts: Dict[str, Dict]) -> Dict[str, str]:
     os.makedirs(artifact_dir, exist_ok=True)
     index_payload: Dict[str, str] = {}
@@ -117,6 +153,58 @@ def ensure_plan_artifacts(
         "Coding Plan Agent did not emit structured planning artifacts; synthesized fallback plan artifacts were written instead.",
     )
     return context_variables
+
+
+def persist_survey_result(
+    cache_path: str,
+    task_id: str,
+    query: str,
+    survey_report: str,
+) -> str:
+    survey_stage_dir = os.path.join(cache_path, "survey_stage")
+    os.makedirs(survey_stage_dir, exist_ok=True)
+    survey_result_path = os.path.join(survey_stage_dir, "survey_result.json")
+    with open(survey_result_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "task_id": task_id,
+                "query": query,
+                "survey_report": survey_report,
+            },
+            f,
+            ensure_ascii=False,
+            indent=4,
+        )
+    return survey_result_path
+
+
+def load_cached_survey_result(cache_path: str | None) -> Dict:
+    if not cache_path:
+        return {}
+    return _read_json_file(os.path.join(cache_path, "survey_stage", "survey_result.json"))
+
+
+def load_cached_plan_result(cache_path: str | None) -> Dict:
+    if not cache_path:
+        return {}
+    plan_report = _read_json_file(os.path.join(cache_path, "plan_stages", "plan_report.json"))
+    if not plan_report:
+        return {}
+
+    plan_index = _read_json_file(os.path.join(cache_path, "plan_stages", "plan_index.json"))
+    dataset_plan = _read_json_file(plan_index.get("dataset_plan", "")) if plan_index else {}
+    training_plan = _read_json_file(plan_index.get("training_plan", "")) if plan_index else {}
+    testing_plan = _read_json_file(plan_index.get("testing_plan", "")) if plan_index else {}
+
+    if dataset_plan:
+        plan_report["dataset_plan"] = dataset_plan
+    if training_plan:
+        plan_report["training_plan"] = training_plan
+    if testing_plan:
+        plan_report["testing_plan"] = testing_plan
+    if plan_index:
+        plan_report["plan_artifacts"] = plan_index
+    return plan_report
 
 
 def _is_valid_prepare_result(prepare_dict: Dict) -> bool:

@@ -6,6 +6,8 @@ from research_agent.inno.util import make_message, make_tool_message
 from research_agent.inno.registry import register_agent
 from research_agent.inno.environment.docker_env import DockerEnv, with_env
 from inspect import signature
+
+
 def case_resolved(task_response):
    """
    The task response is the result of the task. Use this function only after you have successfully completed the task. 
@@ -29,6 +31,11 @@ def get_ml_agent(model: str, **kwargs):
     code_env: DockerEnv = kwargs.get("code_env", None)
     def instructions(context_variables):
       working_dir = context_variables.get("working_dir", None)
+      prepare_result = context_variables.get("prepare_result", {}) or {}
+      reference_paths = prepare_result.get("reference_paths", [])
+      reference_paths_text = "\n".join(f"   - {path}" for path in reference_paths) if reference_paths else f"   - /{working_dir}"
+      plan_artifacts = context_variables.get("plan_artifacts", {}) or {}
+      plan_artifacts_text = "\n".join(f"   - {name}: {path}" for name, path in plan_artifacts.items()) if plan_artifacts else "   - No structured plan artifacts were provided."
       return f"""\
 You are a machine learning engineer tasked with implementing innovative ML projects. Your workspace is: `/{working_dir}`.
 
@@ -62,6 +69,25 @@ AVAILABLE TOOLS:
    - `run_python`: Run scripts without arguments
    - `execute_command`: Run with environment variables/arguments
    Note: When using `execute_command`, use `cd xx` instead of `cwd=xx`
+
+IMPLEMENTATION PRIORITIES:
+1. Start from the structured plan artifacts when they are available:
+{plan_artifacts_text}
+2. Reuse only the prepared reference codebases first:
+{reference_paths_text}
+3. Use dataset resources only from:
+   - `/{working_dir}/dataset_candidate`
+   - `/{working_dir}/project`
+
+EFFICIENCY RULES:
+1. Do NOT run `gen_code_tree_structure` on the entire `/{working_dir}` root unless the task is blocked.
+2. Prefer `list_files` or `gen_code_tree_structure` only on:
+   - `/{working_dir}/project`
+   - prepared reference paths
+   - `/{working_dir}/dataset_candidate`
+3. Once you understand the needed reference implementation, immediately create the project structure and start writing files.
+4. Avoid re-reading the same repository tree after the relevant files have already been identified.
+5. Treat `/{working_dir}/project` as the main build target and keep subsequent work focused there.
 
 IMPORTANT NOTES:
 1. Code Integration
@@ -97,6 +123,6 @@ Remember: Your goal is to create a well-organized, self-contained project that:
     instructions=instructions,
     functions=tools,
     tool_choice = "required", 
-    parallel_tool_calls = False
+    parallel_tool_calls = False,
+    max_turns=24,
     )
-

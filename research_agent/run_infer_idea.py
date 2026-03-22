@@ -36,10 +36,15 @@ from research_agent.inno_common import (
     build_plan_result,
     build_survey_result,
     ensure_plan_artifacts,
+    load_cached_plan_result,
     warp_source_papers,
     extract_json_from_output,
+    load_cached_survey_result,
     load_cached_prepare_result,
     resolve_prepare_result,
+    persist_survey_result,
+    update_stage_state,
+    load_stage_state,
     get_args,
     EvalMetadata,
     load_instance,
@@ -70,11 +75,13 @@ class InnoFlow(FlowModule):
         self.exp_analyser = AgentModule(get_exp_analyser_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
     async def forward(self, instance_path: str, task_level: str, local_root: str, workplace_name: str, max_iter_times: int, category: str, references: str, *args, **kwargs):
         metadata = self.load_ins({"instance_path": instance_path, "task_level": task_level})
+        stage_state = load_stage_state(self.cache_path)
         context_variables = {
             "working_dir": f"/{workplace_name}", # TODO: change to the codebase path
             "date_limit": metadata["date_limit"],
             "prepare_artifact_dir": os.path.join(self.cache_path, "prepare_stage"),
             "plan_artifact_dir": os.path.join(self.cache_path, "plan_stages"),
+            "stage_state": stage_state,
         }
 
         github_result = self.git_search({"metadata": metadata})
@@ -110,6 +117,12 @@ Your task is to choose at least 5 repositories as the reference codebases. Note 
         if prepare_dict:
             context_variables["prepare_result"] = prepare_dict
             prepare_res = json.dumps(prepare_dict, ensure_ascii=False, indent=4)
+            update_stage_state(
+                self.cache_path,
+                "prepare",
+                "completed",
+                artifacts={"prepare_result": os.path.join(self.cache_path, "prepare_stage", "prepare_result.json")},
+            )
         else:
             messages = [{"role": "user", "content": query}]
             prepare_messages, context_variables = await self.prepare_agent(messages, context_variables)
@@ -125,6 +138,12 @@ Your task is to choose at least 5 repositories as the reference codebases. Note 
             if not prepare_dict:
                 raise ValueError("Prepare Agent did not produce a usable prepare_result and no fallback could be derived.")
             prepare_res = json.dumps(prepare_dict, ensure_ascii=False, indent=4)
+            update_stage_state(
+                self.cache_path,
+                "prepare",
+                "completed",
+                artifacts={"prepare_result": os.path.join(self.cache_path, "prepare_stage", "prepare_result.json")},
+            )
         paper_list = prepare_dict["reference_papers"]
         download_res = self.download_papaer({"paper_list": paper_list, "local_root": local_root, "workplace_name": workplace_name})
 
@@ -179,12 +198,33 @@ Your task is to carefully understand the innovative idea, and thoroughly review 
 
 Note that the code implementation should be as complete as possible.
 """
-        messages = [{"role": "user", "content": code_survey_query}]
-        code_survey_messages, context_variables = await self.code_survey_agent(messages, context_variables)
-        code_survey_res = build_survey_result(code_survey_messages[-1]["content"], context_variables)
-        # print(code_survey_res)
-        
-        context_variables["model_survey"] = code_survey_res
+        cached_survey = load_cached_survey_result(self.cache_path)
+        if cached_survey.get("survey_report"):
+            code_survey_res = cached_survey["survey_report"]
+            context_variables["model_survey"] = code_survey_res
+            update_stage_state(
+                self.cache_path,
+                "survey",
+                "completed",
+                artifacts={"survey_result": os.path.join(self.cache_path, "survey_stage", "survey_result.json")},
+            )
+        else:
+            messages = [{"role": "user", "content": code_survey_query}]
+            code_survey_messages, context_variables = await self.code_survey_agent(messages, context_variables)
+            code_survey_res = build_survey_result(code_survey_messages[-1]["content"], context_variables)
+            context_variables["model_survey"] = code_survey_res
+            survey_result_path = persist_survey_result(
+                self.cache_path,
+                metadata.get("instance_id", task_level),
+                code_survey_query,
+                code_survey_res,
+            )
+            update_stage_state(
+                self.cache_path,
+                "survey",
+                "completed",
+                artifacts={"survey_result": survey_result_path},
+            )
 
         plan_query = f"""\
 I have an innovative ideas related to machine learning:
@@ -203,25 +243,45 @@ We have already selected the following datasets as experimental datasets:
 
 Your task is to carefully review the existing resources and understand the task, and give me a detailed plan for the implementation.
 """
-        messages = [{"role": "user", "content": plan_query}]
-        plan_messages, context_variables = await self.coding_plan_agent(messages, context_variables)
-        context_variables = ensure_plan_artifacts(
-            context_variables=context_variables,
-            dataset_description=dataset_description,
-            idea_text=survey_res,
-            workplace_name=workplace_name,
-        )
-        plan_res = build_plan_result(plan_messages[-1]["content"], context_variables)
-        _persist_stage_output(
-            self.cache_path,
-            "plan_report",
-            {
-                "task_id": metadata.get("instance_id", task_level),
-                "query": plan_query,
-                "plan_report": plan_res,
-                "plan_artifacts": context_variables.get("plan_artifacts", {}),
-            },
-        )
+        cached_plan = load_cached_plan_result(self.cache_path)
+        if cached_plan.get("plan_report"):
+            context_variables["dataset_plan"] = cached_plan.get("dataset_plan", context_variables.get("dataset_plan"))
+            context_variables["training_plan"] = cached_plan.get("training_plan", context_variables.get("training_plan"))
+            context_variables["testing_plan"] = cached_plan.get("testing_plan", context_variables.get("testing_plan"))
+            context_variables["plan_artifacts"] = cached_plan.get("plan_artifacts", context_variables.get("plan_artifacts", {}))
+            plan_res = cached_plan["plan_report"]
+            update_stage_state(
+                self.cache_path,
+                "plan",
+                "completed",
+                artifacts=context_variables.get("plan_artifacts", {}),
+            )
+        else:
+            messages = [{"role": "user", "content": plan_query}]
+            plan_messages, context_variables = await self.coding_plan_agent(messages, context_variables)
+            context_variables = ensure_plan_artifacts(
+                context_variables=context_variables,
+                dataset_description=dataset_description,
+                idea_text=survey_res,
+                workplace_name=workplace_name,
+            )
+            plan_res = build_plan_result(plan_messages[-1]["content"], context_variables)
+            _persist_stage_output(
+                self.cache_path,
+                "plan_report",
+                {
+                    "task_id": metadata.get("instance_id", task_level),
+                    "query": plan_query,
+                    "plan_report": plan_res,
+                    "plan_artifacts": context_variables.get("plan_artifacts", {}),
+                },
+            )
+            update_stage_state(
+                self.cache_path,
+                "plan",
+                "completed",
+                artifacts=context_variables.get("plan_artifacts", {}),
+            )
 
         # write the model based on the model survey notes
         ml_dev_query = f"""\
