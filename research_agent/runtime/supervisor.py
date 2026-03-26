@@ -4,9 +4,20 @@ import os
 import subprocess
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Callable, Mapping, Sequence
 
 from research_agent.runtime.master import MasterRuntime
+
+
+@dataclass(frozen=True)
+class SupervisorEvent:
+    timestamp: str
+    event: str
+    restart_count: int
+    stage_name: str | None = None
+    reason: str | None = None
+    returncode: int | None = None
 
 
 @dataclass(frozen=True)
@@ -15,6 +26,7 @@ class SupervisorResult:
     restart_count: int
     returncode: int | None
     last_error: str | None
+    events: list[SupervisorEvent]
 
 
 class GoalDrivenSupervisor:
@@ -44,6 +56,27 @@ class GoalDrivenSupervisor:
         self.termination_grace_seconds = termination_grace_seconds
         self.process_factory = process_factory
         self.sleep_fn = sleep_fn or time.sleep
+        self.events: list[SupervisorEvent] = []
+
+    def _emit_event(
+        self,
+        *,
+        event: str,
+        restart_count: int,
+        stage_name: str | None = None,
+        reason: str | None = None,
+        returncode: int | None = None,
+    ) -> None:
+        self.events.append(
+            SupervisorEvent(
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                event=event,
+                restart_count=restart_count,
+                stage_name=stage_name,
+                reason=reason,
+                returncode=returncode,
+            )
+        )
 
     def _spawn_process(self):
         if self.process_factory is not None:
@@ -101,19 +134,33 @@ class GoalDrivenSupervisor:
                 stage_name=self.runtime.next_stage(),
                 metadata={"supervisor": "goal-driven"},
             )
+        self._emit_event(
+            event=f"run_{status}",
+            restart_count=restart_count,
+            stage_name=self.runtime.next_stage(),
+            reason=last_error,
+            returncode=returncode,
+        )
         return SupervisorResult(
             status=status,
             restart_count=restart_count,
             returncode=returncode,
             last_error=last_error,
+            events=list(self.events),
         )
 
     def run(self) -> SupervisorResult:
         restart_count = 0
+        self._emit_event(event="run_started", restart_count=restart_count)
 
         while True:
             self._mark_running()
             process = self._spawn_process()
+            self._emit_event(
+                event="process_spawned",
+                restart_count=restart_count,
+                stage_name=self.runtime.next_stage(),
+            )
 
             while True:
                 self.runtime.sync_stage_state()
@@ -134,6 +181,13 @@ class GoalDrivenSupervisor:
                         if returncode == 0
                         else f"process_exit_{returncode}"
                     )
+                    self._emit_event(
+                        event="process_exited",
+                        restart_count=restart_count,
+                        stage_name=goal.current_stage,
+                        reason=last_error,
+                        returncode=returncode,
+                    )
                     break
 
                 stall = self.runtime.evaluate_stall(
@@ -142,6 +196,13 @@ class GoalDrivenSupervisor:
                 if stall.stalled:
                     self._terminate_process(process)
                     last_error = stall.reason
+                    self._emit_event(
+                        event="stall_detected",
+                        restart_count=restart_count,
+                        stage_name=stall.current_stage,
+                        reason=stall.reason,
+                        returncode=process.poll(),
+                    )
                     break
 
                 self.sleep_fn(self.poll_interval_seconds)
@@ -156,3 +217,10 @@ class GoalDrivenSupervisor:
                 )
 
             restart_count += 1
+            self._emit_event(
+                event="restart_scheduled",
+                restart_count=restart_count,
+                stage_name=self.runtime.next_stage(),
+                reason=last_error,
+                returncode=process.poll(),
+            )

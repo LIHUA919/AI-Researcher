@@ -5,6 +5,7 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from research_agent.runtime import GoalDrivenSupervisor, MasterRuntime
@@ -61,6 +62,42 @@ def write_long_run_report(cache_path: str, payload: dict[str, Any]) -> str:
     return output_path
 
 
+def load_stage_events(cache_path: str) -> list[dict[str, Any]]:
+    events_path = Path(cache_path) / "stage_events.jsonl"
+    if not events_path.exists():
+        return []
+
+    events: list[dict[str, Any]] = []
+    for line in events_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        events.append(json.loads(line))
+    return events
+
+
+def summarize_stage_events(events: list[dict[str, Any]]) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "event_count": len(events),
+        "stages": {},
+    }
+    for event in events:
+        stage = event.get("stage")
+        if not stage:
+            continue
+        stage_summary = summary["stages"].setdefault(
+            stage,
+            {
+                "events": 0,
+                "latest_status": None,
+                "latest_timestamp": None,
+            },
+        )
+        stage_summary["events"] += 1
+        stage_summary["latest_status"] = event.get("status")
+        stage_summary["latest_timestamp"] = event.get("timestamp")
+    return summary
+
+
 def run_soak_test(args: argparse.Namespace) -> str:
     with open(args.instance_path, "r", encoding="utf-8") as f:
         instance = json.load(f)
@@ -85,6 +122,7 @@ def run_soak_test(args: argparse.Namespace) -> str:
     result = supervisor.run()
     ended_at = utc_now_iso()
     goal = runtime.evaluate_goal()
+    stage_events = load_stage_events(cache_path)
     report_path = write_long_run_report(
         cache_path,
         {
@@ -101,6 +139,18 @@ def run_soak_test(args: argparse.Namespace) -> str:
             "latest_artifact": runtime.latest_artifact(),
             "cache_path": cache_path,
             "command": command,
+            "restart_history": [
+                {
+                    "timestamp": event.timestamp,
+                    "event": event.event,
+                    "restart_count": event.restart_count,
+                    "stage_name": event.stage_name,
+                    "reason": event.reason,
+                    "returncode": event.returncode,
+                }
+                for event in result.events
+            ],
+            "stage_event_summary": summarize_stage_events(stage_events),
         },
     )
     return report_path

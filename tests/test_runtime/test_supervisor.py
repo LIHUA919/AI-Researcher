@@ -71,6 +71,8 @@ def test_goal_driven_supervisor_completes_when_goal_is_met(tmp_dir):
     assert result.status == "completed"
     assert result.restart_count == 0
     assert run_status["status"] == "completed"
+    assert result.events[0].event == "run_started"
+    assert any(event.event == "run_completed" for event in result.events)
 
 
 def test_goal_driven_supervisor_marks_stalled_after_restart_budget_exhausted(tmp_dir, monkeypatch):
@@ -109,3 +111,5 @@ def test_goal_driven_supervisor_marks_stalled_after_restart_budget_exhausted(tmp
     assert result.restart_count == 1
     assert result.last_error == "heartbeat_stale"
     assert run_status["status"] == "stalled"
+    assert any(event.event == "restart_scheduled" for event in result.events)
+    assert any(event.event == "run_stalled" for event in result.events)

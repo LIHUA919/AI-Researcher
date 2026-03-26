@@ -1,6 +1,14 @@
+import json
 from argparse import Namespace
+from pathlib import Path
 
-from research_agent.runtime.soak import build_run_command, build_soak_env, compute_cache_path
+from research_agent.runtime.soak import (
+    build_run_command,
+    build_soak_env,
+    compute_cache_path,
+    load_stage_events,
+    summarize_stage_events,
+)
 
 
 def test_compute_cache_path_uses_requested_model_suffix():
@@ -46,3 +54,36 @@ def test_build_soak_env_defaults_model_fallbacks_to_primary_model():
 
     assert env["AUTO_SELECT_FIRST_OPTION"] == "1"
     assert env["MODEL_FALLBACKS"] == "gpt-4o-2024-08-06"
+
+
+def test_load_stage_events_reads_jsonl(tmp_path):
+    events_path = Path(tmp_path) / "stage_events.jsonl"
+    events_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"timestamp": "2026-03-26T00:00:00+00:00", "stage": "prepare", "status": "completed"}),
+                json.dumps({"timestamp": "2026-03-26T00:01:00+00:00", "stage": "plan", "status": "completed"}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    events = load_stage_events(str(tmp_path))
+
+    assert len(events) == 2
+    assert events[0]["stage"] == "prepare"
+
+
+def test_summarize_stage_events_counts_latest_status():
+    summary = summarize_stage_events(
+        [
+            {"timestamp": "2026-03-26T00:00:00+00:00", "stage": "prepare", "status": "running"},
+            {"timestamp": "2026-03-26T00:01:00+00:00", "stage": "prepare", "status": "completed"},
+            {"timestamp": "2026-03-26T00:02:00+00:00", "stage": "plan", "status": "failed"},
+        ]
+    )
+
+    assert summary["event_count"] == 3
+    assert summary["stages"]["prepare"]["events"] == 2
+    assert summary["stages"]["prepare"]["latest_status"] == "completed"
+    assert summary["stages"]["plan"]["latest_status"] == "failed"
