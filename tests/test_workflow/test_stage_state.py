@@ -2,7 +2,9 @@ import json
 from pathlib import Path
 
 from research_agent.inno_common import (
+    append_stage_event,
     build_project_manifest,
+    resolve_experiment_analysis,
     load_cached_plan_result,
     load_cached_stage_result,
     load_cached_survey_result,
@@ -29,6 +31,11 @@ def test_update_stage_state_persists_status_and_artifacts(tmp_path):
     assert payload["survey"]["status"] == "completed"
     assert payload["survey"]["artifacts"]["survey_result"] == "survey_stage/survey_result.json"
     assert payload["survey"]["metadata"]["source"] == "cache"
+    events_path = Path(tmp_path) / "stage_events.jsonl"
+    assert events_path.exists()
+    lines = events_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0])["stage"] == "survey"
 
 
 def test_load_cached_survey_result_reads_persisted_payload(tmp_path):
@@ -103,3 +110,42 @@ def test_build_project_manifest_lists_project_contents(tmp_path):
     assert "model" in manifest["directories"]
     assert "run_training_testing.py" in manifest["files"]
     assert manifest["key_paths"]["main_script"].endswith("project/run_training_testing.py")
+
+
+def test_resolve_experiment_analysis_prefers_structured_context():
+    analysis_report, further_plan = resolve_experiment_analysis(
+        {
+            "experiment_report": [
+                {
+                    "analysis_report": "structured analysis",
+                    "further_plan": {"next_step": "ablation"},
+                }
+            ]
+        },
+        "fallback text",
+    )
+
+    assert analysis_report == "structured analysis"
+    assert further_plan == {"next_step": "ablation"}
+
+
+def test_resolve_experiment_analysis_falls_back_to_output_json():
+    analysis_report, further_plan = resolve_experiment_analysis(
+        {},
+        'prefix {"analysis_report": "json analysis", "further_plan": {"next_step": "retry"}} suffix',
+    )
+
+    assert analysis_report == "json analysis"
+    assert further_plan == {"next_step": "retry"}
+
+
+def test_append_stage_event_writes_jsonl(tmp_path):
+    output_path = append_stage_event(
+        str(tmp_path),
+        {"timestamp": "2026-03-26T00:00:00+00:00", "stage": "plan", "status": "completed"},
+    )
+
+    payload = Path(output_path).read_text(encoding="utf-8").strip().splitlines()
+
+    assert len(payload) == 1
+    assert json.loads(payload[0])["stage"] == "plan"

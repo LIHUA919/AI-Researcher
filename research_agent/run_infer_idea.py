@@ -45,6 +45,7 @@ from research_agent.inno_common import (
     load_cached_survey_result,
     load_cached_prepare_result,
     persist_stage_result,
+    resolve_experiment_analysis,
     resolve_prepare_result,
     persist_survey_result,
     get_args,
@@ -60,6 +61,14 @@ def _persist_stage_output(cache_path: str, stage_name: str, payload: Dict[str, A
     with open(stage_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=4)
     return stage_path
+
+
+def _update_runtime_progress(runtime: MasterRuntime, run_id: str, task_level: str) -> None:
+    runtime.write_runtime_status(
+        run_id=run_id,
+        status="running",
+        metadata={"entrypoint": "run_infer_idea", "task_level": task_level},
+    )
 
 class InnoFlow(FlowModule):
     def __init__(self, cache_path: str, log_path: Union[str, None, MetaChainLogger] = None, model: str = "gpt-4o-2024-08-06", code_env: DockerEnv = None, web_env: BrowserEnv = None, file_env: RequestsMarkdownBrowser = None):
@@ -151,6 +160,7 @@ Your task is to choose at least 5 repositories as the reference codebases. Note 
                 artifacts={"prepare_result": os.path.join(self.cache_path, "prepare_stage", "prepare_result.json")},
             )
         context_variables["stage_state"] = runtime.load_state()
+        _update_runtime_progress(runtime, run_id, task_level)
         paper_list = prepare_dict["reference_papers"]
         download_res = self.download_papaer({"paper_list": paper_list, "local_root": local_root, "workplace_name": workplace_name})
 
@@ -229,6 +239,7 @@ Note that the code implementation should be as complete as possible.
                 artifacts={"survey_result": survey_result_path},
             )
         context_variables["stage_state"] = runtime.load_state()
+        _update_runtime_progress(runtime, run_id, task_level)
 
         plan_query = f"""\
 I have an innovative ideas related to machine learning:
@@ -283,6 +294,7 @@ Your task is to carefully review the existing resources and understand the task,
                 artifacts=context_variables.get("plan_artifacts", {}),
             )
         context_variables["stage_state"] = runtime.load_state()
+        _update_runtime_progress(runtime, run_id, task_level)
 
         if not runtime.can_run_stage("implement"):
             raise RuntimeError("Implement stage cannot start before required prior stages are completed.")
@@ -427,6 +439,7 @@ Remember:
                 artifacts={"project_manifest": implement_path},
             )
         context_variables["stage_state"] = runtime.load_state()
+        _update_runtime_progress(runtime, run_id, task_level)
 
         if not runtime.can_run_stage("judge"):
             raise RuntimeError("Judge stage cannot start before implement stage is completed.")
@@ -478,6 +491,7 @@ Your task is to evaluate the implementation, and give a suggestion about the imp
                 artifacts={"judge_report": judge_path},
             )
         context_variables["stage_state"] = runtime.load_state()
+        _update_runtime_progress(runtime, run_id, task_level)
 
         MAX_ITER_TIMES = max_iter_times
         for i in range(MAX_ITER_TIMES):
@@ -573,6 +587,7 @@ After you get the result, you should return the result with your analysis and su
                 artifacts={"submit_result": submit_path},
             )
         context_variables["stage_state"] = runtime.load_state()
+        _update_runtime_progress(runtime, run_id, task_level)
 
         EXP_ITER_TIMES = 2
         analysis_report = ""
@@ -598,9 +613,10 @@ DO NOT use the `case_resolved` function before you have carefully and comprehens
             judge_messages.append({"role": "user", "content": exp_planner_query})
             judge_messages, context_variables = await self.exp_analyser(judge_messages, context_variables, iter_times=f"refine_{i+1}")
             analysis_report = judge_messages[-1]["content"]
-
-            analysis_report = context_variables["experiment_report"][-1]["analysis_report"]
-            further_plan = context_variables["experiment_report"][-1]["further_plan"]
+            analysis_report, further_plan = resolve_experiment_analysis(
+                context_variables,
+                analysis_report,
+            )
             # print(analysis_report)
             refine_query = f"""\
 You are given an innovative idea:
@@ -636,6 +652,7 @@ Note that you should fully utilize the existing code in the directory `/{workpla
             "analyze",
             artifacts={"analysis_report": analysis_path},
         )
+        _update_runtime_progress(runtime, run_id, task_level)
 
         print(refine_res)
         runtime.sync_stage_state()
@@ -710,13 +727,14 @@ def main(args, references):
     with open(args.instance_path, "r", encoding="utf-8") as f:
         eval_instance = json.load(f)
     instance_id = eval_instance["instance_id"] + "_idea"
-    cache_path = args.cache_path + "_" + instance_id + "_" + COMPLETION_MODEL.replace("/", "__")
+    model_suffix = args.model.replace("/", "__")
+    cache_path = args.cache_path + "_" + instance_id + "_" + model_suffix
     local_root = os.path.join(
         os.getcwd(),
         "workplace_paper",
-        f"task_{instance_id}" + "_" + COMPLETION_MODEL.replace("/", "__"),
+        f"task_{instance_id}" + "_" + model_suffix,
     )
-    container_name = args.container_name + "_" + instance_id + "_" + COMPLETION_MODEL.replace("/", "__")
+    container_name = args.container_name + "_" + instance_id + "_" + model_suffix
     os.makedirs(local_root, exist_ok=True)
     env_config = DockerConfig(container_name = container_name, 
                               workplace_name = args.workplace_name, 

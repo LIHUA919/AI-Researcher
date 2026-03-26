@@ -5,6 +5,11 @@ import shutil
 from pathlib import Path
 import urllib.request
 
+
+def dataset_source_path(category: str) -> Path:
+    repo_root = Path(__file__).resolve().parents[3]
+    return repo_root / "benchmark" / "process" / "dataset_candidate" / category
+
 def setup_metachain():
     cmd = "pip list | grep metachain"
     response = run_command_in_container(cmd)
@@ -31,8 +36,8 @@ def setup_dataset(category: str, local_workplace: str):
         return
     
     # 检查源目录是否存在
-    source_path = f"../benchmark/process/dataset_candidate/{category}"
-    if not os.path.exists(source_path):
+    source_path = dataset_source_path(category)
+    if not source_path.exists():
         raise Exception(f"source path {source_path} not exists")
     
     try:

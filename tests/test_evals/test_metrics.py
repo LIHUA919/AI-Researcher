@@ -64,6 +64,30 @@ def test_evidence_coverage_empty_claims_scores_full():
     assert result["unsupported_claims"] == []
 
 
+def test_evidence_coverage_supports_partial_overlap_for_long_claims():
+    trace = ResearchRunTrace(
+        run_id="r4",
+        task_id="t4",
+        query="test",
+        claims=[
+            "The methodology introduces a linear transformation layer applied to the code vectors to improve codebook utilization during training."
+        ],
+    )
+    trace.add_retrieval(
+        RetrievalItem(
+            source_type="paper",
+            identifier="p2",
+            title="linear transformation layer for code vectors",
+            content="This method adds a learnable linear transformation layer to code vectors and improves codebook utilization in training.",
+        )
+    )
+
+    result = evidence_coverage(trace)
+
+    assert result["score"] == 1.0
+    assert result["unsupported_claims"] == []
+
+
 def test_plan_executability_reports_missing_sections():
     plan = {
         "dataset": {"name": "CIFAR-10"},

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Dict, Iterable, List, Sequence
 
 from research_agent.inno.evals.trace import ResearchRunTrace
@@ -14,6 +15,39 @@ def _normalize(text: str) -> str:
 def _contains_any(haystack: str, needles: Iterable[str]) -> bool:
     normalized_haystack = _normalize(haystack)
     return any(_normalize(needle) in normalized_haystack for needle in needles if needle)
+
+
+def _tokenize(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", _normalize(text))
+        if len(token) >= 4
+    }
+
+
+def _is_supported_by_evidence(claim: str, evidence_texts: Sequence[str]) -> bool:
+    if not claim.strip():
+        return True
+
+    normalized_claim = _normalize(claim)
+    claim_tokens = _tokenize(claim)
+    if not claim_tokens:
+        return False
+
+    for evidence in evidence_texts:
+        normalized_evidence = _normalize(evidence)
+        if normalized_claim in normalized_evidence:
+            return True
+
+        evidence_tokens = _tokenize(evidence)
+        if not evidence_tokens:
+            continue
+
+        overlap = len(claim_tokens & evidence_tokens) / len(claim_tokens)
+        if overlap >= 0.45:
+            return True
+
+    return False
 
 
 def evidence_coverage(trace: ResearchRunTrace) -> Dict[str, object]:
@@ -32,10 +66,15 @@ def evidence_coverage(trace: ResearchRunTrace) -> Dict[str, object]:
         for call in trace.tool_calls
         if call.success
     )
+    evidence_texts.extend(
+        f"{step.agent_name} {step.output_summary}".strip()
+        for step in trace.agent_steps
+        if step.output_summary
+    )
 
     supported, unsupported = [], []
     for claim in claims:
-        if _contains_any(" ".join(evidence_texts), [claim]):
+        if _is_supported_by_evidence(claim, evidence_texts):
             supported.append(claim)
         else:
             unsupported.append(claim)

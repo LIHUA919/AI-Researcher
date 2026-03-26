@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import json
+import os
 
-from research_agent.inno_common import load_stage_state, update_stage_state
+from research_agent.inno_common import append_stage_event, load_stage_state, update_stage_state
 from research_agent.runtime.criteria import (
     DEFAULT_CRITERIA,
     DEFAULT_STAGE_ORDER,
@@ -53,6 +55,44 @@ class MasterRuntime:
 
     def load_run_status(self) -> dict:
         return read_runtime_json(self.cache_path, "run_status.json")
+
+    def write_failure_report(
+        self,
+        *,
+        run_id: str,
+        error_message: str,
+        stage_name: str | None = None,
+        status: str = "failed",
+        metadata: dict | None = None,
+    ) -> str:
+        report_path = os.path.join(self.cache_path, "failure_report.json")
+        payload = {
+            "run_id": run_id,
+            "status": status,
+            "stage": stage_name,
+            "error_message": error_message,
+            "latest_artifact": self.latest_artifact(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "metadata": metadata or {},
+        }
+        os.makedirs(self.cache_path, exist_ok=True)
+        with open(report_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=4)
+        append_stage_event(
+            self.cache_path,
+            {
+                "timestamp": payload["updated_at"],
+                "stage": stage_name,
+                "status": status,
+                "artifacts": {},
+                "metadata": {
+                    **(metadata or {}),
+                    "error_message": error_message,
+                    "failure_report": report_path,
+                },
+            },
+        )
+        return report_path
 
     def latest_artifact(self) -> str | None:
         state = self.load_state()
@@ -192,12 +232,21 @@ class MasterRuntime:
     ) -> dict[str, str]:
         if stage_name:
             self.record_stage_failure(stage_name, error_message, metadata=metadata)
-        return self.write_runtime_status(
+        failure_report_path = self.write_failure_report(
+            run_id=run_id,
+            error_message=error_message,
+            stage_name=stage_name,
+            status="failed",
+            metadata=metadata,
+        )
+        result = self.write_runtime_status(
             run_id=run_id,
             status="failed",
             last_error=error_message,
             metadata=metadata,
         )
+        result["failure_report"] = failure_report_path
+        return result
 
     def evaluate_stall(
         self,
@@ -246,9 +295,18 @@ class MasterRuntime:
                 artifacts=stage_state.get("artifacts", {}),
                 metadata=merged_metadata,
             )
-        return self.write_runtime_status(
+        failure_report_path = self.write_failure_report(
+            run_id=run_id,
+            error_message=reason,
+            stage_name=stage_name,
+            status="stalled",
+            metadata=metadata,
+        )
+        result = self.write_runtime_status(
             run_id=run_id,
             status="stalled",
             last_error=reason,
             metadata=metadata,
         )
+        result["failure_report"] = failure_report_path
+        return result

@@ -6,12 +6,86 @@ from dataclasses import asdict, is_dataclass
 from datetime import datetime
 import json
 from pathlib import Path
+import re
 import uuid
 from typing import Any, Dict, List, Optional
 
 from research_agent.inno.evals.evaluator import build_default_research_evaluator
 from research_agent.inno.evals.evaluator import GoalDrivenEvalReport
-from research_agent.inno.evals.trace import AgentStepTrace, ResearchRunTrace, ToolCallTrace
+from research_agent.inno.evals.trace import AgentStepTrace, ResearchRunTrace, RetrievalItem, ToolCallTrace
+
+
+def _split_claim_block(text: str) -> List[str]:
+    normalized = text.replace("\r", "").strip()
+    if not normalized:
+        return []
+
+    sections = re.split(r"\n\s*\n+", normalized)
+    claims: List[str] = []
+    for section in sections:
+        section = re.sub(r"^\s*(\d+\.\s*)", "", section.strip())
+        section = re.sub(r"^\s*[-*]\s*", "", section)
+        if len(section) < 8:
+            continue
+        claims.append(section)
+    return claims or [normalized]
+
+
+def _normalize_claims(claims: Optional[List[str]]) -> List[str]:
+    normalized_claims: List[str] = []
+    for claim in claims or []:
+        claim = claim.strip()
+        if not claim:
+            continue
+        normalized_claims.extend(_split_claim_block(claim))
+    return normalized_claims
+
+
+def _collect_evidence_items(
+    plan: Optional[Dict[str, Any]],
+    final_output: Optional[Dict[str, Any]],
+) -> List[RetrievalItem]:
+    items: List[RetrievalItem] = []
+    for section_name, section_value in (plan or {}).items():
+        if isinstance(section_value, str) and section_value.strip():
+            items.append(
+                RetrievalItem(
+                    source_type="other",
+                    identifier=f"plan:{section_name}",
+                    title=section_name,
+                    content=section_value,
+                )
+            )
+        elif isinstance(section_value, dict) and section_value:
+            items.append(
+                RetrievalItem(
+                    source_type="other",
+                    identifier=f"plan:{section_name}",
+                    title=section_name,
+                    content=json.dumps(section_value, ensure_ascii=False),
+                )
+            )
+
+    for output_name, output_value in (final_output or {}).items():
+        if isinstance(output_value, str) and output_value.strip():
+            items.append(
+                RetrievalItem(
+                    source_type="tool_output",
+                    identifier=f"final:{output_name}",
+                    title=output_name,
+                    content=output_value,
+                )
+            )
+        elif isinstance(output_value, dict) and output_value:
+            items.append(
+                RetrievalItem(
+                    source_type="tool_output",
+                    identifier=f"final:{output_name}",
+                    title=output_name,
+                    content=json.dumps(output_value, ensure_ascii=False),
+                )
+            )
+    return items
 
 
 def build_research_run_trace(
@@ -39,11 +113,13 @@ def build_research_run_trace(
         task_id=task_id,
         query=query,
         goal=goal,
-        claims=list(claims or []),
+        claims=_normalize_claims(claims),
         plan=dict(plan or {}),
         final_output=dict(final_output or {}),
         metadata=dict(metadata or {}),
     )
+    for item in _collect_evidence_items(plan, final_output):
+        trace.add_retrieval(item)
     for tool_call in tool_calls or []:
         trace.add_tool_call(tool_call)
     for agent_step in agent_steps or []:

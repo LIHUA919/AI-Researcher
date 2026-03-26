@@ -10,12 +10,15 @@ from research_agent.runtime.heartbeat import (
     write_run_status,
 )
 from research_agent.runtime.master import GoalEvaluation, MasterRuntime
+from research_agent.runtime.supervisor import GoalDrivenSupervisor, SupervisorResult
 
 __all__ = [
     "DEFAULT_STAGE_ORDER",
     "GoalEvaluation",
+    "GoalDrivenSupervisor",
     "MasterRuntime",
     "StageCriteria",
+    "SupervisorResult",
     "validate_stage_artifacts",
     "parse_runtime_timestamp",
     "read_runtime_json",

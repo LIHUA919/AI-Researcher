@@ -134,7 +134,7 @@ def test_build_research_run_trace_adapter_sets_minimal_fields():
         task_id="task-adapter",
         query="query",
         goal="goal",
-        claims=["claim"],
+        claims=["1. First claim.\n\n2. Second claim with more detail."],
         plan={"dataset": {"name": "x"}},
         final_output={"summary": "done"},
         metadata={"source": "run_infer_plan"},
@@ -143,12 +143,13 @@ def test_build_research_run_trace_adapter_sets_minimal_fields():
     assert trace.run_id == "run-adapter"
     assert trace.task_id == "task-adapter"
     assert trace.goal == "goal"
-    assert trace.claims == ["claim"]
+    assert trace.claims == ["First claim.", "Second claim with more detail."]
     assert trace.plan == {"dataset": {"name": "x"}}
     assert trace.final_output == {"summary": "done"}
     assert trace.metadata == {"source": "run_infer_plan"}
     assert trace.tool_calls == []
     assert trace.agent_steps == []
+    assert len(trace.retrieved_items) == 2
 
 
 def test_build_research_run_trace_preserves_runtime_trace():

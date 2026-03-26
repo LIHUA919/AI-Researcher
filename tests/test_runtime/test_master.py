@@ -131,6 +131,10 @@ def test_master_runtime_writes_failure_status(tmp_dir):
     assert heartbeat_payload["status"] == "failed"
     assert state_payload["survey"]["status"] == "failed"
     assert state_payload["survey"]["metadata"]["last_error"] == "llm timeout"
+    failure_report = json.loads(Path(outputs["failure_report"]).read_text(encoding="utf-8"))
+    assert failure_report["status"] == "failed"
+    assert failure_report["stage"] == "survey"
+    assert failure_report["error_message"] == "llm timeout"
 
 
 def test_master_runtime_evaluates_stall_from_stale_heartbeat(tmp_dir):
@@ -177,3 +181,6 @@ def test_master_runtime_writes_stalled_status(tmp_dir):
     assert heartbeat_payload["status"] == "stalled"
     assert state_payload["implement"]["status"] == "stalled"
     assert state_payload["implement"]["metadata"]["stalled_reason"] == "no_heartbeat_progress"
+    failure_report = json.loads(Path(outputs["failure_report"]).read_text(encoding="utf-8"))
+    assert failure_report["status"] == "stalled"
+    assert failure_report["stage"] == "implement"

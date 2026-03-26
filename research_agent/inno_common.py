@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
@@ -18,6 +19,14 @@ from research_agent.inno.tools.inno_tools.code_search import search_github_repos
 from research_agent.inno.tools.inno_tools.paper_search import get_arxiv_paper_meta
 
 logger = logging.getLogger(__name__)
+
+
+def append_stage_event(cache_path: str, event: Dict[str, Any]) -> str:
+    events_path = os.path.join(cache_path, "stage_events.jsonl")
+    os.makedirs(cache_path, exist_ok=True)
+    with open(events_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(event, ensure_ascii=False) + "\n")
+    return events_path
 
 
 def _read_json_file(path: str) -> Dict:
@@ -47,6 +56,16 @@ def update_stage_state(
     }
     with open(stage_state_path, "w", encoding="utf-8") as f:
         json.dump(stage_state, f, ensure_ascii=False, indent=4)
+    append_stage_event(
+        cache_path,
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "stage": stage_name,
+            "status": status,
+            "artifacts": artifacts or {},
+            "metadata": metadata or {},
+        },
+    )
     return stage_state_path
 
 
@@ -491,6 +510,28 @@ def extract_json_from_output(output_text: str) -> dict:
             logger.warning("JSON parse error: %s", e)
             return {}
     return {}
+
+
+def resolve_experiment_analysis(
+    context_variables: Dict[str, Any],
+    fallback_output: str,
+) -> tuple[str, dict]:
+    """Resolve experiment analysis content from structured context or fallback text."""
+
+    experiment_report = context_variables.get("experiment_report")
+    if isinstance(experiment_report, list) and experiment_report:
+        latest_report = experiment_report[-1] or {}
+        analysis_report = latest_report.get("analysis_report")
+        if analysis_report:
+            return analysis_report, latest_report.get("further_plan", {}) or {}
+
+    parsed_output = extract_json_from_output(fallback_output)
+    if parsed_output:
+        analysis_report = parsed_output.get("analysis_report") or fallback_output
+        further_plan = parsed_output.get("further_plan", {}) or {}
+        return analysis_report, further_plan
+
+    return fallback_output, {}
 
 
 def get_args():
