@@ -70,6 +70,27 @@ def _update_runtime_progress(runtime: MasterRuntime, run_id: str, task_level: st
         metadata={"entrypoint": "run_infer_idea", "task_level": task_level},
     )
 
+
+def _record_stage_completion_or_raise(
+    runtime: MasterRuntime,
+    stage_name: str,
+    *,
+    artifacts: Dict[str, str] | None = None,
+    metadata: Dict[str, Any] | None = None,
+) -> dict:
+    state = runtime.record_stage_completion(
+        stage_name,
+        artifacts=artifacts,
+        metadata=metadata,
+    )
+    stage_state = state.get(stage_name, {})
+    if stage_state.get("status") == "failed":
+        violations = (stage_state.get("metadata") or {}).get("guardrail_violations", [])
+        raise RuntimeError(
+            f"Stage '{stage_name}' rejected by guardrail: {', '.join(violations) if violations else 'unknown_violation'}"
+        )
+    return state
+
 class InnoFlow(FlowModule):
     def __init__(self, cache_path: str, log_path: Union[str, None, MetaChainLogger] = None, model: str = "gpt-4o-2024-08-06", code_env: DockerEnv = None, web_env: BrowserEnv = None, file_env: RequestsMarkdownBrowser = None):
         super().__init__(cache_path, log_path, model)
@@ -145,7 +166,8 @@ Your task is to choose at least 5 repositories as the reference codebases. Note 
         if prepare_dict:
             context_variables["prepare_result"] = prepare_dict
             prepare_res = json.dumps(prepare_dict, ensure_ascii=False, indent=4)
-            runtime.record_stage_completion(
+            _record_stage_completion_or_raise(
+                runtime,
                 "prepare",
                 artifacts={"prepare_result": os.path.join(self.cache_path, "prepare_stage", "prepare_result.json")},
             )
@@ -164,7 +186,8 @@ Your task is to choose at least 5 repositories as the reference codebases. Note 
             if not prepare_dict:
                 raise ValueError("Prepare Agent did not produce a usable prepare_result and no fallback could be derived.")
             prepare_res = json.dumps(prepare_dict, ensure_ascii=False, indent=4)
-            runtime.record_stage_completion(
+            _record_stage_completion_or_raise(
+                runtime,
                 "prepare",
                 artifacts={"prepare_result": os.path.join(self.cache_path, "prepare_stage", "prepare_result.json")},
             )
@@ -228,7 +251,8 @@ Note that the code implementation should be as complete as possible.
         if cached_survey.get("survey_report"):
             code_survey_res = cached_survey["survey_report"]
             context_variables["model_survey"] = code_survey_res
-            runtime.record_stage_completion(
+            _record_stage_completion_or_raise(
+                runtime,
                 "survey",
                 artifacts={"survey_result": os.path.join(self.cache_path, "survey_stage", "survey_result.json")},
             )
@@ -243,7 +267,8 @@ Note that the code implementation should be as complete as possible.
                 code_survey_query,
                 code_survey_res,
             )
-            runtime.record_stage_completion(
+            _record_stage_completion_or_raise(
+                runtime,
                 "survey",
                 artifacts={"survey_result": survey_result_path},
             )
@@ -274,7 +299,8 @@ Your task is to carefully review the existing resources and understand the task,
             context_variables["testing_plan"] = cached_plan.get("testing_plan", context_variables.get("testing_plan"))
             context_variables["plan_artifacts"] = cached_plan.get("plan_artifacts", context_variables.get("plan_artifacts", {}))
             plan_res = cached_plan["plan_report"]
-            runtime.record_stage_completion(
+            _record_stage_completion_or_raise(
+                runtime,
                 "plan",
                 artifacts=context_variables.get("plan_artifacts", {}),
             )
@@ -298,7 +324,8 @@ Your task is to carefully review the existing resources and understand the task,
                     "plan_artifacts": context_variables.get("plan_artifacts", {}),
                 },
             )
-            runtime.record_stage_completion(
+            _record_stage_completion_or_raise(
+                runtime,
                 "plan",
                 artifacts=context_variables.get("plan_artifacts", {}),
             )
@@ -443,7 +470,8 @@ Remember:
                     "project_manifest": project_manifest,
                 },
             )
-            runtime.record_stage_completion(
+            _record_stage_completion_or_raise(
+                runtime,
                 "implement",
                 artifacts={"project_manifest": implement_path},
             )
@@ -495,7 +523,8 @@ Your task is to evaluate the implementation, and give a suggestion about the imp
                     "judge_report": judge_res,
                 },
             )
-            runtime.record_stage_completion(
+            _record_stage_completion_or_raise(
+                runtime,
                 "judge",
                 artifacts={"judge_report": judge_path},
             )
@@ -591,7 +620,8 @@ After you get the result, you should return the result with your analysis and su
                     "submission_report": submit_res,
                 },
             )
-            runtime.record_stage_completion(
+            _record_stage_completion_or_raise(
+                runtime,
                 "submit",
                 artifacts={"submit_result": submit_path},
             )
@@ -657,7 +687,8 @@ Note that you should fully utilize the existing code in the directory `/{workpla
                 "latest_refine_report": refine_res if "refine_res" in locals() else "",
             },
         )
-        runtime.record_stage_completion(
+        _record_stage_completion_or_raise(
+            runtime,
             "analyze",
             artifacts={"analysis_report": analysis_path},
         )
