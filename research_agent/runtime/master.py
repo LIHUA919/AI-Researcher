@@ -6,6 +6,7 @@ import json
 import os
 
 from research_agent.inno_common import append_stage_event, load_stage_state, update_stage_state
+from research_agent.runtime.hooks import RuntimeHooks, make_runtime_event
 from research_agent.runtime.criteria import (
     DEFAULT_CRITERIA,
     DEFAULT_STAGE_ORDER,
@@ -42,10 +43,34 @@ class MasterRuntime:
         cache_path: str,
         criteria_map: dict[str, StageCriteria] | None = None,
         stage_order: list[str] | None = None,
+        hooks: RuntimeHooks | None = None,
     ):
         self.cache_path = cache_path
         self.criteria_map = criteria_map or DEFAULT_CRITERIA
         self.stage_order = stage_order or DEFAULT_STAGE_ORDER
+        self.hooks = hooks
+
+    def _emit_hook(
+        self,
+        *,
+        event_type: str,
+        run_id: str | None = None,
+        stage_name: str | None = None,
+        status: str | None = None,
+        payload: dict | None = None,
+    ) -> None:
+        if self.hooks is None:
+            return
+        self.hooks.emit(
+            make_runtime_event(
+                event_type=event_type,
+                cache_path=self.cache_path,
+                run_id=run_id,
+                stage_name=stage_name,
+                status=status,
+                payload=payload,
+            )
+        )
 
     def load_state(self) -> dict:
         return load_stage_state(self.cache_path)
@@ -92,6 +117,17 @@ class MasterRuntime:
                 },
             },
         )
+        self._emit_hook(
+            event_type="failure_report_written",
+            run_id=run_id,
+            stage_name=stage_name,
+            status=status,
+            payload={
+                "error_message": error_message,
+                "failure_report": report_path,
+                "metadata": metadata or {},
+            },
+        )
         return report_path
 
     def latest_artifact(self) -> str | None:
@@ -121,6 +157,12 @@ class MasterRuntime:
                     "completed",
                     artifacts=evaluation["artifacts"],
                     metadata=state.get(stage_name, {}).get("metadata", {}),
+                )
+                self._emit_hook(
+                    event_type="stage_synced",
+                    stage_name=stage_name,
+                    status="completed",
+                    payload={"artifacts": evaluation["artifacts"]},
                 )
         return self.load_state()
 
@@ -168,6 +210,12 @@ class MasterRuntime:
             artifacts=artifacts or {},
             metadata=metadata or {},
         )
+        self._emit_hook(
+            event_type="stage_completed",
+            stage_name=stage_name,
+            status="completed",
+            payload={"artifacts": artifacts or {}, "metadata": metadata or {}},
+        )
         return self.sync_stage_state()
 
     def record_stage_failure(
@@ -187,6 +235,12 @@ class MasterRuntime:
             "failed",
             artifacts=stage_state.get("artifacts", {}),
             metadata=merged_metadata,
+        )
+        self._emit_hook(
+            event_type="stage_failed",
+            stage_name=stage_name,
+            status="failed",
+            payload={"error_message": error_message, "metadata": merged_metadata},
         )
         return self.load_state()
 
@@ -216,6 +270,19 @@ class MasterRuntime:
             incomplete_stages=goal.incomplete_stages,
             latest_artifact=self.latest_artifact(),
             last_error=last_error,
+        )
+        self._emit_hook(
+            event_type="runtime_status_written",
+            run_id=run_id,
+            stage_name=current_stage,
+            status=status,
+            payload={
+                "last_error": last_error,
+                "completed_stages": goal.completed_stages,
+                "incomplete_stages": goal.incomplete_stages,
+                "metadata": metadata or {},
+                "latest_artifact": self.latest_artifact(),
+            },
         )
         return {
             "heartbeat": heartbeat_path,

@@ -29,7 +29,7 @@ from research_agent.inno.environment.utils import (
     ensure_legacy_workspace_aliases,
     normalize_workplace_layout,
 )
-from research_agent.runtime import MasterRuntime
+from research_agent.runtime import JsonlRuntimeHooks, MasterRuntime, RunContext, refresh_runtime_context_variables
 from research_agent.inno.evals import (
     build_and_save_eval_result,
 )
@@ -84,22 +84,31 @@ class InnoFlow(FlowModule):
         self.exp_analyser = AgentModule(get_exp_analyser_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
     async def forward(self, instance_path: str, task_level: str, local_root: str, workplace_name: str, max_iter_times: int, category: str, ideas: str, references: str, *args, **kwargs):
         metadata = self.load_ins({"instance_path": instance_path, "task_level": task_level})
-        runtime = MasterRuntime(self.cache_path)
+        runtime = MasterRuntime(self.cache_path, hooks=JsonlRuntimeHooks(self.cache_path))
         runtime.sync_stage_state()
         run_id = metadata.get("instance_id", task_level)
+        run_context = RunContext(
+            run_id=run_id,
+            cache_path=self.cache_path,
+            entrypoint="run_infer_plan",
+            task_level=task_level,
+            model=self.model,
+            workplace_name=workplace_name,
+            instance_path=instance_path,
+        )
         runtime.write_runtime_status(
             run_id=run_id,
             status="running",
             metadata={"entrypoint": "run_infer_plan", "task_level": task_level},
         )
-        stage_state = runtime.load_state()
-        context_variables = {
-            "working_dir": workplace_name,  # Agent instructions already prepend "/"
-            "date_limit": metadata["date_limit"],
-            "prepare_artifact_dir": os.path.join(self.cache_path, "prepare_stage"),
-            "plan_artifact_dir": os.path.join(self.cache_path, "plan_stages"),
-            "stage_state": stage_state,
-        }
+        run_context.refresh_stage_state(runtime.load_state())
+        context_variables = run_context.to_context_variables(
+            extra={
+                "date_limit": metadata["date_limit"],
+                "prepare_artifact_dir": os.path.join(self.cache_path, "prepare_stage"),
+                "plan_artifact_dir": os.path.join(self.cache_path, "plan_stages"),
+            }
+        )
 
         github_result = self.git_search({"metadata": metadata})
         
@@ -144,7 +153,7 @@ Your task is to choose at least 5 repositories as the reference codebases.
                 "prepare",
                 artifacts={"prepare_result": os.path.join(self.cache_path, "prepare_stage", "prepare_result.json")},
             )
-        context_variables["stage_state"] = runtime.load_state()
+        refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
         _update_runtime_progress(runtime, run_id, task_level)
         paper_list = prepare_dict["reference_papers"]
         download_res = self.download_papaer({"paper_list": paper_list, "local_root": local_root, "workplace_name": workplace_name})
@@ -187,7 +196,7 @@ Note that the math formula should be as complete as possible, and the code imple
                 "survey",
                 artifacts={"survey_result": survey_result_path},
             )
-        context_variables["stage_state"] = runtime.load_state()
+        refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
         _update_runtime_progress(runtime, run_id, task_level)
 
         data_module = importlib.import_module(f"benchmark.process.dataset_candidate.{category}.metaprompt")
@@ -259,7 +268,7 @@ Your task is to carefully review the existing resources and understand the task,
                 "plan",
                 artifacts=context_variables.get("plan_artifacts", {}),
             )
-        context_variables["stage_state"] = runtime.load_state()
+        refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
         _update_runtime_progress(runtime, run_id, task_level)
 
         if not runtime.can_run_stage("implement"):
@@ -404,7 +413,7 @@ Remember:
                 "implement",
                 artifacts={"project_manifest": implement_path},
             )
-        context_variables["stage_state"] = runtime.load_state()
+        refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
         _update_runtime_progress(runtime, run_id, task_level)
 
         if not runtime.can_run_stage("judge"):
@@ -456,7 +465,7 @@ Your task is to evaluate the implementation, and give a suggestion about the imp
                 "judge",
                 artifacts={"judge_report": judge_path},
             )
-        context_variables["stage_state"] = runtime.load_state()
+        refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
         _update_runtime_progress(runtime, run_id, task_level)
 
         MAX_ITER_TIMES = max_iter_times
@@ -556,7 +565,7 @@ After you get the result, you should return the result with your analysis and su
                 "submit",
                 artifacts={"submit_result": submit_path},
             )
-        context_variables["stage_state"] = runtime.load_state()
+        refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
         _update_runtime_progress(runtime, run_id, task_level)
 
         EXP_ITER_TIMES = 2
@@ -654,6 +663,7 @@ Note that you should fully utilize the existing code in the directory `/{workpla
                 "category": category,
                 "workplace_name": workplace_name,
                 "stage_state": runtime.load_state(),
+                "runtime_context": run_context.to_payload(),
                 "goal_evaluation": {
                     "current_stage": goal_evaluation.current_stage,
                     "completed_stages": goal_evaluation.completed_stages,
