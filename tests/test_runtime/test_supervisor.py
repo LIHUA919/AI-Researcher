@@ -44,14 +44,25 @@ def test_goal_driven_supervisor_completes_when_goal_is_met(tmp_dir):
     judge_stage.mkdir()
     submit_stage.mkdir()
     analyze_stage.mkdir()
-    (prepare_stage / "prepare_result.json").write_text("{}", encoding="utf-8")
-    (survey_stage / "survey_result.json").write_text("{}", encoding="utf-8")
-    for name in ("dataset_plan.json", "training_plan.json", "testing_plan.json", "plan_report.json"):
-        (plan_stage / name).write_text("{}", encoding="utf-8")
-    (implement_stage / "project_manifest.json").write_text("{}", encoding="utf-8")
-    (judge_stage / "judge_report.json").write_text("{}", encoding="utf-8")
-    (submit_stage / "submit_result.json").write_text("{}", encoding="utf-8")
-    (analyze_stage / "analysis_report.json").write_text("{}", encoding="utf-8")
+    (prepare_stage / "prepare_result.json").write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/workplace/repo-a"]}),
+        encoding="utf-8",
+    )
+    (survey_stage / "survey_result.json").write_text(
+        json.dumps({"survey_report": "done"}),
+        encoding="utf-8",
+    )
+    (plan_stage / "dataset_plan.json").write_text(json.dumps({"dataset_description": "CIFAR-10"}), encoding="utf-8")
+    (plan_stage / "training_plan.json").write_text(json.dumps({"training_pipeline": "train"}), encoding="utf-8")
+    (plan_stage / "testing_plan.json").write_text(json.dumps({"test_metric": "fid"}), encoding="utf-8")
+    (plan_stage / "plan_report.json").write_text(json.dumps({"plan_report": "done"}), encoding="utf-8")
+    (implement_stage / "project_manifest.json").write_text(
+        json.dumps({"exists": True, "key_paths": {"main_script": "/tmp/run_training_testing.py"}}),
+        encoding="utf-8",
+    )
+    (judge_stage / "judge_report.json").write_text(json.dumps({"judge_report": "pass"}), encoding="utf-8")
+    (submit_stage / "submit_result.json").write_text(json.dumps({"submit_result": "ok"}), encoding="utf-8")
+    (analyze_stage / "analysis_report.json").write_text(json.dumps({"analysis_report": "ok"}), encoding="utf-8")
 
     runtime = MasterRuntime(tmp_dir)
     process = FakeProcess([None, None, None])

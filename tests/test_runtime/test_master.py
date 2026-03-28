@@ -8,19 +8,51 @@ from research_agent.runtime import MasterRuntime, validate_stage_artifacts
 def test_validate_stage_artifacts_detects_completed_plan_stage(tmp_dir):
     plan_stage = Path(tmp_dir) / "plan_stages"
     plan_stage.mkdir()
-    for name in ("dataset_plan.json", "training_plan.json", "testing_plan.json", "plan_report.json"):
-        (plan_stage / name).write_text("{}", encoding="utf-8")
+    (plan_stage / "dataset_plan.json").write_text(
+        json.dumps({"dataset_description": "CIFAR-10"}),
+        encoding="utf-8",
+    )
+    (plan_stage / "training_plan.json").write_text(
+        json.dumps({"training_pipeline": "train"}),
+        encoding="utf-8",
+    )
+    (plan_stage / "testing_plan.json").write_text(
+        json.dumps({"test_metric": "fid"}),
+        encoding="utf-8",
+    )
+    (plan_stage / "plan_report.json").write_text(
+        json.dumps({"plan_report": "complete"}),
+        encoding="utf-8",
+    )
 
     evaluation = validate_stage_artifacts(tmp_dir, "plan")
 
     assert evaluation["completed"] is True
     assert evaluation["missing_artifacts"] == []
+    assert evaluation["guardrail_passed"] is True
+
+
+def test_validate_stage_artifacts_rejects_invalid_plan_payload(tmp_dir):
+    plan_stage = Path(tmp_dir) / "plan_stages"
+    plan_stage.mkdir()
+    for name in ("dataset_plan.json", "training_plan.json", "testing_plan.json", "plan_report.json"):
+        (plan_stage / name).write_text("{}", encoding="utf-8")
+
+    evaluation = validate_stage_artifacts(tmp_dir, "plan")
+
+    assert evaluation["completed"] is False
+    assert evaluation["missing_artifacts"] == []
+    assert evaluation["guardrail_passed"] is False
+    assert "missing_dataset_description" in evaluation["guardrail_violations"]
 
 
 def test_master_runtime_returns_next_incomplete_stage(tmp_dir):
     prepare_stage = Path(tmp_dir) / "prepare_stage"
     prepare_stage.mkdir()
-    (prepare_stage / "prepare_result.json").write_text("{}", encoding="utf-8")
+    (prepare_stage / "prepare_result.json").write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/workplace/repo-a"]}),
+        encoding="utf-8",
+    )
 
     runtime = MasterRuntime(tmp_dir)
     goal = runtime.evaluate_goal()
@@ -35,7 +67,10 @@ def test_master_runtime_syncs_completed_stage_state(tmp_dir):
     survey_stage = Path(tmp_dir) / "survey_stage"
     prepare_stage.mkdir()
     survey_stage.mkdir()
-    (prepare_stage / "prepare_result.json").write_text("{}", encoding="utf-8")
+    (prepare_stage / "prepare_result.json").write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/workplace/repo-a"]}),
+        encoding="utf-8",
+    )
     (survey_stage / "survey_result.json").write_text(
         json.dumps({"survey_report": "done"}),
         encoding="utf-8",
@@ -54,8 +89,14 @@ def test_master_runtime_evaluates_goal_progress(tmp_dir):
     survey_stage = Path(tmp_dir) / "survey_stage"
     prepare_stage.mkdir()
     survey_stage.mkdir()
-    (prepare_stage / "prepare_result.json").write_text("{}", encoding="utf-8")
-    (survey_stage / "survey_result.json").write_text("{}", encoding="utf-8")
+    (prepare_stage / "prepare_result.json").write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/workplace/repo-a"]}),
+        encoding="utf-8",
+    )
+    (survey_stage / "survey_result.json").write_text(
+        json.dumps({"survey_report": "done"}),
+        encoding="utf-8",
+    )
 
     runtime = MasterRuntime(tmp_dir)
     runtime.sync_stage_state()
@@ -74,7 +115,10 @@ def test_master_runtime_can_run_only_after_previous_stages_complete(tmp_dir):
 
     prepare_stage = Path(tmp_dir) / "prepare_stage"
     prepare_stage.mkdir()
-    (prepare_stage / "prepare_result.json").write_text("{}", encoding="utf-8")
+    (prepare_stage / "prepare_result.json").write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/workplace/repo-a"]}),
+        encoding="utf-8",
+    )
     runtime.sync_stage_state()
 
     assert runtime.can_run_stage("survey") is True
@@ -82,6 +126,12 @@ def test_master_runtime_can_run_only_after_previous_stages_complete(tmp_dir):
 
 
 def test_master_runtime_record_stage_completion_persists_state(tmp_dir):
+    prepare_stage = Path(tmp_dir) / "prepare_stage"
+    prepare_stage.mkdir()
+    (prepare_stage / "prepare_result.json").write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/workplace/repo-a"]}),
+        encoding="utf-8",
+    )
     runtime = MasterRuntime(tmp_dir)
     state = runtime.record_stage_completion(
         "prepare",
@@ -91,13 +141,34 @@ def test_master_runtime_record_stage_completion_persists_state(tmp_dir):
 
     assert state["prepare"]["status"] == "completed"
     assert state["prepare"]["metadata"]["source"] == "runtime"
+    assert state["prepare"]["metadata"]["guardrail_passed"] is True
+
+
+def test_master_runtime_rejects_stage_completion_when_guardrail_fails(tmp_dir):
+    prepare_stage = Path(tmp_dir) / "prepare_stage"
+    prepare_stage.mkdir()
+    (prepare_stage / "prepare_result.json").write_text("{}", encoding="utf-8")
+
+    runtime = MasterRuntime(tmp_dir)
+    state = runtime.record_stage_completion(
+        "prepare",
+        artifacts={"prepare_result": f"{tmp_dir}/prepare_stage/prepare_result.json"},
+        metadata={"source": "runtime"},
+    )
+
+    assert state["prepare"]["status"] == "failed"
+    assert state["prepare"]["metadata"]["guardrail_passed"] is False
+    assert "missing_reference_papers" in state["prepare"]["metadata"]["guardrail_violations"]
 
 
 def test_master_runtime_writes_heartbeat_and_run_status(tmp_dir):
     prepare_stage = Path(tmp_dir) / "prepare_stage"
     prepare_stage.mkdir()
     prepare_result = prepare_stage / "prepare_result.json"
-    prepare_result.write_text("{}", encoding="utf-8")
+    prepare_result.write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/workplace/repo-a"]}),
+        encoding="utf-8",
+    )
 
     runtime = MasterRuntime(tmp_dir)
     runtime.sync_stage_state()

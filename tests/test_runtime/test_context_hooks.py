@@ -43,6 +43,12 @@ def test_refresh_runtime_context_variables_updates_stage_state(tmp_dir):
 
 
 def test_master_runtime_emits_jsonl_hook_events(tmp_dir):
+    prepare_stage = Path(tmp_dir) / "prepare_stage"
+    prepare_stage.mkdir()
+    (prepare_stage / "prepare_result.json").write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/workplace/repo-a"]}),
+        encoding="utf-8",
+    )
     runtime = MasterRuntime(tmp_dir, hooks=JsonlRuntimeHooks(tmp_dir))
     runtime.record_stage_completion(
         "prepare",

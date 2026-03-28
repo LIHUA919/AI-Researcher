@@ -202,19 +202,53 @@ class MasterRuntime:
         stage_name: str,
         artifacts: dict[str, str] | None = None,
         metadata: dict | None = None,
+        *,
+        validate_guardrail: bool = True,
     ) -> dict:
+        merged_metadata = dict(metadata or {})
         update_stage_state(
             self.cache_path,
             stage_name,
             "completed",
             artifacts=artifacts or {},
-            metadata=metadata or {},
+            metadata=merged_metadata,
+        )
+        evaluation = self.evaluate_stage(stage_name) if validate_guardrail else None
+        if validate_guardrail and evaluation and not evaluation["completed"]:
+            merged_metadata["guardrail_violations"] = evaluation.get("guardrail_violations", [])
+            merged_metadata["guardrail_passed"] = False
+            update_stage_state(
+                self.cache_path,
+                stage_name,
+                "failed",
+                artifacts=artifacts or {},
+                metadata=merged_metadata,
+            )
+            self._emit_hook(
+                event_type="stage_completion_rejected",
+                stage_name=stage_name,
+                status="failed",
+                payload={
+                    "artifacts": artifacts or {},
+                    "metadata": merged_metadata,
+                    "guardrail_violations": evaluation.get("guardrail_violations", []),
+                },
+            )
+            return self.load_state()
+
+        merged_metadata["guardrail_passed"] = True if validate_guardrail else None
+        update_stage_state(
+            self.cache_path,
+            stage_name,
+            "completed",
+            artifacts=artifacts or {},
+            metadata=merged_metadata,
         )
         self._emit_hook(
             event_type="stage_completed",
             stage_name=stage_name,
             status="completed",
-            payload={"artifacts": artifacts or {}, "metadata": metadata or {}},
+            payload={"artifacts": artifacts or {}, "metadata": merged_metadata},
         )
         return self.sync_stage_state()
 
