@@ -119,6 +119,38 @@ class PromotionDecision(ImmutableModel):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class RecallRequest(ImmutableModel):
+    query: str
+    task_id: str
+    domain: str
+    dataset_id: str
+    model_family: str
+    max_items: int = Field(default=8, ge=0, le=100)
+    token_budget: int = Field(default=3000, ge=0)
+    include_negative: bool = True
+    cross_task: bool = False
+
+
+class RecallItem(ImmutableModel):
+    citation_id: str
+    knowledge_id: str
+    lesson: str
+    outcome: Literal["positive", "negative"]
+    source_experience_ids: list[str]
+    score: float
+    score_breakdown: dict[str, float]
+    token_count: int = Field(ge=0)
+
+
+class RecallContext(ImmutableModel):
+    snapshot_id: str
+    memory_snapshot_id: str
+    request: RecallRequest
+    items: list[RecallItem]
+    token_count: int = Field(ge=0)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class ExperienceQuery(ImmutableModel):
     task_id: str | None = None
     outcome: Literal["positive", "neutral", "negative", "invalid"] | None = None

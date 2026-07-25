@@ -17,6 +17,7 @@ from research_agent.inno.experience.models import (
     KnowledgeRecord,
     Observation,
     PromotionDecision,
+    RecallContext,
     VerificationRecord,
 )
 
@@ -40,10 +41,12 @@ class ExperimentLedger(Protocol):
     def append_experience(self, experience: ExperienceRecord) -> None: ...
     def append_knowledge(self, knowledge: KnowledgeRecord) -> None: ...
     def append_promotion_decision(self, decision: PromotionDecision) -> None: ...
+    def append_recall_context(self, context: RecallContext) -> None: ...
     def get_experience(self, experience_id: str) -> ExperienceRecord: ...
     def query(self, query: ExperienceQuery) -> list[ExperienceRecord]: ...
     def list_knowledge(self) -> list[KnowledgeRecord]: ...
     def list_promotion_decisions(self) -> list[PromotionDecision]: ...
+    def list_recall_contexts(self) -> list[RecallContext]: ...
     def snapshot_id(self) -> str: ...
 
 
@@ -74,6 +77,7 @@ class InMemoryExperimentLedger:
         self._experiences: dict[str, ExperienceRecord] = {}
         self._knowledge: dict[str, KnowledgeRecord] = {}
         self._promotion_decisions: dict[str, PromotionDecision] = {}
+        self._recall_contexts: dict[str, RecallContext] = {}
         self._lock = RLock()
 
     def append_hypothesis(self, hypothesis: Hypothesis) -> None:
@@ -140,6 +144,14 @@ class InMemoryExperimentLedger:
                 decision,
             )
 
+    def append_recall_context(self, context: RecallContext) -> None:
+        with self._lock:
+            _append_immutable(
+                self._recall_contexts,
+                context.snapshot_id,
+                context,
+            )
+
     def get_experience(self, experience_id: str) -> ExperienceRecord:
         try:
             return self._experiences[experience_id]
@@ -180,6 +192,12 @@ class InMemoryExperimentLedger:
             key=lambda item: (item.created_at, item.decision_id),
         )
 
+    def list_recall_contexts(self) -> list[RecallContext]:
+        return sorted(
+            self._recall_contexts.values(),
+            key=lambda item: (item.created_at, item.snapshot_id),
+        )
+
     def snapshot_id(self) -> str:
         records: list[BaseModel] = []
         for store in (
@@ -204,7 +222,11 @@ _TABLES: dict[str, tuple[str, type[BaseModel]]] = {
     "experience_records": ("experience_id", ExperienceRecord),
     "knowledge_records": ("knowledge_id", KnowledgeRecord),
     "promotion_decisions": ("decision_id", PromotionDecision),
+    "recall_contexts": ("snapshot_id", RecallContext),
 }
+_SNAPSHOT_TABLES = tuple(
+    table for table in _TABLES if table != "recall_contexts"
+)
 
 
 class SQLiteExperimentLedger:
@@ -277,6 +299,11 @@ class SQLiteExperimentLedger:
                     payload_json TEXT NOT NULL,
                     FOREIGN KEY (experience_id) REFERENCES experience_records(record_id),
                     FOREIGN KEY (knowledge_id) REFERENCES knowledge_records(record_id)
+                );
+                CREATE TABLE IF NOT EXISTS recall_contexts (
+                    record_id TEXT PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    payload_json TEXT NOT NULL
                 );
                 """
             )
@@ -422,6 +449,14 @@ class SQLiteExperimentLedger:
             },
         )
 
+    def append_recall_context(self, context: RecallContext) -> None:
+        self._append(
+            "recall_contexts",
+            context.snapshot_id,
+            context,
+            columns={"created_at": context.created_at.isoformat()},
+        )
+
     def _load_one(self, table: str, record_id: str, model: type[RecordT]) -> RecordT:
         with self._connect() as connection:
             row = connection.execute(
@@ -480,10 +515,20 @@ class SQLiteExperimentLedger:
             ).fetchall()
         return [PromotionDecision.model_validate_json(row["payload_json"]) for row in rows]
 
+    def list_recall_contexts(self) -> list[RecallContext]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT payload_json FROM recall_contexts
+                ORDER BY created_at, record_id
+                """
+            ).fetchall()
+        return [RecallContext.model_validate_json(row["payload_json"]) for row in rows]
+
     def snapshot_id(self) -> str:
         payloads: list[str] = []
         with self._connect() as connection:
-            for table in _TABLES:
+            for table in _SNAPSHOT_TABLES:
                 rows = connection.execute(
                     f"SELECT payload_json FROM {table} ORDER BY record_id"
                 ).fetchall()
