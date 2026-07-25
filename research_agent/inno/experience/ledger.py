@@ -16,6 +16,7 @@ from research_agent.inno.experience.models import (
     Hypothesis,
     KnowledgeRecord,
     Observation,
+    PromotionDecision,
     VerificationRecord,
 )
 
@@ -38,9 +39,11 @@ class ExperimentLedger(Protocol):
     def append_verification(self, verification: VerificationRecord) -> None: ...
     def append_experience(self, experience: ExperienceRecord) -> None: ...
     def append_knowledge(self, knowledge: KnowledgeRecord) -> None: ...
+    def append_promotion_decision(self, decision: PromotionDecision) -> None: ...
     def get_experience(self, experience_id: str) -> ExperienceRecord: ...
     def query(self, query: ExperienceQuery) -> list[ExperienceRecord]: ...
     def list_knowledge(self) -> list[KnowledgeRecord]: ...
+    def list_promotion_decisions(self) -> list[PromotionDecision]: ...
     def snapshot_id(self) -> str: ...
 
 
@@ -70,6 +73,7 @@ class InMemoryExperimentLedger:
         self._verifications: dict[str, VerificationRecord] = {}
         self._experiences: dict[str, ExperienceRecord] = {}
         self._knowledge: dict[str, KnowledgeRecord] = {}
+        self._promotion_decisions: dict[str, PromotionDecision] = {}
         self._lock = RLock()
 
     def append_hypothesis(self, hypothesis: Hypothesis) -> None:
@@ -124,6 +128,18 @@ class InMemoryExperimentLedger:
                 raise RecordNotFoundError(missing[0])
             _append_immutable(self._knowledge, knowledge.knowledge_id, knowledge)
 
+    def append_promotion_decision(self, decision: PromotionDecision) -> None:
+        with self._lock:
+            if decision.experience_id not in self._experiences:
+                raise RecordNotFoundError(decision.experience_id)
+            if decision.knowledge_id and decision.knowledge_id not in self._knowledge:
+                raise RecordNotFoundError(decision.knowledge_id)
+            _append_immutable(
+                self._promotion_decisions,
+                decision.decision_id,
+                decision,
+            )
+
     def get_experience(self, experience_id: str) -> ExperienceRecord:
         try:
             return self._experiences[experience_id]
@@ -158,6 +174,12 @@ class InMemoryExperimentLedger:
             key=lambda item: (item.created_at, item.knowledge_id),
         )
 
+    def list_promotion_decisions(self) -> list[PromotionDecision]:
+        return sorted(
+            self._promotion_decisions.values(),
+            key=lambda item: (item.created_at, item.decision_id),
+        )
+
     def snapshot_id(self) -> str:
         records: list[BaseModel] = []
         for store in (
@@ -167,6 +189,7 @@ class InMemoryExperimentLedger:
             self._verifications,
             self._experiences,
             self._knowledge,
+            self._promotion_decisions,
         ):
             records.extend(store[key] for key in sorted(store))
         payload = "\n".join(_canonical(record) for record in records)
@@ -180,6 +203,7 @@ _TABLES: dict[str, tuple[str, type[BaseModel]]] = {
     "verification_records": ("verification_id", VerificationRecord),
     "experience_records": ("experience_id", ExperienceRecord),
     "knowledge_records": ("knowledge_id", KnowledgeRecord),
+    "promotion_decisions": ("decision_id", PromotionDecision),
 }
 
 
@@ -244,6 +268,15 @@ class SQLiteExperimentLedger:
                     PRIMARY KEY (knowledge_id, experience_id),
                     FOREIGN KEY (knowledge_id) REFERENCES knowledge_records(record_id),
                     FOREIGN KEY (experience_id) REFERENCES experience_records(record_id)
+                );
+                CREATE TABLE IF NOT EXISTS promotion_decisions (
+                    record_id TEXT PRIMARY KEY,
+                    experience_id TEXT NOT NULL,
+                    knowledge_id TEXT,
+                    created_at TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    FOREIGN KEY (experience_id) REFERENCES experience_records(record_id),
+                    FOREIGN KEY (knowledge_id) REFERENCES knowledge_records(record_id)
                 );
                 """
             )
@@ -377,6 +410,18 @@ class SQLiteExperimentLedger:
             except sqlite3.IntegrityError as exc:
                 raise RecordNotFoundError(str(exc)) from exc
 
+    def append_promotion_decision(self, decision: PromotionDecision) -> None:
+        self._append(
+            "promotion_decisions",
+            decision.decision_id,
+            decision,
+            columns={
+                "experience_id": decision.experience_id,
+                "knowledge_id": decision.knowledge_id,
+                "created_at": decision.created_at.isoformat(),
+            },
+        )
+
     def _load_one(self, table: str, record_id: str, model: type[RecordT]) -> RecordT:
         with self._connect() as connection:
             row = connection.execute(
@@ -424,6 +469,16 @@ class SQLiteExperimentLedger:
                 """
             ).fetchall()
         return [KnowledgeRecord.model_validate_json(row["payload_json"]) for row in rows]
+
+    def list_promotion_decisions(self) -> list[PromotionDecision]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT payload_json FROM promotion_decisions
+                ORDER BY created_at, record_id
+                """
+            ).fetchall()
+        return [PromotionDecision.model_validate_json(row["payload_json"]) for row in rows]
 
     def snapshot_id(self) -> str:
         payloads: list[str] = []

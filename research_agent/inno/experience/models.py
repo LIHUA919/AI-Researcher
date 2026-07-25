@@ -109,6 +109,16 @@ class KnowledgeRecord(ImmutableModel):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class PromotionDecision(ImmutableModel):
+    decision_id: str
+    experience_id: str
+    accepted: bool
+    reasons: list[str]
+    policy_version: str
+    knowledge_id: str | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class ExperienceQuery(ImmutableModel):
     task_id: str | None = None
     outcome: Literal["positive", "neutral", "negative", "invalid"] | None = None

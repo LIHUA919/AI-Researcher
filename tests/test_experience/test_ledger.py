@@ -78,7 +78,13 @@ def build_records(*, suffix: str = "1", outcome: str = "positive"):
         passed=outcome == "positive",
         outcome=outcome,
         verified_metrics={"codebook_utilization": 0.8},
-        baseline_comparison={"delta": 0.1, "direction": "maximize"},
+        baseline_comparison={
+            "metric": "codebook_utilization",
+            "baseline": 0.7,
+            "value": 0.8,
+            "delta": 0.1,
+            "direction": "maximize",
+        },
         evidence_refs=observation.artifact_refs,
         created_at=NOW + timedelta(seconds=2),
     )

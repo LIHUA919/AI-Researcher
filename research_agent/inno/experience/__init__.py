@@ -23,8 +23,10 @@ from research_agent.inno.experience.models import (
     Hypothesis,
     KnowledgeRecord,
     Observation,
+    PromotionDecision,
     VerificationRecord,
 )
+from research_agent.inno.experience.knowledge import KnowledgeGate
 
 __all__ = [
     "ArtifactRef",
@@ -40,8 +42,10 @@ __all__ = [
     "ImmutableRecordError",
     "InMemoryExperimentLedger",
     "KnowledgeRecord",
+    "KnowledgeGate",
     "Observation",
     "PrimaryMetric",
+    "PromotionDecision",
     "RecordNotFoundError",
     "SQLiteExperimentLedger",
     "ValidityRules",
