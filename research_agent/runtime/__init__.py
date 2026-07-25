@@ -20,6 +20,13 @@ from research_agent.runtime.heartbeat import (
 )
 from research_agent.runtime.master import GoalEvaluation, MasterRuntime
 from research_agent.runtime.supervisor import GoalDrivenSupervisor, SupervisorResult
+from research_agent.runtime.research_pipeline import (
+    ProvidedIdeaStrategy,
+    ReferenceIdeationStrategy,
+    ResearchIntentStrategy,
+    ResearchPipeline,
+    RunRequest,
+)
 
 __all__ = [
     "DEFAULT_STAGE_ORDER",
@@ -29,11 +36,16 @@ __all__ = [
     "JsonlRuntimeHooks",
     "MasterRuntime",
     "RunContext",
+    "RunRequest",
     "RuntimeHookEvent",
     "RuntimeHooks",
     "StageCriteria",
     "StageArtifact",
     "SupervisorResult",
+    "ProvidedIdeaStrategy",
+    "ReferenceIdeationStrategy",
+    "ResearchIntentStrategy",
+    "ResearchPipeline",
     "refresh_runtime_context_variables",
     "validate_stage_artifacts",
     "parse_runtime_timestamp",

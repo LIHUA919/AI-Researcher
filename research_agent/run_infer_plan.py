@@ -21,7 +21,13 @@ from research_agent.inno.environment.utils import (
     ensure_legacy_workspace_aliases,
     normalize_workplace_layout,
 )
-from research_agent.runtime import JsonlRuntimeHooks, MasterRuntime, RunContext, refresh_runtime_context_variables
+from research_agent.runtime import (
+    MasterRuntime,
+    ProvidedIdeaStrategy,
+    ResearchPipeline,
+    RunRequest,
+    refresh_runtime_context_variables,
+)
 from research_agent.runtime.artifacts import write_stage_artifact
 from research_agent.inno.evals import (
     build_and_save_eval_result,
@@ -52,34 +58,6 @@ def _persist_stage_output(cache_path: str, stage_name: str, payload: Dict[str, A
     return write_stage_artifact(stage_path, stage="plan", payload=payload)
 
 
-def _update_runtime_progress(runtime: MasterRuntime, run_id: str, task_level: str) -> None:
-    runtime.write_runtime_status(
-        run_id=run_id,
-        status="running",
-        metadata={"entrypoint": "run_infer_plan", "task_level": task_level},
-    )
-
-
-def _record_stage_completion_or_raise(
-    runtime: MasterRuntime,
-    stage_name: str,
-    *,
-    artifacts: Dict[str, str] | None = None,
-    metadata: Dict[str, Any] | None = None,
-) -> dict:
-    state = runtime.record_stage_completion(
-        stage_name,
-        artifacts=artifacts,
-        metadata=metadata,
-    )
-    stage_state = state.get(stage_name, {})
-    if stage_state.get("status") == "failed":
-        violations = (stage_state.get("metadata") or {}).get("guardrail_violations", [])
-        raise RuntimeError(
-            f"Stage '{stage_name}' rejected by guardrail: {', '.join(violations) if violations else 'unknown_violation'}"
-        )
-    return state
-
 class InnoFlow(FlowModule):
     def __init__(self, cache_path: str, log_path: Union[str, None, MetaChainLogger] = None, model: str = "gpt-4o-2024-08-06", code_env: DockerEnv = None, web_env: BrowserEnv = None, file_env: RequestsMarkdownBrowser = None):
         super().__init__(cache_path, log_path, model)
@@ -94,31 +72,31 @@ class InnoFlow(FlowModule):
         self.exp_analyser = AgentModule(get_exp_analyser_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
     async def forward(self, instance_path: str, task_level: str, local_root: str, workplace_name: str, max_iter_times: int, category: str, ideas: str, references: str, *args, **kwargs):
         metadata = self.load_ins({"instance_path": instance_path, "task_level": task_level})
-        runtime = MasterRuntime(self.cache_path, hooks=JsonlRuntimeHooks(self.cache_path))
-        runtime.sync_stage_state()
         run_id = metadata.get("instance_id", task_level)
-        run_context = RunContext(
+        pipeline_request = RunRequest(
             run_id=run_id,
+            task_id=run_id,
             cache_path=self.cache_path,
             entrypoint="run_infer_plan",
             task_level=task_level,
             model=self.model,
             workplace_name=workplace_name,
             instance_path=instance_path,
+            intent=ideas,
+            conditions=[category],
         )
-        runtime.write_runtime_status(
-            run_id=run_id,
-            status="running",
-            metadata={"entrypoint": "run_infer_plan", "task_level": task_level},
-        )
-        run_context.refresh_stage_state(runtime.load_state())
-        context_variables = run_context.to_context_variables(
-            extra={
+        pipeline = ResearchPipeline.start(
+            pipeline_request,
+            extra_context={
                 "date_limit": metadata["date_limit"],
                 "prepare_artifact_dir": os.path.join(self.cache_path, "prepare_stage"),
                 "plan_artifact_dir": os.path.join(self.cache_path, "plan_stages"),
-            }
+            },
         )
+        runtime = pipeline.runtime
+        run_context = pipeline.run_context
+        context_variables = pipeline.context_variables
+        hypothesis = ProvidedIdeaStrategy().build_hypothesis(pipeline_request)
 
         github_result = self.git_search({"metadata": metadata})
         
@@ -140,8 +118,7 @@ Your task is to choose at least 5 repositories as the reference codebases.
         if prepare_dict:
             context_variables["prepare_result"] = prepare_dict
             prepare_res = json.dumps(prepare_dict, ensure_ascii=False, indent=4)
-            _record_stage_completion_or_raise(
-                runtime,
+            pipeline.complete_stage(
                 "prepare",
                 artifacts={"prepare_result": os.path.join(self.cache_path, "prepare_stage", "prepare_result.json")},
             )
@@ -160,13 +137,12 @@ Your task is to choose at least 5 repositories as the reference codebases.
             if not prepare_dict:
                 raise ValueError("Prepare Agent did not produce a usable prepare_result and no fallback could be derived.")
             prepare_res = json.dumps(prepare_dict, ensure_ascii=False, indent=4)
-            _record_stage_completion_or_raise(
-                runtime,
+            pipeline.complete_stage(
                 "prepare",
                 artifacts={"prepare_result": os.path.join(self.cache_path, "prepare_stage", "prepare_result.json")},
             )
         refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
-        _update_runtime_progress(runtime, run_id, task_level)
+        pipeline.progress()
         paper_list = prepare_dict["reference_papers"]
         download_res = self.download_papaer({"paper_list": paper_list, "local_root": local_root, "workplace_name": workplace_name})
         survey_query = f"""\
@@ -188,8 +164,7 @@ Note that the math formula should be as complete as possible, and the code imple
         if cached_survey.get("survey_report"):
             survey_res = cached_survey["survey_report"]
             context_variables["model_survey"] = survey_res
-            _record_stage_completion_or_raise(
-                runtime,
+            pipeline.complete_stage(
                 "survey",
                 artifacts={"survey_result": os.path.join(self.cache_path, "survey_stage", "survey_result.json")},
             )
@@ -205,13 +180,12 @@ Note that the math formula should be as complete as possible, and the code imple
                 survey_query,
                 survey_res,
             )
-            _record_stage_completion_or_raise(
-                runtime,
+            pipeline.complete_stage(
                 "survey",
                 artifacts={"survey_result": survey_result_path},
             )
         refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
-        _update_runtime_progress(runtime, run_id, task_level)
+        pipeline.progress()
 
         data_module = importlib.import_module(f"benchmark.process.dataset_candidate.{category}.metaprompt")
 
@@ -254,8 +228,7 @@ Your task is to carefully review the existing resources and understand the task,
             context_variables["testing_plan"] = cached_plan.get("testing_plan", context_variables.get("testing_plan"))
             context_variables["plan_artifacts"] = cached_plan.get("plan_artifacts", context_variables.get("plan_artifacts", {}))
             plan_res = cached_plan["plan_report"]
-            _record_stage_completion_or_raise(
-                runtime,
+            pipeline.complete_stage(
                 "plan",
                 artifacts=context_variables.get("plan_artifacts", {}),
             )
@@ -279,13 +252,12 @@ Your task is to carefully review the existing resources and understand the task,
                     "plan_artifacts": context_variables.get("plan_artifacts", {}),
                 },
             )
-            _record_stage_completion_or_raise(
-                runtime,
+            pipeline.complete_stage(
                 "plan",
                 artifacts=context_variables.get("plan_artifacts", {}),
             )
         refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
-        _update_runtime_progress(runtime, run_id, task_level)
+        pipeline.progress()
 
         if not runtime.can_run_stage("implement"):
             raise RuntimeError("Implement stage cannot start before required prior stages are completed.")
@@ -425,13 +397,12 @@ Remember:
                     "project_manifest": project_manifest,
                 },
             )
-            _record_stage_completion_or_raise(
-                runtime,
+            pipeline.complete_stage(
                 "implement",
                 artifacts={"project_manifest": implement_path},
             )
         refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
-        _update_runtime_progress(runtime, run_id, task_level)
+        pipeline.progress()
 
         if not runtime.can_run_stage("judge"):
             raise RuntimeError("Judge stage cannot start before implement stage is completed.")
@@ -478,13 +449,12 @@ Your task is to evaluate the implementation, and give a suggestion about the imp
                     "judge_report": judge_res,
                 },
             )
-            _record_stage_completion_or_raise(
-                runtime,
+            pipeline.complete_stage(
                 "judge",
                 artifacts={"judge_report": judge_path},
             )
         refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
-        _update_runtime_progress(runtime, run_id, task_level)
+        pipeline.progress()
 
         MAX_ITER_TIMES = max_iter_times
         for i in range(MAX_ITER_TIMES):
@@ -579,13 +549,12 @@ After you get the result, you should return the result with your analysis and su
                     "submit_result": submit_res,
                 },
             )
-            _record_stage_completion_or_raise(
-                runtime,
+            pipeline.complete_stage(
                 "submit",
                 artifacts={"submit_result": submit_path},
             )
         refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
-        _update_runtime_progress(runtime, run_id, task_level)
+        pipeline.progress()
 
         EXP_ITER_TIMES = 2
         analysis_report = ""
@@ -646,25 +615,18 @@ Note that you should fully utilize the existing code in the directory `/{workpla
                 "latest_refine_report": refine_res if "refine_res" in locals() else "",
             },
         )
-        _record_stage_completion_or_raise(
-            runtime,
+        pipeline.complete_stage(
             "analyze",
             artifacts={"analysis_report": analysis_path},
         )
-        _update_runtime_progress(runtime, run_id, task_level)
+        pipeline.progress()
 
-        runtime.sync_stage_state()
-        goal_evaluation = runtime.evaluate_goal()
-        runtime.write_runtime_status(
-            run_id=run_id,
-            status="completed" if goal_evaluation.all_criteria_met else "running",
-            metadata={"entrypoint": "run_infer_plan", "task_level": task_level},
-        )
+        goal_evaluation = pipeline.finalize()
         return {
             "task_id": metadata.get("instance_id", task_level),
             "query": plan_query,
             "goal": "deliver an executable research plan",
-            "claims": [ideas] if ideas else [],
+            "claims": [hypothesis.statement] if hypothesis.statement else [],
             "plan": {
                 "dataset": context_variables.get("dataset_plan", ""),
                 "model": context_variables.get("model_survey", ""),
@@ -684,6 +646,7 @@ Note that you should fully utilize the existing code in the directory `/{workpla
                 "workplace_name": workplace_name,
                 "stage_state": runtime.load_state(),
                 "runtime_context": run_context.to_payload(),
+                "hypothesis": hypothesis.model_dump(mode="json"),
                 "goal_evaluation": {
                     "current_stage": goal_evaluation.current_stage,
                     "completed_stages": goal_evaluation.completed_stages,
