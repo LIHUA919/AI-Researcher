@@ -1,0 +1,75 @@
+{
+  "schema_version": "1",
+  "task": {
+    "task_id": "deterministic-score",
+    "query": "Improve a deterministic score using verified prior experience.",
+    "goal": "Demonstrate the paired Experience Gain reporting path.",
+    "primary_metric": "score",
+    "direction": "maximize",
+    "metadata": {
+      "synthetic": true
+    }
+  },
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "model": "deterministic-fixture",
+  "budget": {
+    "iterations": 2,
+    "tokens": 1000
+  },
+  "evaluator_version": "deterministic-score@1",
+  "dataset_digest": "deterministic-dataset@1",
+  "code_revision": "fixture",
+  "baseline": {
+    "mode": "off",
+    "scores": [
+      0.505,
+      0.51,
+      0.515,
+      0.52,
+      0.5
+    ],
+    "mean": 0.51,
+    "variance": 5e-05,
+    "valid_rate": 1.0,
+    "repeated_failure_rate": 0.8,
+    "total_tokens": 5000,
+    "total_wall_seconds": 5.0,
+    "total_gpu_hours": 0.0
+  },
+  "closed_loop": {
+    "mode": "closed-loop",
+    "scores": [
+      0.655,
+      0.66,
+      0.665,
+      0.67,
+      0.65
+    ],
+    "mean": 0.66,
+    "variance": 5e-05,
+    "valid_rate": 1.0,
+    "repeated_failure_rate": 0.0,
+    "total_tokens": 5000,
+    "total_wall_seconds": 5.0,
+    "total_gpu_hours": 0.0
+  },
+  "paired_deltas": [
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15
+  ],
+  "experience_gain": 0.15,
+  "generated_at": "2026-07-25T13:34:34.879064Z",
+  "metadata": {
+    "synthetic": true,
+    "disclaimer": "Infrastructure fixture; not evidence of Scientist-Bench improvement."
+  }
+}
