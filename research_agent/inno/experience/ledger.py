@@ -47,6 +47,7 @@ class ExperimentLedger(Protocol):
     def list_knowledge(self) -> list[KnowledgeRecord]: ...
     def list_promotion_decisions(self) -> list[PromotionDecision]: ...
     def list_recall_contexts(self) -> list[RecallContext]: ...
+    def has_valid_verification(self, run_id: str) -> bool: ...
     def snapshot_id(self) -> str: ...
 
 
@@ -196,6 +197,14 @@ class InMemoryExperimentLedger:
         return sorted(
             self._recall_contexts.values(),
             key=lambda item: (item.created_at, item.snapshot_id),
+        )
+
+    def has_valid_verification(self, run_id: str) -> bool:
+        return any(
+            item.attempt.run_id == run_id
+            and item.verification is not None
+            and item.verification.valid
+            for item in self._experiences.values()
         )
 
     def snapshot_id(self) -> str:
@@ -524,6 +533,17 @@ class SQLiteExperimentLedger:
                 """
             ).fetchall()
         return [RecallContext.model_validate_json(row["payload_json"]) for row in rows]
+
+    def has_valid_verification(self, run_id: str) -> bool:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload_json FROM experience_records WHERE valid = 1"
+            ).fetchall()
+        return any(
+            ExperienceRecord.model_validate_json(row["payload_json"]).attempt.run_id
+            == run_id
+            for row in rows
+        )
 
     def snapshot_id(self) -> str:
         payloads: list[str] = []

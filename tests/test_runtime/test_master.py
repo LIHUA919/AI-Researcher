@@ -108,6 +108,32 @@ def test_master_runtime_evaluates_goal_progress(tmp_dir):
     assert goal.all_criteria_met is False
 
 
+def test_master_runtime_requires_independent_verification_when_configured(tmp_dir):
+    prepare_stage = Path(tmp_dir) / "prepare_stage"
+    prepare_stage.mkdir()
+    (prepare_stage / "prepare_result.json").write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/repo-a"]}),
+        encoding="utf-8",
+    )
+    verified = False
+    runtime = MasterRuntime(
+        tmp_dir,
+        stage_order=["prepare"],
+        require_verification_for_completion=True,
+        verification_check=lambda: verified,
+    )
+
+    before = runtime.evaluate_goal()
+    verified = True
+    after = runtime.evaluate_goal()
+
+    assert before.all_criteria_met is False
+    assert before.current_stage == "verify"
+    assert before.verification_met is False
+    assert after.all_criteria_met is True
+    assert after.verification_met is True
+
+
 def test_master_runtime_can_run_only_after_previous_stages_complete(tmp_dir):
     runtime = MasterRuntime(tmp_dir)
     assert runtime.can_run_stage("prepare") is True

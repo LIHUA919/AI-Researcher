@@ -7,6 +7,7 @@ import math
 from pathlib import Path
 import shlex
 import subprocess
+import sys
 from typing import Any, Callable, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -180,6 +181,7 @@ def _verification_from_result(
         },
         violations=violations,
         evidence_refs=[*observation.artifact_refs, *(additional_evidence_refs or [])],
+        created_at=observation.completed_at,
     )
 
 
@@ -280,6 +282,8 @@ class CommandVerifier:
             )
             for token in shlex.split(contract.entrypoint)
         ]
+        if command and command[0] in {"python", "python3"}:
+            command[0] = sys.executable
         try:
             completed = subprocess.run(
                 command,

@@ -37,6 +37,13 @@ from research_agent.inno.experience.retrieval import (
     ExperienceRetriever,
     KeywordExperienceRetriever,
 )
+from research_agent.inno.experience.loop import (
+    ExperienceLoop,
+    ExperienceMode,
+    LoopAction,
+    LoopOutcome,
+    RunCompletion,
+)
 
 __all__ = [
     "ArtifactRef",
@@ -50,6 +57,8 @@ __all__ = [
     "ExperienceQuery",
     "ExperienceRecord",
     "ExperienceRetriever",
+    "ExperienceLoop",
+    "ExperienceMode",
     "ExperimentAttempt",
     "ExperimentLedger",
     "Hypothesis",
@@ -58,12 +67,15 @@ __all__ = [
     "KnowledgeRecord",
     "KnowledgeGate",
     "KeywordExperienceRetriever",
+    "LoopAction",
+    "LoopOutcome",
     "Observation",
     "PrimaryMetric",
     "PromotionDecision",
     "RecallContext",
     "RecallItem",
     "RecallRequest",
+    "RunCompletion",
     "RecordNotFoundError",
     "SQLiteExperimentLedger",
     "ValidityRules",

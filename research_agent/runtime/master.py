@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import os
+from typing import Callable
 
 from research_agent.inno_common import append_stage_event, load_stage_state, update_stage_state
 from research_agent.runtime.hooks import RuntimeHooks, make_runtime_event
@@ -27,6 +28,7 @@ class GoalEvaluation:
     completed_stages: list[str]
     incomplete_stages: list[str]
     all_criteria_met: bool
+    verification_met: bool = True
 
 
 @dataclass(frozen=True)
@@ -44,11 +46,15 @@ class MasterRuntime:
         criteria_map: dict[str, StageCriteria] | None = None,
         stage_order: list[str] | None = None,
         hooks: RuntimeHooks | None = None,
+        require_verification_for_completion: bool = False,
+        verification_check: Callable[[], bool] | None = None,
     ):
         self.cache_path = cache_path
         self.criteria_map = criteria_map or DEFAULT_CRITERIA
         self.stage_order = stage_order or DEFAULT_STAGE_ORDER
         self.hooks = hooks
+        self.require_verification_for_completion = require_verification_for_completion
+        self.verification_check = verification_check
 
     def _emit_hook(
         self,
@@ -176,11 +182,19 @@ class MasterRuntime:
             else:
                 incomplete_stages.append(stage_name)
 
+        verification_met = (
+            not self.require_verification_for_completion
+            or bool(self.verification_check and self.verification_check())
+        )
+        if not verification_met:
+            incomplete_stages.append("verify")
+
         return GoalEvaluation(
             current_stage=incomplete_stages[0] if incomplete_stages else None,
             completed_stages=completed_stages,
             incomplete_stages=incomplete_stages,
             all_criteria_met=not incomplete_stages,
+            verification_met=verification_met,
         )
 
     def next_stage(self) -> str | None:
