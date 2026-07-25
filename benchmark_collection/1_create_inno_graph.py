@@ -2,7 +2,7 @@ import json
 import os
 import string
 import asyncio
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Tuple
 from pathlib import Path
 import sys
 import time
@@ -47,9 +47,9 @@ def log_output(log_file: str, paper_title: str, step: int, prompt: str, response
         f.write(f"Paper: {paper_title}\n")
         f.write(f"Step: {step}\n")
         f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"\n----- Prompt -----\n")
+        f.write("\n----- Prompt -----\n")
         f.write(prompt)
-        f.write(f"\n----- Response -----\n")
+        f.write("\n----- Response -----\n")
         f.write(response)
         f.write(f"\n{'='*80}\n")
 
@@ -429,7 +429,7 @@ async def main():
     
     # Log final statistics
     total_time = time.time() - start_time
-    logging.info(f"\nProcessing complete:")
+    logging.info("\nProcessing complete:")
     logging.info(f"Total time: {format_time(total_time)}")
     logging.info(f"Successfully processed: {len(results)} papers")
     logging.info(f"Failed to process: {len(failed_papers)} papers")

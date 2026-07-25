@@ -1,10 +1,10 @@
 """Tests for the event log."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 
-from research_agent.inno.memory.event_log import AgentEvent, EventLog, make_event
+from research_agent.inno.memory.event_log import EventLog, make_event
 
 
 @pytest.fixture
@@ -58,7 +58,8 @@ class TestQuery:
 
 class TestReplay:
     def test_replay_all(self, log):
-        ids = [log.append(_event()) for _ in range(5)]
+        for _ in range(5):
+            log.append(_event())
         replayed = log.replay()
         assert len(replayed) == 5
 

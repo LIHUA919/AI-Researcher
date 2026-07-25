@@ -1,6 +1,5 @@
 """Tests for Skill and SkillManifest data models."""
 
-import pytest
 
 from research_agent.inno.skills.base import Skill, SkillDependency, SkillManifest
 

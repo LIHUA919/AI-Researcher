@@ -2,9 +2,8 @@
 
 from datetime import datetime, timedelta
 
-import pytest
 
-from research_agent.inno.memory.session_state import SessionState, StateChange
+from research_agent.inno.memory.session_state import SessionState
 
 
 class TestGetSet:
@@ -80,7 +79,6 @@ class TestMerge:
 class TestKeysChangedSince:
     def test_filters_by_time(self):
         s = SessionState()
-        before = datetime.now()
         s.set("old", 1)
         after = datetime.now() + timedelta(seconds=0.01)
         # Only keys set after 'after' should be empty

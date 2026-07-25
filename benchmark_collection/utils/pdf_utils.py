@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Dict
+from typing import List
 import PyPDF2
 import re
 import tiktoken
@@ -53,7 +53,7 @@ class PDFParser:
         lines = text.split('\n')
         for i, line in enumerate(lines):
             if any(re.match(pattern, line.strip()) for pattern in self.INTRO_PATTERNS):
-                return sum(len(l) + 1 for l in lines[:i])
+                return sum(len(previous_line) + 1 for previous_line in lines[:i])
         return 0
 
     def _remove_pre_introduction(self, text: str) -> str:

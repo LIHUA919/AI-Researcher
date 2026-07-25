@@ -1,6 +1,5 @@
 """Tests for SkillRegistry."""
 
-import pytest
 
 from research_agent.inno.skills.base import Skill, SkillManifest
 from research_agent.inno.skills.loader import SkillLoader

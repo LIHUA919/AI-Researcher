@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from research_agent.inno.skills.base import Skill, SkillManifest
-from research_agent.inno.skills.events import SkillEvent, SkillEventBus
+from research_agent.inno.skills.base import Skill
+from research_agent.inno.skills.events import SkillEventBus
 from research_agent.inno.skills.registry import SkillRegistry
 
 

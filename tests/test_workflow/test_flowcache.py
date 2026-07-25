@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from research_agent.inno.evals.trace import AgentStepTrace, ToolCallTrace
-from research_agent.inno.workflow.flowcache import AgentModule, FlowModule, ToolModule
+from research_agent.inno.workflow.flowcache import AgentModule, ToolModule
 
 
 @dataclass

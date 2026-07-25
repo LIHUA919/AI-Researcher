@@ -1,11 +1,10 @@
 """Tests for embedding-based tool search."""
 
-import textwrap
 
 import pytest
 
 from research_agent.inno.skills.base import SkillManifest
-from research_agent.inno.skills.search import ToolSearchIndex, ToolSearchResult
+from research_agent.inno.skills.search import ToolSearchIndex
 
 
 def _make_manifest(name, description, tools, tags=None):

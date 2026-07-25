@@ -1,7 +1,6 @@
 # openai_utils.py
 import openai
 import backoff
-import time
 import os
 import tiktoken
 import asyncio
