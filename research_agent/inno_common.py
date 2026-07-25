@@ -572,6 +572,24 @@ def get_args():
     parser.add_argument("--port", type=int, default=12345)
     parser.add_argument("--max_iter_times", type=int, default=0)
     parser.add_argument("--category", type=str, default="recommendation")
+    parser.add_argument(
+        "--experience-mode",
+        choices=("off", "record", "recall", "closed-loop"),
+        default="off",
+    )
+    parser.add_argument(
+        "--experience-store",
+        default=".ai_researcher/experience.sqlite3",
+    )
+    parser.add_argument("--evaluation-contract")
+    parser.add_argument("--max-loop-iterations", type=int, default=3)
+    parser.add_argument("--recall-item-budget", type=int, default=8)
+    parser.add_argument("--recall-token-budget", type=int, default=3000)
+    parser.add_argument(
+        "--cache-policy",
+        choices=("reuse", "refresh", "disabled"),
+        default="reuse",
+    )
     args = parser.parse_args()
     return args
 

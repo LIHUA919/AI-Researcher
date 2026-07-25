@@ -22,10 +22,12 @@ from research_agent.inno.environment.utils import (
     normalize_workplace_layout,
 )
 from research_agent.runtime import (
+    ExperienceRunAdapter,
     MasterRuntime,
     ProvidedIdeaStrategy,
     ResearchPipeline,
     RunRequest,
+    implementation_ready,
     refresh_runtime_context_variables,
 )
 from research_agent.runtime.artifacts import write_stage_artifact
@@ -59,20 +61,20 @@ def _persist_stage_output(cache_path: str, stage_name: str, payload: Dict[str, A
 
 
 class InnoFlow(FlowModule):
-    def __init__(self, cache_path: str, log_path: Union[str, None, MetaChainLogger] = None, model: str = "gpt-4o-2024-08-06", code_env: DockerEnv = None, web_env: BrowserEnv = None, file_env: RequestsMarkdownBrowser = None):
+    def __init__(self, cache_path: str, log_path: Union[str, None, MetaChainLogger] = None, model: str = "gpt-4o-2024-08-06", code_env: DockerEnv = None, web_env: BrowserEnv = None, file_env: RequestsMarkdownBrowser = None, cache_policy: str = "reuse"):
         super().__init__(cache_path, log_path, model)
-        self.load_ins = ToolModule(load_instance, cache_path, trace_recorder=self.record_tool_call)
-        self.git_search = ToolModule(github_search, cache_path, trace_recorder=self.record_tool_call)
-        self.prepare_agent = AgentModule(get_prepare_agent(model=CHEEP_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
-        self.download_papaer = ToolModule(download_arxiv_source_by_title, cache_path, trace_recorder=self.record_tool_call)
-        self.coding_plan_agent = AgentModule(get_coding_plan_agent(model=CHEEP_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
-        self.ml_agent = AgentModule(get_ml_agent(model=COMPLETION_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
-        self.judge_agent = AgentModule(get_judge_agent(model=CHEEP_MODEL, code_env=code_env, web_env=web_env, file_env=file_env), self.client, cache_path, trace_recorder=self.record_agent_step)
-        self.survey_agent = AgentModule(get_survey_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
-        self.exp_analyser = AgentModule(get_exp_analyser_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step)
+        self.load_ins = ToolModule(load_instance, cache_path, trace_recorder=self.record_tool_call, cache_policy=cache_policy)
+        self.git_search = ToolModule(github_search, cache_path, trace_recorder=self.record_tool_call, cache_policy=cache_policy)
+        self.prepare_agent = AgentModule(get_prepare_agent(model=CHEEP_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
+        self.download_papaer = ToolModule(download_arxiv_source_by_title, cache_path, trace_recorder=self.record_tool_call, cache_policy=cache_policy)
+        self.coding_plan_agent = AgentModule(get_coding_plan_agent(model=CHEEP_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
+        self.ml_agent = AgentModule(get_ml_agent(model=COMPLETION_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
+        self.judge_agent = AgentModule(get_judge_agent(model=CHEEP_MODEL, code_env=code_env, web_env=web_env, file_env=file_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
+        self.survey_agent = AgentModule(get_survey_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
+        self.exp_analyser = AgentModule(get_exp_analyser_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
     async def forward(self, instance_path: str, task_level: str, local_root: str, workplace_name: str, max_iter_times: int, category: str, ideas: str, references: str, *args, **kwargs):
         metadata = self.load_ins({"instance_path": instance_path, "task_level": task_level})
-        run_id = metadata.get("instance_id", task_level)
+        run_id = kwargs.get("run_id") or metadata.get("instance_id", task_level)
         pipeline_request = RunRequest(
             run_id=run_id,
             task_id=run_id,
@@ -92,11 +94,22 @@ class InnoFlow(FlowModule):
                 "prepare_artifact_dir": os.path.join(self.cache_path, "prepare_stage"),
                 "plan_artifact_dir": os.path.join(self.cache_path, "plan_stages"),
             },
+            require_verification_for_completion=(
+                kwargs.get("verification_check") is not None
+            ),
+            verification_check=kwargs.get("verification_check"),
         )
         runtime = pipeline.runtime
         run_context = pipeline.run_context
         context_variables = pipeline.context_variables
-        hypothesis = ProvidedIdeaStrategy().build_hypothesis(pipeline_request)
+        recall_context = kwargs.get("recall_context")
+        if recall_context is not None:
+            context_variables["recall_context"] = recall_context.model_dump(mode="json")
+            context_variables["recall_snapshot_id"] = recall_context.snapshot_id
+        hypothesis = ProvidedIdeaStrategy().build_hypothesis(
+            pipeline_request,
+            recall_context,
+        )
 
         github_result = self.git_search({"metadata": metadata})
         
@@ -509,8 +522,8 @@ Please evaluate the implementation, and give a suggestion about the implementati
             judge_messages.append({"role": "user", "content": query})
             judge_messages, context_variables = await self.judge_agent(judge_messages, context_variables, iter_times=i+1)
             judge_res = judge_messages[-1]["content"]
-            if '"fully_correct": true' in judge_messages[-1]["content"]:
-                break   
+            if implementation_ready(context_variables):
+                break
 
         # return judge_messages[-1]["content"]
         # submit the code to the environment -> get the result
@@ -639,6 +652,7 @@ Note that you should fully utilize the existing code in the directory `/{workpla
                 "judge_report": judge_res,
                 "submission_report": submit_res,
             },
+            "analysis": analysis_report,
             "metadata": {
                 "instance_path": instance_path,
                 "task_level": task_level,
@@ -699,6 +713,7 @@ def main(args, ideas, references):
     )
     container_name = args.container_name + "_" + instance_id + "_" + model_suffix
     os.makedirs(local_root, exist_ok=True)
+    experience = ExperienceRunAdapter.from_args(args, cache_path=cache_path)
     env_config = DockerConfig(container_name = container_name, 
                               workplace_name = args.workplace_name, 
                               communication_port = args.port, 
@@ -712,17 +727,106 @@ def main(args, ideas, references):
     ensure_legacy_workspace_aliases(code_env.local_workplace)
     web_env = BrowserEnv(browsergym_eval_env = None, local_root=env_config.local_root, workplace_name=env_config.workplace_name)
     file_env = RequestsMarkdownBrowser(viewport_size=1024 * 4, local_root=env_config.local_root, workplace_name=env_config.workplace_name, downloads_folder=os.path.join(env_config.local_root, env_config.workplace_name, "downloads"))
-    flow = InnoFlow(cache_path=cache_path, log_path="log_" + instance_id, code_env=code_env, web_env=web_env, file_env=file_env, model=args.model)
+    flow = InnoFlow(cache_path=cache_path, log_path="log_" + instance_id, code_env=code_env, web_env=web_env, file_env=file_env, model=args.model, cache_policy=getattr(args, "cache_policy", "reuse"))
     runtime = MasterRuntime(cache_path)
+    project_dir = os.path.join(local_root, args.workplace_name, "project")
+    recall_context = None
+    iteration_number = 1
+    attempt_recorded = False
     try:
-        result = asyncio.run(flow(instance_path=args.instance_path, task_level=args.task_level, local_root=local_root, workplace_name=args.workplace_name, max_iter_times=args.max_iter_times, category=args.category, ideas = ideas, references = references))
-        return build_and_save_eval_result(result, cache_path)
+        recall_context = experience.before_run(
+            task_id=instance_id,
+            query=ideas,
+            domain=args.category,
+            dataset_id=args.category,
+            model_family=args.model,
+        )
+        outcome = None
+        iteration_limit = (
+            experience.max_iterations if experience.runs_closed_loop else 1
+        )
+        for iteration_number in range(1, iteration_limit + 1):
+            attempt_recorded = False
+            result = asyncio.run(
+                flow(
+                    instance_path=args.instance_path,
+                    task_level=args.task_level,
+                    local_root=local_root,
+                    workplace_name=args.workplace_name,
+                    max_iter_times=args.max_iter_times,
+                    category=args.category,
+                    ideas=ideas,
+                    references=references,
+                    run_id=instance_id,
+                    recall_context=recall_context,
+                    verification_check=experience.pending_verification_check(),
+                )
+            )
+            outcome = experience.after_flow(
+                result,
+                project_dir=project_dir,
+                run_id=instance_id,
+                model=args.model,
+                domain=args.category,
+                dataset_id=args.category,
+                model_family=args.model,
+                recall_context=recall_context,
+                iteration_number=iteration_number,
+            )
+            attempt_recorded = experience.records_experience
+            experience.finalize_runtime(run_id=instance_id, outcome=outcome)
+            if (
+                not experience.runs_closed_loop
+                or outcome is None
+                or outcome.action != "continue"
+            ):
+                break
+            recall_context = experience.before_run(
+                task_id=instance_id,
+                query=ideas,
+                domain=args.category,
+                dataset_id=args.category,
+                model_family=args.model,
+            )
+        bundle = build_and_save_eval_result(result, cache_path)
+        bundle["experience_outcome"] = (
+            outcome.model_dump(mode="json") if outcome is not None else None
+        )
+        return bundle
     except Exception as exc:
+        experience_recording_error = None
+        if experience.records_experience and not attempt_recorded:
+            try:
+                failed_outcome = experience.after_failure(
+                    project_dir=project_dir,
+                    run_id=instance_id,
+                    task_id=instance_id,
+                    query=ideas,
+                    model=args.model,
+                    domain=args.category,
+                    dataset_id=args.category,
+                    model_family=args.model,
+                    recall_context=recall_context,
+                    iteration_number=iteration_number,
+                    error=exc,
+                )
+                experience.finalize_runtime(
+                    run_id=instance_id,
+                    outcome=failed_outcome,
+                )
+            except Exception as record_exc:
+                experience_recording_error = (
+                    f"{type(record_exc).__name__}: {record_exc}"
+                )
         runtime.write_failure_status(
             run_id=instance_id,
             error_message=str(exc),
             stage_name=runtime.next_stage(),
-            metadata={"entrypoint": "run_infer_plan", "task_level": args.task_level},
+            metadata={
+                "entrypoint": "run_infer_plan",
+                "task_level": args.task_level,
+                "experience_recording_error": experience_recording_error,
+            },
         )
         raise
     # print(judge_result)

@@ -221,3 +221,10 @@ def complete_stage_or_raise(
         artifacts=artifacts,
         metadata=metadata,
     )
+
+
+def implementation_ready(context_variables: dict[str, Any]) -> bool:
+    """Return the typed judge decision; prose output is never authoritative."""
+
+    decision = context_variables.get("suggestion_dict")
+    return isinstance(decision, dict) and decision.get("fully_correct") is True

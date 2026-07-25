@@ -88,6 +88,12 @@ class KnowledgeGate:
         reasons: list[str] = []
         if verification is None:
             return ["missing_verification"]
+        if experience.attempt.status != "completed":
+            reasons.append(f"attempt_not_completed:{experience.attempt.status}")
+        if experience.observation.exit_code != 0:
+            reasons.append(
+                f"observation_exit_code:{experience.observation.exit_code}"
+            )
         if not verification.valid:
             reasons.append("invalid_verification")
         if verification.outcome not in {"positive", "negative"}:

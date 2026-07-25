@@ -6,6 +6,7 @@ from research_agent.runtime import (
     ReferenceIdeationStrategy,
     ResearchPipeline,
     RunRequest,
+    implementation_ready,
     write_stage_artifact,
 )
 
@@ -130,3 +131,12 @@ def test_both_intent_strategies_cross_the_same_hypothesis_interface(tmp_path):
     assert reference.parent_experience_ids == ["experience-1"]
     assert provided.citations == ["knowledge:k1"]
     assert provided.mechanism != reference.mechanism
+
+
+def test_implementation_readiness_uses_typed_judge_state_not_prose():
+    assert implementation_ready(
+        {"suggestion_dict": {"fully_correct": True, "suggestion": None}}
+    )
+    assert not implementation_ready(
+        {"final_output": '{"fully_correct": true}'}
+    )

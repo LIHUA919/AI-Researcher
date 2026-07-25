@@ -168,6 +168,30 @@ def test_invalid_verification_never_promotes():
     assert ledger.list_promotion_decisions()[0].accepted is False
 
 
+def test_failed_attempt_is_retained_but_never_promoted():
+    ledger = InMemoryExperimentLedger()
+    loop = make_loop(ledger, [])
+    run = completion(suffix="1", score=0.8, iteration_number=1)
+    run = run.model_copy(
+        update={
+            "attempt": run.attempt.model_copy(update={"status": "failed"}),
+            "observation": run.observation.model_copy(
+                update={"exit_code": 1, "error": {"type": "RuntimeError"}}
+            ),
+        }
+    )
+
+    outcome = loop.after_run(run)
+
+    assert outcome.action == "invalid"
+    assert outcome.reason == "attempt_failed"
+    assert outcome.experience is not None
+    assert ledger.query(ExperienceQuery(task_id="task-vq")) == [
+        outcome.experience
+    ]
+    assert ledger.list_knowledge() == []
+
+
 class FailingRetriever:
     def recall(self, request):
         raise RuntimeError("index unavailable")

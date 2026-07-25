@@ -156,7 +156,13 @@ class ExperienceLoop:
             )
         self.ledger.append_promotion_decision(decision)
 
-        if not verification.valid:
+        if (
+            completion.attempt.status != "completed"
+            or completion.observation.exit_code != 0
+        ):
+            action = "invalid"
+            reason = "attempt_failed"
+        elif not verification.valid:
             action: LoopAction = (
                 "continue"
                 if completion.iteration_number < completion.max_iterations
