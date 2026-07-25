@@ -1,24 +1,10 @@
 from research_agent.inno.types import Agent
 from research_agent.inno.tools import gen_code_tree_structure, read_file, terminal_page_down, terminal_page_up, terminal_page_to
-from research_agent.inno.tools.inno_tools.code_search import search_github_repos
-from research_agent.inno.tools.inno_tools.web_tools import with_env as with_env_web
-from research_agent.inno.util import make_message, make_tool_message
 from research_agent.inno.registry import register_agent
 from research_agent.inno.environment.docker_env import DockerEnv
 from research_agent.inno.environment.docker_env import with_env as with_env_docker
-from research_agent.inno.environment.browser_env import BrowserEnv
-from research_agent.inno.tools.terminal_tools import execute_command
-from research_agent.inno.tools.file_surfer_tool import with_env as with_env_file
-from research_agent.inno.tools.file_surfer_tool import (
-    open_local_file,
-    page_up_markdown,
-    find_on_page_ctrl_f,
-    find_next,
-    visualizer,
-)
-from research_agent.inno.environment.markdown_browser import RequestsMarkdownBrowser
 from inspect import signature
-from typing import Dict, Any
+from typing import Dict
 import json
 
 
@@ -77,13 +63,7 @@ def get_code_review_agent(model: str, **kwargs):
 
 @register_agent("get_judge_agent")
 def get_judge_agent(model: str, **kwargs):
-    file_env: RequestsMarkdownBrowser = kwargs.get("file_env", None)
-    web_env: BrowserEnv = kwargs.get("web_env", None)
-    code_env: DockerEnv = kwargs.get("code_env", None)
-    # academic_search_agent = get_academic_search_agent(
-    #     model, web_env=web_env, code_env=code_env
-    # )
-    # filesurfer_agent = get_filesurfer_agent(model, file_env=file_env)
+    code_env: DockerEnv = kwargs.get("code_env")
     code_review_agent = get_code_review_agent(model, code_env=code_env)
 
     def instructions(context_variables):

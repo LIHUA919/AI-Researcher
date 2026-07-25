@@ -1,18 +1,15 @@
 from research_agent.inno.registry import register_tool
-from browsergym.core.action.highlevel import HighLevelActionSet
 from typing import Literal
 from research_agent.inno.environment.browser_env import BrowserEnv, VIEWPORT
-from research_agent.inno.environment.docker_env import DockerEnv, DockerConfig
+from research_agent.inno.environment.docker_env import DockerEnv
 from browsergym.utils.obs import flatten_axtree_to_str
-from dataclasses import dataclass, field
-from typing import Dict
+from dataclasses import dataclass
 from urllib.parse import quote_plus
 from research_agent.inno.types import Result
-from functools import partial, update_wrapper
+from functools import update_wrapper
 from inspect import signature
 import tiktoken
 from datetime import datetime
-from research_agent.inno.util import function_to_json
 # def with_env(env: BrowserEnv):
 #     """将env注入到工具函数中的装饰器"""
 #     def decorator(func):
@@ -316,7 +313,7 @@ def sleep(env: BrowserEnv):
     Wait a short period of time. Call this function if the page has not yet fully loaded, or if it is determined that a small delay would increase the task's chances of success.
     """
     try: 
-        action_str = f"noop(3000)"
+        action_str = "noop(3000)"
         obs = env.step(action_str)
         web_obs = to_web_obs(obs)
     except Exception as e:

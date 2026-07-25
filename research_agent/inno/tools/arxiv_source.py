@@ -210,7 +210,7 @@ def download_arxiv_source_by_title(paper_list: List[str], local_root: str, workp
                     "path": download_info["path"],
                 }
             )
-    index_path = _write_paper_index(local_root, workplace_name, index_entries)
+    _write_paper_index(local_root, workplace_name, index_entries)
     ret_msg.append(f"Paper index is available at /{workplace_name}/papers/index.md")
     return "\n".join(ret_msg)
     

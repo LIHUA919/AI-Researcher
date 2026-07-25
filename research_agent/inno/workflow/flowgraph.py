@@ -136,7 +136,7 @@ class Graph:
             while last_idx >= 0 and path[last_idx] != node:
                 last_idx -= 1
             # from the last occurrence to the end must form a complete cycle
-            cycle_nodes = set(path[last_idx:])
+            set(path[last_idx:])
             for i in range(last_idx, len(path) - 1):
                 if path[i + 1] not in self.graph[path[i]]:
                     return False
@@ -234,7 +234,7 @@ class Graph:
         labels = {node: attrs['node_name'] for node, attrs in self.nodes.items()}
 
         # get node colors
-        node_color_map = [attrs.get('color', 'lightblue') for node, attrs in self.nodes.items()]
+        [attrs.get('color', 'lightblue') for node, attrs in self.nodes.items()]
 
         # get node shapes
         shapes = set(attrs.get('shape', 'o') for attrs in self.nodes.values())

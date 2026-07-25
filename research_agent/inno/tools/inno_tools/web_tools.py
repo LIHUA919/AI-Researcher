@@ -1,19 +1,15 @@
-from research_agent.inno.registry import register_tool
-from browsergym.core.action.highlevel import HighLevelActionSet
 from typing import Literal
 from research_agent.inno.environment.browser_env import BrowserEnv, VIEWPORT
-from research_agent.inno.environment.docker_env import DockerEnv, DockerConfig
-from browsergym.utils.obs import flatten_axtree_to_str, flatten_dom_to_str
-from dataclasses import dataclass, field
-from typing import Dict, List
+from research_agent.inno.environment.docker_env import DockerEnv
+from browsergym.utils.obs import flatten_axtree_to_str
+from dataclasses import dataclass
 from urllib.parse import quote_plus
 from research_agent.inno.types import Result
-from functools import partial, update_wrapper
+from functools import update_wrapper
 from inspect import signature
 import tiktoken
 from datetime import datetime
 from collections import defaultdict
-from research_agent.inno.util import function_to_json
 from research_agent.inno.environment.browser_cookies import get_all_cookies
 import requests
 import re
@@ -312,7 +308,7 @@ def sleep(env: BrowserEnv):
     Wait a short period of time. Call this function if the page has not yet fully loaded, or if it is determined that a small delay would increase the task's chances of success.
     """
     try: 
-        action_str = f"noop(3000)"
+        action_str = "noop(3000)"
         obs = env.step(action_str)
         web_obs = to_web_obs(obs)
     except Exception as e:
@@ -565,10 +561,6 @@ def post_process_pdf_link(result_list: list):
         assert result["pdf_link"] != "", f"The pdf link of the paper {result['title']} is not found"
     return result_list
 def wrap_google_scholar_search(web_obs: WebObservation, action_description: str = ""):
-    error_prefix = ""
-    if web_obs.error:
-        error_prefix = get_error_prefix(web_obs.last_browser_action, web_obs.last_browser_action_error)
-    cur_url = web_obs.url
     try:
         # cur_axtree_txt = flatten_dom_to_str(
         #     web_obs.dom_object,
@@ -709,7 +701,7 @@ def download_from_pdf_link(env: BrowserEnv, pdf_link: str, save_name: str):
             else:
                 # 如果找不到PDF URL，可能需要其他方式处理
                 print("No PDF URL found in response")
-                return f"No PDF URL found in response"
+                return "No PDF URL found in response"
                 # 尝试使用原始响应内容
 
         # 保存文件

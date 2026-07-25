@@ -16,11 +16,9 @@ import pathvalidate
 import requests
 
 from .abstract_markdown_browser import AbstractMarkdownBrowser
-from .markdown_search import AbstractMarkdownSearch, BingMarkdownSearch
 
 from .mdconvert import FileConversionException, MarkdownConverter, UnsupportedFormatException  # type: ignore
 from research_agent.inno.memory.paper_memory import PaperMemory
-from research_agent.constant import API_BASE_URL
 def normalize_collection_name(name: str) -> str:
     """
     Normalize collection name to meet the following requirements:

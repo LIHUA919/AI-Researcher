@@ -6,17 +6,18 @@ from research_agent.constant import BASE_IMAGES, AI_USER, GITHUB_AI_TOKEN, GPUS,
 import time
 import socket
 import json
+from dataclasses import dataclass, field
+from functools import update_wrapper
+from inspect import signature
 from pathlib import Path
-import shutil
 from tenacity import retry, stop_after_attempt, wait_exponential, before_sleep_log
+from typing import Optional, Union, Dict
 
 logger = logging.getLogger(__name__)
 
 wd = Path(__file__).parent.resolve()
-from dataclasses import dataclass, field
-from typing import Optional, Union, Dict
-from functools import update_wrapper
-from inspect import signature
+
+
 @dataclass
 class DockerConfig: 
     container_name: str
@@ -64,7 +65,7 @@ class DockerEnv:
                 
                 result = subprocess.run(git_command, shell=True)
                 if result.returncode != 0:
-                    raise Exception(f"Failed to clone the repository. Please check your internet connection and try again.")
+                    raise Exception("Failed to clone the repository. Please check your internet connection and try again.")
                 # create a new branch
             new_branch_name = f"{self.test_pull_name}_{self.task_name}"
             create_branch_command = f"cd {self.local_workplace}/metachain && git checkout -b {new_branch_name}"

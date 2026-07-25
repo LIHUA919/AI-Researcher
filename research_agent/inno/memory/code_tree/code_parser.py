@@ -1,5 +1,4 @@
 import dataclasses
-from tree_sitter import Language
 import tree_sitter
 import glob
 import uuid

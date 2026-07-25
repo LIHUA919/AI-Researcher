@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, List, Literal, Optional
+from typing import Callable, Dict, Literal, Optional
 
 from research_agent.inno.skills.base import SkillManifest
 

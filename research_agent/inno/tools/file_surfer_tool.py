@@ -1,5 +1,5 @@
 from research_agent.inno.environment.markdown_browser import RequestsMarkdownBrowser
-from functools import partial, update_wrapper
+from functools import update_wrapper
 from inspect import signature
 from typing import Tuple
 import time
@@ -227,8 +227,8 @@ Please answer my question based on the content.
         res = completion(model=COMPLETION_MODEL, messages=msg, base_url=API_BASE_URL)
         answer = res.choices[0].message.content
         return answer
-    except FileNotFoundError as e:
-        return f"Before ask a question on the whole page, you must use `open_local_file` to open a file first."
+    except FileNotFoundError:
+        return "Before ask a question on the whole page, you must use `open_local_file` to open a file first."
     except Exception as e:
         return f"Error in `question_answer_on_whole_page`: {e}"
 
@@ -243,6 +243,6 @@ if __name__ == "__main__":
     print(open_local_file(env, f"/{workplace_name}/denoising_diffusion_implicit_models.tex"))
     print("Question answer on whole page", "~"*100)
     
-    print(question_answer_on_whole_page(env, f"Please give me the formula of the ddim model. And compare it with the ddpm model mathematically."))
+    print(question_answer_on_whole_page(env, "Please give me the formula of the ddim model. And compare it with the ddpm model mathematically."))
     # print(visualizer("/workplace_meta/downloads/workflow.png").image)
     # print(visualizer("/workplace_meta/downloads/workflow.png", "What is the main idea of this paper?").image)

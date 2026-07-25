@@ -7,12 +7,11 @@ from research_agent.inno.tools.file_surfer_tool import (
     page_down_markdown,
     find_on_page_ctrl_f,
     find_next,
-    visualizer,
     question_answer_on_whole_page
 )
 from research_agent.inno.environment.markdown_browser import RequestsMarkdownBrowser
 from research_agent.inno.environment.docker_env import with_env as with_env_docker
-from research_agent.inno.environment.docker_env import DockerConfig, DockerEnv
+from research_agent.inno.environment.docker_env import DockerEnv
 from research_agent.inno.types import Agent
 from inspect import signature
 from research_agent.inno.types import Result
@@ -199,7 +198,7 @@ def get_survey_agent(model: str = "gpt-4o", **kwargs):
     assert code_env is not None, "code_env is required"
 
     def instructions(context_variables):
-        return f"""\
+        return """\
 1. INPUT ANALYSIS
 - You will receive a list of research papers and their corresponding codebases
 - You will also receive specific innovative ideas that need to be implemented

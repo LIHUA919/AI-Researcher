@@ -21,21 +21,17 @@ from .shutdown_listener import should_continue, should_exit
 from .tenacity_stop import stop_if_should_exit
 from datetime import datetime
 from pathlib import Path
-from browsergym.core.action.functions import goto, page, get_elem_by_bid, demo_mode, tab_focus
+from browsergym.core.action.functions import goto, page, get_elem_by_bid, demo_mode
 import os
 from typing import Dict, Union, cast, Literal
-from playwright.sync_api import Page, Download
-from research_agent.inno.io_utils import read_file
 from research_agent.inno.environment.mdconvert import _get_page_markdown
 from research_agent.inno.environment.browser_cookies import convert_cookies_to_python
 from research_agent.inno.environment.cookies_data import COOKIES_LIST
 # from constant import DOCKER_WORKPLACE_NAME, LOCAL_ROOT
-from functools import update_wrapper
-from inspect import signature
-import types    
-import sys
 import tempfile
+
 VIEWPORT = {"width": 1280, "height": 720}
+local_workplace = ""
 
 BROWSER_EVAL_GET_GOAL_ACTION = 'GET_EVAL_GOAL'
 BROWSER_EVAL_GET_REWARDS_ACTION = 'GET_EVAL_REWARDS'
@@ -62,14 +58,6 @@ def _visit_page(url: str):
     Examples:
         _visit_page('https://archive.org/download/higpt_stage2/instruct_ds_dblp.tar.gz')
     """
-    # def _local_to_docker(local_path: str):
-    #     """
-    #     Convert a local path to a docker path
-    #     local_path: the local path to convert, like `{LOCAL_ROOT}/{DOCKER_WORKPLACE_NAME}/downloads/xxx`
-    #     docker_path: the docker path to convert, like `/{DOCKER_WORKPLACE_NAME}/downloads/xxx`
-    #     """
-    #     assert LOCAL_ROOT in local_path, f"local_path must contain {LOCAL_ROOT}"
-    #     return local_path.replace(LOCAL_ROOT, '')
     try:
         # 尝试作为普通网页访问
         page.context.add_cookies(COOKIES_LIST)
@@ -143,30 +131,6 @@ def _visit_page(url: str):
         else:
             raise e_outer
         
-# def _click_id(bid: str, button: Literal["left", "middle", "right"] = "left"):
-#     """
-#     Clicks the mouse on the target with the given element bid.
-
-#     Examples:
-#         _click_id('12')
-#         _click_id('12', button='left')
-#     """
-#     from typing import Dict, Union, cast
-#     try:
-#         elem = get_elem_by_bid(page, bid, demo_mode != "off")
-#         box = cast(Dict[str, Union[int, float]], elem.bounding_box())
-#         # 如果既不是下载也不是新页面，在当前页面处理
-#         page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, button=button)
-#         try:
-#             page.wait_for_load_state("networkidle", timeout=5000)
-#         except:
-#             pass
-#         return
-                
-#     except Exception as e:
-#         raise Exception(f"Click error: {str(e)}")
-
-
 def _click_id(bid: str, button: Literal["left", "middle", "right"] = "left"):
     """
     Clicks the mouse on the target with the given element bid.
@@ -175,15 +139,6 @@ def _click_id(bid: str, button: Literal["left", "middle", "right"] = "left"):
         _click_id('12')
         _click_id('12', button='left')
     """
-    # def _local_to_docker(local_path: str):
-    #     """
-    #     Convert a local path to a docker path
-    #     local_path: the local path to convert, like `{LOCAL_ROOT}/{DOCKER_WORKPLACE_NAME}/downloads/xxx`
-    #     docker_path: the docker path to convert, like `/{DOCKER_WORKPLACE_NAME}/downloads/xxx`
-    #     """
-    #     assert LOCAL_ROOT in local_path, f"local_path must contain {LOCAL_ROOT}"
-    #     return local_path.replace(LOCAL_ROOT, '')
-    from typing import Dict, Union, cast
     import time
     import base64
     import os
@@ -265,7 +220,7 @@ def _click_id(bid: str, button: Literal["left", "middle", "right"] = "left"):
                     # 等待页面完全加载
                     # 增加等待时间，确保页面完全加载
                     page.wait_for_load_state("networkidle", timeout=3000)
-            except:
+            except Exception:
                 pass
             
         return
@@ -331,7 +286,7 @@ def _checkMeetChallenge():
                       (!document.body.textContent.includes("请完成以下操作，验证您是真人。") &&
                        !document.body.textContent.includes("Verify you are human by completing the action below."))
             """, timeout=20000)
-        except:
+        except Exception:
             print("等待验证超时")
         
         # 检查是否仍在验证页面
@@ -627,7 +582,7 @@ def source_to_function(source_code: str, func_name: str):
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
         f.write(source_code)
         temp_path = f.name
-    
+
     try:
         # 导入临时模块
         import importlib.util
@@ -642,6 +597,3 @@ def source_to_function(source_code: str, func_name: str):
     finally:
         # 清理临时文件
         os.unlink(temp_path)
-
-    
-    

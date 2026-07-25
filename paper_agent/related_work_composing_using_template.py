@@ -5,7 +5,6 @@ import logging
 from tqdm import tqdm
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from benchmark_collection.utils.openai_utils import GPTClient
 from paper_agent.section_composer import SectionComposer, setup_logging
 
 class RelatedWorkComposer(SectionComposer):
@@ -291,7 +290,7 @@ async def related_work_composing(research_field: str, instance_id: str):
     papers_dir = os.path.join(proj_dir, 'workplace', 'papers')
     
     try:
-        related_work = await composer.compose_section(
+        await composer.compose_section(
             agent_dir, papers_dir, benchmark_path, instance_id)
         logging.info("Related work composition completed")
     except Exception as e:

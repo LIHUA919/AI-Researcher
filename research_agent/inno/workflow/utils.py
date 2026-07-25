@@ -27,7 +27,7 @@ def complete_workflow(workflow: Dict, description: str) -> Dict:
     Complete the workflow to a more detailed workflow graph.
     """
     workflow_prompt = \
-f"""
+"""
 You are a workflow designer which can complete the workflow graph I give you to a more detailed workflow graph.
 """
     user_prompt = \

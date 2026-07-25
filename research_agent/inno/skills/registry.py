@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional, Tuple
 
-from research_agent.inno.registry import Registry, registry
-from research_agent.inno.skills.base import Skill, SkillManifest
+from research_agent.inno.registry import registry
+from research_agent.inno.skills.base import Skill
 from research_agent.inno.skills.agent_card import AgentCard, build_agent_card
 from research_agent.inno.skills.events import SkillEvent, skill_event_bus
 from research_agent.inno.skills.loader import SkillLoader

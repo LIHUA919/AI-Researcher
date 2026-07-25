@@ -5,32 +5,26 @@ import os
 import asyncio
 from collections import defaultdict
 from typing import List, Callable, Union
-from datetime import datetime
 # Local imports
-import litellm
 from litellm import ContextWindowExceededError, BadRequestError
 from litellm.types.utils import Message as litellmMessage
-from .util import function_to_json, debug_print, merge_chunk, pretty_print_messages
+from .util import function_to_json
 from .types import (
     Agent,
     AgentFunction,
     Message,
     ChatCompletionMessageToolCall,
-    Function,
     Response,
     Result,
 )
 from litellm import completion, acompletion
-from pathlib import Path
 from .logger import MetaChainLogger, LoggerManager
 from httpx import RemoteProtocolError, ConnectError, TimeoutException
 from litellm.exceptions import APIError
 from tenacity import RetryCallState
-from openai import AsyncOpenAI
 from research_agent.constant import  API_BASE_URL, CHEEP_MODEL, COMPLETION_MODEL, NOT_SUPPORT_SENDER, MUST_ADD_USER, NOT_SUPPORT_FN_CALL, NOT_USE_FN_CALL
 from research_agent.inno.fn_call_converter import convert_tools_to_description, convert_non_fncall_messages_to_fncall_messages, SYSTEM_PROMPT_SUFFIX_TEMPLATE, convert_fn_messages_to_non_fn_messages, interleave_user_into_messages
 from research_agent.inno.memory.utils import encode_string_by_tiktoken, decode_tokens_by_tiktoken
-import re
 
 # litellm.set_verbose=True
 # litellm.num_retries = 3
@@ -104,8 +98,21 @@ class MetaChain:
             self.logger = log_path
         else:
             self.logger = MetaChainLogger(log_path=log_path)
-        if self.logger.log_path is None: self.logger.info("[Warning] Not specific log path, so log will not be saved", "...", title="Log Path", color="light_cyan3")
-        else: self.logger.info("Log file is saved to", self.logger.log_path, "...", title="Log Path", color="light_cyan3")
+        if self.logger.log_path is None:
+            self.logger.info(
+                "[Warning] Not specific log path, so log will not be saved",
+                "...",
+                title="Log Path",
+                color="light_cyan3",
+            )
+        else:
+            self.logger.info(
+                "Log file is saved to",
+                self.logger.log_path,
+                "...",
+                title="Log Path",
+                color="light_cyan3",
+            )
 
     def _normalize_model_name(self, model_name: str, primary_model: str) -> str:
         if not model_name:
@@ -592,7 +599,7 @@ class MetaChain:
         max_turns: int = float("inf"),
         execute_tools: bool = True,
     ) -> Response:
-        assert stream == False, "Async run does not support stream"
+        assert not stream, "Async run does not support stream"
         active_agent = agent
         enter_agent = agent
         context_variables = copy.deepcopy(context_variables)

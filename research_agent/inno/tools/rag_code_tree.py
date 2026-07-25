@@ -1,4 +1,4 @@
-from research_agent.inno.memory.codetree_memory import CodeTreeMemory, DummyReranker
+from research_agent.inno.memory.codetree_memory import CodeTreeMemory
 from research_agent.inno.memory.code_memory import CodeReranker
 from research_agent.inno.environment.docker_env import DockerEnv
 import os

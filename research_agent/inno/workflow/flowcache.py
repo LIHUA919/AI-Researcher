@@ -6,7 +6,6 @@ from research_agent.inno.core import MetaChain, MetaChainLogger
 from typing import Union, Dict, List, Callable, Any
 from research_agent.inno import Agent
 from abc import ABC, abstractmethod
-from torch import nn
 from research_agent.inno.evals.trace import AgentStepTrace, ToolCallTrace
 
 
