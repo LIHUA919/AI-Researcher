@@ -284,6 +284,10 @@ functional test failures.
 4. Promote claims to durable knowledge only after reproducible evaluation.
 5. Measure whether retained experience improves future research decisions.
 
+The implementation contracts, module seams, rollout phases, and acceptance
+criteria are defined in the
+[Experience-Driven Research Loop Design](docs/design/experience-driven-research-loop.md).
+
 The target is not the AI with the longest context window. It is the AI that
 learns the most from experience.
 
