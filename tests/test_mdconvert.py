@@ -2,12 +2,9 @@
 
 import io
 import os
-import tempfile
 
-import pytest
 
 from research_agent.inno.environment.markdown_browser.mdconvert import (
-    DocumentConverterResult,
     HtmlConverter,
     MarkdownConverter,
     PlainTextConverter,

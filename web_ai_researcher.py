@@ -2,16 +2,12 @@ from main_ai_researcher import main_ai_researcher
 import os
 import gradio as gr
 import time
-import json
 import logging
 import datetime
 from typing import Tuple
-import importlib
 from dotenv import load_dotenv, set_key, find_dotenv, unset_key
 import threading
 import queue
-import re  # For regular expression operations
-import random
 import global_state
 import base64
 
@@ -24,7 +20,7 @@ os.environ['no_proxy'] = 'localhost,127.0.0.1,0.0.0.0'
 
 def setup_path():
     # logs_dir = os.path.join("casestudy_results", f'agent_{container_name}', 'logs')
-    logs_dir = os.path.join("casestudy_results", f'agent', 'logs')
+    logs_dir = os.path.join("casestudy_results", 'agent', 'logs')
     os.makedirs(logs_dir, exist_ok=True)
 
     # 生成日志文件名（使用当前日期）

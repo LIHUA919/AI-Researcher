@@ -24,7 +24,7 @@ def init_container(workplace_name, container_name, test_pull_name = 'test_pull_1
             
             result = subprocess.run(git_command, shell=True)
             if result.returncode != 0:
-                raise Exception(f"Failed to clone the repository. Please check your internet connection and try again.")
+                raise Exception("Failed to clone the repository. Please check your internet connection and try again.")
             # create a new branch
         new_branch_name = f"{test_pull_name}_{task_name}"
         create_branch_command = f"cd {workplace}/metachain && git checkout -b {new_branch_name}"
@@ -87,7 +87,7 @@ def wait_for_container_ready(container_name, timeout=30):
                 result = run_command_in_container('ps aux')
                 if "tcp_server.py" in result['result']:
                     return True
-            except Exception as e:
+            except Exception:
                 pass
             
         time.sleep(1)

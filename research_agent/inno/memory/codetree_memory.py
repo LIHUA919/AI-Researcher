@@ -1,8 +1,6 @@
 import os
 from typing import List, Dict
 from research_agent.inno.memory.rag_memory import Memory, Reranker
-import openai
-import re
 from research_agent.inno.memory.code_tree.code_parser import CodeParser, to_dataframe_row
 from tree_sitter import Language
 from loguru import logger

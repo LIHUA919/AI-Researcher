@@ -7,7 +7,7 @@ from research_agent.inno.registry import register_tool
 
 @register_tool("get_current_branch")
 def get_current_branch(env: DockerEnv):
-    f"""
+    """
     Get the current branch of the 'metachain'.
     """
     branch_command = f"cd {env.docker_workplace}/metachain && git branch --show-current"
@@ -19,7 +19,7 @@ def get_current_branch(env: DockerEnv):
 
 @register_tool("get_diff")
 def get_diff(env: DockerEnv): 
-    f"""
+    """
     Get the diff of the 'metachain'.
     """
     diff_command = f"cd {env.docker_workplace}/metachain && git add -N . && git diff"

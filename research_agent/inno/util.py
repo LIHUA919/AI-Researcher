@@ -3,7 +3,7 @@ from datetime import datetime
 import socket
 import json
 import uuid
-from typing import Callable, List, Dict, Any, Optional, Callable, Union, get_args, get_origin
+from typing import List, Dict, Optional, Callable, Union, get_args, get_origin
 from dataclasses import is_dataclass, fields, MISSING
 from pydantic import BaseModel
 from rich.panel import Panel
@@ -11,10 +11,7 @@ from rich.prompt import Prompt
 from rich.console import Console
 import inquirer
 from rich.markdown import Markdown
-from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
-from prompt_toolkit.formatted_text import HTML
-from prompt_toolkit.styles import Style
 def debug_print_swarm(debug: bool, *args: str) -> None:
     if not debug:
         return
@@ -66,7 +63,7 @@ def ask_text(question: str, title: str = "User", console: Optional[Console] = No
     console = console or Console()
 
     console.print(Panel(question, title=title, border_style="green"))
-    answer = Prompt.ask(f"Type your answer here, press Enter to use default answer", default=default_answer)
+    answer = Prompt.ask("Type your answer here, press Enter to use default answer", default=default_answer)
     console.print(Panel(answer, title=title))
     return answer
 
@@ -142,7 +139,7 @@ def get_type_info(annotation, base_type_map):
         # 处理Dict类型
         elif origin is dict or origin is Dict:
             key_type, value_type = args
-            if key_type != str:
+            if key_type is not str:
                 raise ValueError("Dictionary keys must be strings")
             
             # 如果value_type是TypedDict或Pydantic模型
@@ -158,7 +155,7 @@ def get_type_info(annotation, base_type_map):
         
         # 处理Union类型
         elif origin is Union:
-            types = [get_type_info(arg, base_type_map) for arg in args if arg != type(None)]
+            types = [get_type_info(arg, base_type_map) for arg in args if arg is not type(None)]
             if len(types) == 1:
                 return types[0]
             return {"oneOf": types}

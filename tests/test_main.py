@@ -1,9 +1,7 @@
 """Tests for main_ai_researcher module."""
 
-import os
 import sys
 
-import pytest
 
 
 class TestInitAiResearcher:

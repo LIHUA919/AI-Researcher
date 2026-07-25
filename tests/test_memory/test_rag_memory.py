@@ -3,8 +3,6 @@
 These tests avoid API calls by using the local SentenceTransformer backend.
 """
 
-import os
-import tempfile
 
 import pytest
 

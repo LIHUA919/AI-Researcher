@@ -2,10 +2,8 @@ import os
 import json
 import asyncio
 import logging
-from tqdm import tqdm
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from benchmark_collection.utils.openai_utils import GPTClient
 from paper_agent.section_composer import SectionComposer, setup_logging
 
 class IntroductionComposer(SectionComposer):
@@ -254,7 +252,7 @@ async def introduction_composing(research_field: str, instance_id: str):
     # benchmark_path = f"/data2/tjb/Inno-agent/benchmark/final/{research_field}/{instance_id}.json"
     benchmark_path = f'./benchmark/final/{research_field}/{instance_id}.json'
     try:
-        introduction = await composer.compose_section(benchmark_path, instance_id)
+        await composer.compose_section(benchmark_path, instance_id)
         logging.info("Introduction composition completed")
     except Exception as e:
         logging.error(f"Error during introduction composition: {str(e)}")

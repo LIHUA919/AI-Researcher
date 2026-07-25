@@ -1,6 +1,5 @@
 """Integration tests: skills with Agent and function_to_json."""
 
-import pytest
 
 from research_agent.inno.skills.base import Skill, SkillManifest
 from research_agent.inno.types import Agent

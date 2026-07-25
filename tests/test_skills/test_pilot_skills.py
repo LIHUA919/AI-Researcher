@@ -1,6 +1,5 @@
 """Tests for the 5 pilot skills."""
 
-import pytest
 
 from research_agent.inno.skills.loader import SkillLoader
 

@@ -1,7 +1,6 @@
 """Tests for MemoryAwareMetaChain wrapper."""
 
 from dataclasses import dataclass
-from typing import List
 from unittest.mock import MagicMock
 
 import pytest

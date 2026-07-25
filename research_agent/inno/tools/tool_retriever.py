@@ -24,7 +24,7 @@ def get_api_doc(query_text: str) -> str:
     res_df = tool_memory.query_table(query_text, n_results=20)
     try:
         reranked_df = tool_reranker.rerank(query_text, res_df)
-    except Exception as e:
+    except Exception:
         return res_df
     wrapped_res = \
 f"""

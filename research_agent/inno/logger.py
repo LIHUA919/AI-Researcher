@@ -44,7 +44,8 @@ class MetaChainLogger:
             self.console.print(self._wrap_title(title, f"bold {color}"))
             self.console.print(escape(log_str), highlight=True, emoji=True)
         log_str = self._wrap_title(title) + "\n" + log_str
-        if self.log_path: self._write_log(log_str)
+        if self.log_path:
+            self._write_log(log_str)
     def warning(self, *args: str, **kwargs: dict):
         kwargs.setdefault("color", "yellow")
         kwargs.setdefault("title", "WARNING")
@@ -60,7 +61,8 @@ class MetaChainLogger:
         # Only print to console in debug mode (info already checks self.debug)
         self.info(*args, **kwargs)
     def lprint(self, *args: str, **kwargs: dict):
-        if not self.debug: return
+        if not self.debug:
+            return
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         message = "\n".join(map(str, args))
         color = kwargs.get("color", "white")
@@ -86,14 +88,17 @@ class MetaChainLogger:
     def _print_assistant_message(self, message, timestamp: str):
         self.console.print(self._wrap_title("Assistant Message", "bold light_salmon3"))
         self.console.print(f"{self._wrap_timestamp(timestamp, color=True)}\n[bold blue]{message['sender']}[/bold blue]:", end=" ")
-        if message["content"]: self.console.print(escape(message["content"]), highlight=True, emoji=True) 
-        else: self.console.print(None, highlight=True, emoji=True)
+        if message["content"]:
+            self.console.print(escape(message["content"]), highlight=True, emoji=True)
+        else:
+            self.console.print(None, highlight=True, emoji=True)
     def _save_assistant_message(self, message, timestamp: str):
         self._write_log(self._wrap_title("Assistant Message"))
         content = message["content"] if message["content"] else None
         self._write_log(f"{self._wrap_timestamp(timestamp, color=False)}\n{message['sender']}: {content}")
     def _print_tool_call(self, tool_calls: List, timestamp: str):
-        if len(tool_calls) >= 1: self.console.print(self._wrap_title("Tool Calls", "bold light_pink1"))
+        if tool_calls:
+            self.console.print(self._wrap_title("Tool Calls", "bold light_pink1"))
 
         for tool_call in tool_calls:
             f = tool_call["function"]
@@ -101,7 +106,8 @@ class MetaChainLogger:
             arg_str = self._warp_args(args)
             self.console.print(f"{self._wrap_timestamp(timestamp, color=True)}\n[bold purple]{name}[/bold purple]({escape(arg_str)})")
     def _save_tool_call(self, tool_calls: List, timestamp: str):
-        if len(tool_calls) >= 1: self._write_log(self._wrap_title("Tool Calls"))
+        if tool_calls:
+            self._write_log(self._wrap_title("Tool Calls"))
 
         for tool_call in tool_calls:
             f = tool_call["function"]
@@ -118,21 +124,27 @@ class MetaChainLogger:
         # handle tool call
         if message["role"] == "tool":
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            if self.log_path: self._save_tool_execution(message, timestamp)
-            if self.debug: self._print_tool_execution(message, timestamp)
+            if self.log_path:
+                self._save_tool_execution(message, timestamp)
+            if self.debug:
+                self._print_tool_execution(message, timestamp)
             return
         
         # handle assistant message
         # print agent name in blue
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if self.log_path: self._save_assistant_message(message, timestamp)
-        if self.debug: self._print_assistant_message(message, timestamp)
+        if self.log_path:
+            self._save_assistant_message(message, timestamp)
+        if self.debug:
+            self._print_assistant_message(message, timestamp)
 
         # print tool calls in purple, if any
         tool_calls = message.get("tool_calls") or []
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if self.log_path: self._save_tool_call(tool_calls, timestamp)
-        if self.debug: self._print_tool_call(tool_calls, timestamp)
+        if self.log_path:
+            self._save_tool_call(tool_calls, timestamp)
+        if self.debug:
+            self._print_tool_call(tool_calls, timestamp)
 class LoggerManager:
     _instance = None
     _logger: MetaChainLogger = None

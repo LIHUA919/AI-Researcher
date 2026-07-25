@@ -6,24 +6,17 @@ from research_agent.inno.tools.file_surfer_tool import (
     page_down_markdown,
     find_on_page_ctrl_f,
     find_next,
-    visualizer,
     question_answer_on_whole_page
 )
 from research_agent.inno.environment.markdown_browser import RequestsMarkdownBrowser
 from research_agent.inno.environment.docker_env import with_env as with_env_docker
-from research_agent.inno.tools.inno_tools.web_tools import with_env as with_env_web
-from research_agent.inno.environment.docker_env import DockerConfig, DockerEnv
-from research_agent.inno.environment.browser_env import BrowserEnv
+from research_agent.inno.environment.docker_env import DockerEnv
 from research_agent.inno.types import Agent
 from inspect import signature
 from research_agent.inno.types import Result
 from research_agent.inno.tools.terminal_tools import gen_code_tree_structure, read_file, terminal_page_down, terminal_page_up, terminal_page_to, list_files
 from typing import List
 
-from research_agent.inno.tools.inno_tools.web_tools import (
-    google_scholar_search,
-    download_from_pdf_link,
-)
 
 def get_idea_agent(model: str, **kwargs):
     file_env: RequestsMarkdownBrowser = kwargs.get("file_env", None)
@@ -138,15 +131,6 @@ Remember: Your output will guide the implementation phase. Be thorough, innovati
         for tool in tool_list
     ]
 
-    # web_tool_list = [
-    #     google_scholar_search,
-    #     download_from_pdf_link,
-    # ]
-    # web_tool_list = [
-    #     with_env_web(web_env)(tool) if "env" in signature(tool).parameters else tool
-    #     for tool in web_tool_list
-    # ]
-
     return Agent(
         name="Paper Survey Agent",
         model=model,
@@ -241,7 +225,7 @@ def get_survey_agent(model: str = "gpt-4o", **kwargs):
     assert code_env is not None, "code_env is required"
 
     def instructions(context_variables):
-        return f"""\
+        return """\
 1. INPUT ANALYSIS
 - You will receive a list of research papers and their corresponding codebases
 - You will also receive specific innovative ideas that need to be implemented

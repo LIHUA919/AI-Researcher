@@ -1,11 +1,8 @@
 import os
-import json
 import asyncio
 import logging
-from tqdm import tqdm
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from benchmark_collection.utils.openai_utils import GPTClient
 from paper_agent.section_composer import SectionComposer, setup_logging
 
 class ConclusionComposer(SectionComposer):
@@ -58,7 +55,6 @@ Output only the LaTeX structure with comments as specified above."""
         return await self.gpt_client.chat(prompt=prompt)
 
     async def detailize_subsection(self, structure, current_text, content):
-        writing_template = self.get_random_template()
         prompt = f"""Write a comprehensive conclusion section based on the provided structure and content.
 
 CURRENT CONCLUSION VERSION (if any):
@@ -184,7 +180,7 @@ async def conclusion_composing(research_field: str, instance_id: str):
     # target_paper = 'Heterogeneous Graph Contrastive Learning for Recommendation'
     
     try:
-        conclusion = await composer.compose_section(instance_id)
+        await composer.compose_section(instance_id)
         logging.info("Conclusion composition completed")
     except Exception as e:
         logging.error(f"Error during conclusion composition: {str(e)}")

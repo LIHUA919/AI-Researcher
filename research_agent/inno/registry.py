@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Any, Union, Literal, List, Optional
+from typing import Callable, Dict, Literal, List, Optional
 from dataclasses import dataclass, asdict
 import inspect
 @dataclass
@@ -50,8 +50,6 @@ class Registry:
             nonlocal name
             if name is None:
                 name = func.__name__
-                # if type == "agent" and name.startswith('get_'):
-                #     name = name[4:]  # 对 agent 移除 'get_' 前缀
             
             # 获取函数信息
             signature = inspect.signature(func)
@@ -112,4 +110,3 @@ def register_tool(name: str = None):
 
 def register_agent(name: str = None):
     return registry.register(type="agent", name=name)
-

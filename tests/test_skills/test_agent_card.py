@@ -1,12 +1,10 @@
 """Tests for A2A Agent Card export."""
 
 import json
-import textwrap
-from pathlib import Path
 
 import pytest
 
-from research_agent.inno.skills.agent_card import AgentCard, AgentCapability, build_agent_card
+from research_agent.inno.skills.agent_card import build_agent_card
 from research_agent.inno.skills.base import Skill, SkillManifest
 from research_agent.inno.skills.registry import SkillRegistry
 
@@ -19,13 +17,12 @@ def _make_skill(name, tools, description="", tags=None):
         tags=tags or [],
     )
 
-    def dummy():
-        pass
-
     fns = []
-    for t in tools:
-        fn = lambda: None
-        fn.__name__ = t
+    for tool_name in tools:
+        def fn():
+            return None
+
+        fn.__name__ = tool_name
         fns.append(fn)
     return Skill(manifest=manifest, functions=fns)
 

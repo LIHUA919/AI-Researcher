@@ -1,6 +1,6 @@
+import concurrent.futures
 import os
 import requests
-import json
 from typing import Optional, Dict, List
 import time
 class GitHubClient:
@@ -85,77 +85,6 @@ class GitHubSearcher:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         
-    # def search_code(self, 
-    #                 repo_owner: str, 
-    #                 repo_name: str, 
-    #                 query: str, 
-    #                 language: Optional[str] = None,
-    #                 per_page: int = 1) -> Dict:
-    #     """
-    #     Search code in a specific repository
-        
-    #     Args:
-    #         repo_owner: The owner of the repository
-    #         repo_name: The name of the repository
-    #         query: The search keyword
-    #         language: The programming language filter, optional
-    #         per_page: The number of results per page
-            
-    #     Returns:
-    #         dict: The search results
-    #     """
-    #     # Modify the search URL
-    #     base_url = "https://api.github.com/search/code"  # Modify here
-        
-    #     # Build the query parameters
-    #     q = f"repo:{repo_owner}/{repo_name} {query}"
-    #     if language:
-    #         q += f" language:{language}"
-        
-    #     params = {
-    #         'q': q,
-    #         'per_page': per_page  # add this parameter
-    #     }
-        
-    #     try:
-    #         response = self.session.get(base_url, params=params)
-    #         response.raise_for_status()  # Check if the request is successful
-            
-    #         # Handle rate limiting
-    #         if 'X-RateLimit-Remaining' in response.headers:
-    #             remaining = int(response.headers['X-RateLimit-Remaining'])
-    #             if remaining < 10:  # If the remaining requests are less, pause for a while
-    #                 reset_time = int(response.headers['X-RateLimit-Reset'])
-    #                 sleep_time = reset_time - time.time()
-    #                 if sleep_time > 0:
-    #                     time.sleep(sleep_time)
-            
-    #         return response.json()
-            
-    #     except requests.exceptions.RequestException as e:
-    #         return {
-    #             'status': 'error',
-    #             'message': f"Request failed: {str(e)}",
-    #             'items': []
-    #         }
-    
-    # def get_file_content(self, file_url: str) -> str:
-    #     """
-    #     Get the content of a file
-        
-    #     Args:
-    #         file_url: The URL of the file
-            
-    #     Returns:
-    #         str: The content of the file
-    #     """
-    #     try:
-    #         response = self.session.get(file_url)
-    #         response.raise_for_status()
-    #         return response.json()['content']
-            
-    #     except requests.exceptions.RequestException as e:
-    #         return f"Failed to get file content: {str(e)}"
     def search_code(self, 
                     repo_owner: str, 
                     repo_name: str, 

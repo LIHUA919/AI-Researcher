@@ -7,10 +7,10 @@ import chromadb
 from chromadb.utils import embedding_functions
 from abc import ABC, abstractmethod
 from openai import OpenAI
-import numpy as np
 from chromadb.api.types import QueryResult
-chromadb.logger.setLevel(chromadb.logging.ERROR)
 from research_agent.constant import API_BASE_URL
+
+chromadb.logger.setLevel(chromadb.logging.ERROR)
 
 class Memory:
     def __init__(

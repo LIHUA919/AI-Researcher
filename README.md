@@ -1,65 +1,146 @@
 # AI-Researcher
 
-Autonomous scientific discovery agent framework with modular skill architecture, agent memory system, and multi-agent orchestration.
+**Experience-driven AI for AI research.**
 
-> **Based on [HKUDS/AI-Researcher](https://github.com/HKUDS/AI-Researcher)** - original framework by Jiabin Tang, Lianghao Xia, Zhonghang Li, Chao Huang (HKU Data Science Lab). See [Citation](#citation) below.
+AI-Researcher is an experimental framework for turning research runs into
+reusable, verified knowledge. It combines scientific discovery agents with
+modular skills, staged execution, evaluation guardrails, runtime supervision,
+and memory primitives.
 
-## What This Fork Adds
+> Based on [HKUDS/AI-Researcher](https://github.com/HKUDS/AI-Researcher), the
+> original framework by Jiabin Tang, Lianghao Xia, Zhonghang Li, and Chao Huang
+> at HKU Data Science Lab. See [Citation](#citation).
 
-This fork extends the original AI-Researcher with:
+## Why AI for AI?
 
-- **Skill-Based Architecture** - Modular, discoverable, on-demand tool bundles with SKILL.md manifests
-- **Tool Discovery** - JSON Schema for tool parameters, embedding-based semantic search, A2A Agent Card export
-- **Agent Memory System** - SessionState, MemoryStore, AgentNamespace, EventLog, memory consolidation
-- **MemoryAwareMetaChain** - Opt-in wrapper adding memory to MetaChain without modifying core.py
+Today's AI systems are remarkably good at solving tasks with existing
+knowledge. They are much less capable of improving their future decisions
+through the experience of solving those tasks.
+
+This project explores a different definition of self-improving AI. The goal is
+not merely to update model parameters or expand the context window. It is to
+build a system that can repeatedly:
+
+```mermaid
+flowchart LR
+    E["Experience"] --> R["Reflection"]
+    R --> H["Hypothesis"]
+    H --> X["Experiment"]
+    X --> V["Evaluation"]
+    V --> K["Verified knowledge"]
+    K -. "feeds the next run" .-> E
+```
+
+A model architecture search, inference optimization, or systems experiment may
+look different on the surface, but the underlying loop is the same: learn from
+evidence, identify patterns, form a hypothesis, test it, evaluate the result,
+and retain what survives verification.
+
+## Core Thesis
+
+### Information density matters more than context length
+
+Only a small fraction of the information available to an agent is relevant to
+the decision in front of it. Indefinitely expanding the context window often
+adds noise and computation rather than insight.
+
+AI-Researcher therefore treats retrieval and tool discovery as information
+selection problems:
+
+- retrieve the most information-dense evidence for the current problem;
+- discover relationships between apparently unrelated knowledge;
+- expose only the skills and tools needed for the current stage;
+- retain provenance so conclusions can be traced back to evidence.
+
+### Memory is for generalization, not exhaustive storage
+
+The purpose of memory is not to remember everything. It is to enable
+association, abstraction, and ultimately generalization.
+
+Raw messages and artifacts are useful as experience, but they should not all
+become durable knowledge. The intended progression is:
+
+```text
+run events -> episodes -> reflection -> consolidated facts -> reusable knowledge
+```
+
+### Verification is the boundary between output and knowledge
+
+An agent response is not automatically knowledge. Plans, implementations, and
+experimental claims must pass explicit criteria before they can influence
+future runs. This is why the runtime uses required artifacts, stage guardrails,
+judge feedback, and goal-driven evaluation.
+
+## What Exists Today
+
+This fork extends the upstream research workflow with:
+
+- **Staged research runtime** — `prepare → survey → plan → implement → judge →
+  submit → analyze`, with artifact validation at every boundary.
+- **Goal-driven evaluation** — evidence coverage, plan executability, traces,
+  failure reasons, and suggested next actions.
+- **Long-run supervision** — heartbeats, stall detection, restart support,
+  structured failure reports, and lifecycle hooks.
+- **Skill architecture** — discoverable `SKILL.md` bundles, lazy loading, JSON
+  Schema tool descriptions, semantic search, lifecycle events, and A2A Agent
+  Card export.
+- **Memory primitives** — typed session state, agent namespaces, episode
+  storage, append-only event logs, RAG-backed memory, and fact consolidation.
+- **Isolated experimentation** — Docker and browser environments for code,
+  dataset, training, and evaluation workflows.
+
+The conceptual loop maps to the current implementation as follows:
+
+| Loop stage | Current implementation | Maturity |
+| --- | --- | --- |
+| Experience | Run traces, stage artifacts, event logs, agent episodes | Implemented |
+| Reflection | Judge feedback, analysis stage, memory consolidation | Partial |
+| Hypothesis | Idea, survey, and planning agents | Implemented |
+| Experiment | Docker-backed implementation and training workflow | Implemented, environment-dependent |
+| Evaluation | Stage guardrails, goal-driven metrics, judge reports | Implemented |
+| Knowledge | RAG memory, consolidated facts, code/paper/tool memory | Partial |
+| Feedback | Reuse of retrieved memory in later decisions | Opt-in; not yet a fully automatic cross-run loop |
+
+## Project Status
+
+AI-Researcher is an **alpha research prototype**, not a production-ready
+autonomous scientist.
+
+The framework can orchestrate and supervise a complete research workflow, but
+it does not yet guarantee that every generated implementation is scientifically
+correct or that every experiment completes successfully. Durable knowledge
+feedback across runs is also still partial. The current focus is making each
+transition observable, resumable, and verifiable before closing the
+self-improvement loop.
 
 ## Project Structure
 
-```
+```text
 research_agent/
+  runtime/                  # Stage criteria, supervision, heartbeats, hooks
   inno/
-    core.py              # MetaChain agent loop (unchanged from upstream)
-    registry.py          # Base tool/agent registry
-    types.py             # Agent, Response, Result types
-    skills/              # [NEW] Skill framework
-      base.py            #   SkillManifest, Skill, SkillDependency
-      loader.py          #   Two-phase discovery: scan() -> load()
-      registry.py        #   SkillRegistry + search + events + A2A
-      search.py          #   Embedding-based tool search
-      events.py          #   Skill lifecycle event bus
-      agent_card.py      #   A2A Agent Card export
-      arxiv_search/      #   Skill: arXiv paper search (tools: HKUDS)
-      paper_search/      #   Skill: paper metadata (tools: HKUDS)
-      code_search/       #   Skill: GitHub code search (tools: HKUDS)
-      file_operations/   #   Skill: file system ops (tools: HKUDS)
-      planning/          #   Skill: ML experiment planning (tools: HKUDS)
-      memory_tools/      #   Skill: agent memory operations (NEW)
-    memory/              # Memory subsystem
-      rag_memory.py      #   Chroma-based vector memory (from upstream)
-      code_memory.py     #   Code file indexing (from upstream)
-      paper_memory.py    #   Paper content indexing (from upstream)
-      tool_memory.py     #   API/tool indexing (from upstream)
-      session_state.py   #   [NEW] Typed context_variables with history
-      store.py           #   [NEW] Unified 3-tier memory interface
-      consolidation.py   #   [NEW] Episode-to-fact extraction
-      agent_namespace.py #   [NEW] Cross-agent state isolation
-      event_log.py       #   [NEW] Append-only event sourcing
-      meta_chain_wrapper.py  # [NEW] Memory-aware MetaChain wrapper
-    agents/              # Agent implementations (from upstream)
-    tools/               # Tool implementations (from upstream)
-    environment/         # Docker/browser environments (from upstream)
-    workflow/            # DAG workflow engine (from upstream)
-paper_agent/             # Paper writing agent (from upstream)
-benchmark/               # Benchmark instances (from upstream)
-tests/                   # 155 tests passing
+    core.py                 # MetaChain agent loop
+    evals/                  # Goal-driven metrics, traces, benchmark runner
+    skills/                 # Skill discovery, search, events, Agent Cards
+    memory/                 # Session, episodic, semantic, code and paper memory
+    agents/                 # Research agent implementations
+    tools/                  # Research, code, browser and terminal tools
+    environment/            # Docker and browser execution environments
+    workflow/               # Cached workflow graph
+paper_agent/                # Paper composition pipeline
+benchmark/                  # Research benchmark instances and datasets
+benchmark_collection/       # Benchmark collection utilities
+tests/                      # Unit and integration test suite
 ```
 
 ## Quick Start
 
 ### Requirements
 
-- Python >= 3.11
-- Docker (for code execution environment)
+- Python 3.11 or newer
+- Docker for isolated code execution
+- Playwright browser dependencies for browser-backed tools
+- An API key for the selected model provider
 
 ### Installation
 
@@ -67,31 +148,32 @@ tests/                   # 155 tests passing
 git clone https://github.com/LIHUA919/AI-Researcher.git
 cd AI-Researcher
 
-# Create virtual environment
 python -m venv .venv
 source .venv/bin/activate
 
-# Install
 pip install -e .
 playwright install
 ```
 
-### API Keys
+### Configuration
+
+The project uses LiteLLM-compatible model names. For example:
 
 ```bash
-export ANTHROPIC_API_KEY=your_key      # or OPENAI_API_KEY
-export COMPLETION_MODEL=anthropic/claude-3-5-sonnet-20241022
-export CHEEP_MODEL=anthropic/claude-3-5-haiku-20241022
+export OPENAI_API_KEY=your_key
+export COMPLETION_MODEL=openai/gpt-4o
+export CHEEP_MODEL=openai/gpt-4o-mini
 export GITHUB_AI_TOKEN=your_github_token
 ```
 
-### Run Level 1: Generate Research Ideas
+`ANTHROPIC_API_KEY` and an Anthropic model name can be used instead. The
+`CHEEP_MODEL` spelling is retained for compatibility with the existing runtime.
+
+### Level 1: Generate Research Ideas
 
 ```bash
-# Pull Docker image
 docker pull tjbtech1/metachain:amd64_latest
 
-# Run
 cd research_agent
 export BASE_IMAGES=tjbtech1/metachain:amd64_latest
 export DOCKER_WORKPLACE_NAME=workplace_paper
@@ -99,7 +181,7 @@ export DOCKER_WORKPLACE_NAME=workplace_paper
 python run_infer_idea.py \
   --instance_path ../benchmark/final/vq/one_layer_vq.json \
   --container_name paper_eval \
-  --model $COMPLETION_MODEL \
+  --model "$COMPLETION_MODEL" \
   --workplace_name workplace \
   --cache_path cache \
   --port 12372 \
@@ -107,14 +189,14 @@ python run_infer_idea.py \
   --category vq
 ```
 
-### Run Level 2: Generate Implementation Plan
+### Level 2: Plan and Execute an Idea
 
 ```bash
 python run_infer_plan.py \
   --instance_path ../benchmark/final/vq/one_layer_vq.json \
   --container_name test_eval \
   --task_level task1 \
-  --model $COMPLETION_MODEL \
+  --model "$COMPLETION_MODEL" \
   --workplace_name workplace \
   --cache_path cache \
   --port 12380 \
@@ -122,78 +204,97 @@ python run_infer_plan.py \
   --category vq
 ```
 
-### CLI Quick Test
+### CLI Smoke Test
 
 ```bash
-ai-researcher agent --model gpt-4o --agent_func get_dummy_agent --query "Hello"
+ai-researcher agent \
+  --model openai/gpt-4o \
+  --agent_func get_dummy_agent \
+  --query "Hello"
 ```
 
-## Tests
+## Skills
 
-```bash
-pytest tests/ -v
-# 155 tests passing (skills: 83, memory: 52, core: 20)
-```
-
-## Architecture
-
-### Skill System (Phase 1 + Stage 1)
-
-Skills are modular tool bundles discovered from SKILL.md manifests:
+Skills are modular tool bundles discovered from `SKILL.md` manifests:
 
 ```python
 from research_agent.inno.skills import skill_registry
 
-# Discover available skills
 skill_registry.loader.scan()
 print(skill_registry.list_available())
-# ['arxiv_search', 'paper_search', 'code_search', 'planning', 'file_operations', 'memory_tools']
 
-# Load on demand
-skill = skill_registry.load_and_register("arxiv_search")
-
-# Semantic search
+skill_registry.load_and_register("arxiv_search")
 results = skill_registry.search_tools("find academic papers")
 
-# Export A2A Agent Card
 card = skill_registry.to_agent_card(name="AI-Researcher")
 print(card.to_json())
 ```
 
-### Memory System (Stage 2)
+The included pilot skills cover paper search, code search, file operations,
+experiment planning, and memory tools.
 
-Opt-in memory wrapping MetaChain without modifying core.py:
+## Memory
+
+Memory can be added to MetaChain without changing its core loop:
 
 ```python
 from research_agent.inno.core import MetaChain
 from research_agent.inno.memory.store import MemoryStore
 from research_agent.inno.memory.meta_chain_wrapper import MemoryAwareMetaChain
 
-# Standard MetaChain (unchanged)
-chain = MetaChain()
-
-# Add memory (opt-in)
 store = MemoryStore(project_path="/workspace")
-mem_chain = MemoryAwareMetaChain(chain, store)
+chain = MemoryAwareMetaChain(MetaChain(), store)
 
-# Session state with change tracking
 store.session.set("topic", "GNN", agent_name="IdeaAgent")
-store.session.history("topic")  # all changes with timestamps
-
-# Agent namespace isolation
-from research_agent.inno.memory.agent_namespace import AgentNamespace
-ns = AgentNamespace("IdeaAgent", store.session)
-ns.set("plan", "my plan")          # only IdeaAgent sees this
-ns.set_shared("paper_count", 5)    # all agents see this
+store.add_episode(
+    agent_name="IdeaAgent",
+    messages=[{"role": "user", "content": "Explore robust GNN training"}],
+    summary="Investigated robustness failures in message-passing GNNs.",
+)
 ```
+
+Memory is intentionally opt-in while retrieval quality, consolidation, and
+cross-run feedback are being hardened.
+
+## Validation
+
+```bash
+ruff check \
+  research_agent paper_agent benchmark_collection tests \
+  main_ai_researcher.py web_ai_researcher.py global_state.py
+
+pytest -q
+```
+
+Current local baseline:
+
+- 223 tests passing
+- 46 dynamically registered tools
+- 5 dynamically registered agents
+
+Some dependency deprecation warnings remain and are tracked separately from
+functional test failures.
+
+## Roadmap Toward the Full Loop
+
+1. Persist episodes and consolidated facts across runs.
+2. Retrieve evidence by relevance, novelty, provenance, and expected decision
+   value rather than similarity alone.
+3. Connect analysis and judge feedback to automatic hypothesis revision.
+4. Promote claims to durable knowledge only after reproducible evaluation.
+5. Measure whether retained experience improves future research decisions.
+
+The target is not the AI with the longest context window. It is the AI that
+learns the most from experience.
 
 ## Benchmark
 
-Benchmark data from the original HKUDS/AI-Researcher project is included in the `benchmark/` directory, covering categories: `vq`, `gnn`, `diffu_flow`, `recommendation`, `reasoning`.
+Benchmark data from the upstream project is included under `benchmark/`,
+covering VQ, GNN, diffusion/flow, recommendation, and reasoning tasks.
 
 ## Citation
 
-This project is based on AI-Researcher by HKUDS. If you use this work, please cite the original paper:
+If you use this project, please cite the original AI-Researcher paper:
 
 ```tex
 @misc{airesearcher,
@@ -209,4 +310,4 @@ This project is based on AI-Researcher by HKUDS. If you use this work, please ci
 
 ## License
 
-Apache-2.0 (see [LICENSE](./LICENSE)). Original copyright HKUDS.
+Apache-2.0. See [LICENSE](./LICENSE). Original copyright HKUDS.

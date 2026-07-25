@@ -1,11 +1,10 @@
 """Tests for JSON Schema support in SKILL.md and SkillManifest."""
 
 import textwrap
-from pathlib import Path
 
 import pytest
 
-from research_agent.inno.skills.base import Skill, SkillManifest
+from research_agent.inno.skills.base import Skill
 from research_agent.inno.skills.loader import SkillLoader
 
 

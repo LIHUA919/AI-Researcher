@@ -28,7 +28,7 @@ def agent(model: str, agent_func: str, query: str, context_variables):
         if '=' in arg:
             key, value = arg.split('=', 1)
             context_storage[key] = value
-    agent_module = importlib.import_module(f'research_agent.inno.agents')
+    agent_module = importlib.import_module('research_agent.inno.agents')
     try:
         agent_func = getattr(agent_module, agent_func)
     except AttributeError:

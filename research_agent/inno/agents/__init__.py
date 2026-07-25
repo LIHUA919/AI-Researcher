@@ -1,27 +1,3 @@
-# from metachain.agents.programming_agent import get_programming_agent
-# from metachain.agents.tool_retriver_agent import get_tool_retriver_agent
-# from metachain.agents.agent_check_agent import get_agent_check_agent
-# from metachain.agents.tool_check_agent import get_tool_check_agent
-# from metachain.agents.github_agent import get_github_agent
-# from metachain.agents.programming_triage_agent import get_programming_triage_agent
-# from metachain.agents.plan_agent import get_plan_agent
-
-# import os
-# import importlib
-# from metachain.registry import registry
-
-# # 获取当前目录下的所有 .py 文件
-# current_dir = os.path.dirname(__file__)
-# for file in os.listdir(current_dir):
-#     if file.endswith('.py') and not file.startswith('__'):
-#         module_name = file[:-3]
-#         importlib.import_module(f'metachain.agents.{module_name}')
-
-# # 导出所有注册的 agent 创建函数
-# globals().update(registry.agents)
-
-# __all__ = list(registry.agents.keys())
-
 import os
 import importlib
 from research_agent.inno.registry import registry
