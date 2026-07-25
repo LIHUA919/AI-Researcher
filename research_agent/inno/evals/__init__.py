@@ -12,6 +12,7 @@ from research_agent.inno.evals.evaluator import (
     EvalCriterion,
     GoalDrivenEvalReport,
     GoalDrivenEvaluator,
+    StructuralEvaluator,
     build_default_research_evaluator,
 )
 from research_agent.inno.evals.metrics import evidence_coverage, plan_executability
@@ -31,6 +32,7 @@ __all__ = [
     "EvalCriterion",
     "GoalDrivenEvalReport",
     "GoalDrivenEvaluator",
+    "StructuralEvaluator",
     "ResearchRunTrace",
     "RetrievalItem",
     "ToolCallTrace",

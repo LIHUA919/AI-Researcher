@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+import hashlib
 from typing import Any, Dict, List, Literal, Optional
 
 
@@ -18,8 +19,39 @@ class RetrievalItem:
     identifier: str
     title: str
     content: str = ""
+    content_digest: str = ""
+    source_uri: str = ""
     score: Optional[float] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def cited(
+        cls,
+        *,
+        source_type: SourceType,
+        identifier: str,
+        title: str,
+        content: str,
+        source_uri: str = "",
+        score: Optional[float] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> "RetrievalItem":
+        return cls(
+            source_type=source_type,
+            identifier=identifier,
+            title=title,
+            content=content,
+            content_digest=hashlib.sha256(content.encode("utf-8")).hexdigest(),
+            source_uri=source_uri,
+            score=score,
+            metadata=dict(metadata or {}),
+        )
+
+    def has_valid_provenance(self) -> bool:
+        if not self.identifier or not self.content or not self.content_digest:
+            return False
+        actual_digest = hashlib.sha256(self.content.encode("utf-8")).hexdigest()
+        return actual_digest == self.content_digest
 
 
 @dataclass(slots=True)
@@ -32,6 +64,7 @@ class ToolCallTrace:
     success: bool = True
     latency_ms: Optional[int] = None
     output_summary: str = ""
+    evidence_items: List[RetrievalItem] = field(default_factory=list)
     error_message: str = ""
     timestamp: datetime = field(default_factory=datetime.utcnow)
 

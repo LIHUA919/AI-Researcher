@@ -10,7 +10,7 @@ def test_evidence_coverage_scores_supported_claims():
         claims=["vector quantization improves compression", "uses contrastive loss"],
     )
     trace.add_retrieval(
-        RetrievalItem(
+        RetrievalItem.cited(
             source_type="paper",
             identifier="p1",
             title="Vector quantization improves compression",
@@ -21,7 +21,14 @@ def test_evidence_coverage_scores_supported_claims():
         ToolCallTrace(
             agent_name="Survey Agent",
             tool_name="paper_search",
-            output_summary="The method uses contrastive loss for representation learning.",
+            evidence_items=[
+                RetrievalItem.cited(
+                    source_type="tool_output",
+                    identifier="tool-result-1",
+                    title="paper search result",
+                    content="The method uses contrastive loss for representation learning.",
+                )
+            ],
         )
     )
 
@@ -54,14 +61,15 @@ def test_evidence_coverage_ignores_failed_tool_calls():
     assert result["unsupported_claims"] == ["uses contrastive loss"]
 
 
-def test_evidence_coverage_empty_claims_scores_full():
+def test_evidence_coverage_empty_claims_does_not_pass():
     trace = ResearchRunTrace(run_id="r3", task_id="t3", query="test")
 
     result = evidence_coverage(trace)
 
-    assert result["score"] == 1.0
+    assert result["score"] == 0.0
     assert result["supported_claims"] == []
     assert result["unsupported_claims"] == []
+    assert result["missing_claims"] is True
 
 
 def test_evidence_coverage_supports_partial_overlap_for_long_claims():
@@ -74,7 +82,7 @@ def test_evidence_coverage_supports_partial_overlap_for_long_claims():
         ],
     )
     trace.add_retrieval(
-        RetrievalItem(
+        RetrievalItem.cited(
             source_type="paper",
             identifier="p2",
             title="linear transformation layer for code vectors",
@@ -86,6 +94,37 @@ def test_evidence_coverage_supports_partial_overlap_for_long_claims():
 
     assert result["score"] == 1.0
     assert result["unsupported_claims"] == []
+
+
+def test_evidence_coverage_rejects_missing_or_tampered_digest():
+    claim = "vector quantization improves compression"
+    trace = ResearchRunTrace(
+        run_id="r5",
+        task_id="t5",
+        query="test",
+        claims=[claim],
+    )
+    trace.add_retrieval(
+        RetrievalItem(
+            source_type="paper",
+            identifier="paper-without-digest",
+            title=claim,
+            content=claim,
+        )
+    )
+    tampered = RetrievalItem.cited(
+        source_type="paper",
+        identifier="tampered-paper",
+        title=claim,
+        content=claim,
+    )
+    tampered.content = f"{claim} with changed bytes"
+    trace.add_retrieval(tampered)
+
+    result = evidence_coverage(trace)
+
+    assert result["score"] == 0.0
+    assert result["valid_evidence_count"] == 0
 
 
 def test_plan_executability_reports_missing_sections():

@@ -51,26 +51,30 @@ def _is_supported_by_evidence(claim: str, evidence_texts: Sequence[str]) -> bool
 
 
 def evidence_coverage(trace: ResearchRunTrace) -> Dict[str, object]:
-    """Score how many claims are backed by retrieved evidence or tool outputs."""
+    """Score claims against cited evidence whose content digest is valid."""
 
     claims = trace.claims or []
     if not claims:
-        return {"score": 1.0, "supported_claims": [], "unsupported_claims": []}
+        return {
+            "score": 0.0,
+            "supported_claims": [],
+            "unsupported_claims": [],
+            "missing_claims": True,
+        }
 
     evidence_texts: List[str] = []
     evidence_texts.extend(
         f"{item.title} {item.content}".strip() for item in trace.retrieved_items
+        if item.has_valid_provenance()
     )
-    evidence_texts.extend(
-        f"{call.tool_name} {call.output_summary}".strip()
-        for call in trace.tool_calls
-        if call.success
-    )
-    evidence_texts.extend(
-        f"{step.agent_name} {step.output_summary}".strip()
-        for step in trace.agent_steps
-        if step.output_summary
-    )
+    for call in trace.tool_calls:
+        if not call.success:
+            continue
+        evidence_texts.extend(
+            f"{item.title} {item.content}".strip()
+            for item in call.evidence_items
+            if item.has_valid_provenance()
+        )
 
     supported, unsupported = [], []
     for claim in claims:
@@ -84,6 +88,8 @@ def evidence_coverage(trace: ResearchRunTrace) -> Dict[str, object]:
         "score": score,
         "supported_claims": supported,
         "unsupported_claims": unsupported,
+        "missing_claims": False,
+        "valid_evidence_count": len(evidence_texts),
     }
 
 
