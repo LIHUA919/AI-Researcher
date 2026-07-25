@@ -17,6 +17,7 @@ from tqdm import tqdm
 
 from research_agent.inno.tools.inno_tools.code_search import search_github_repos
 from research_agent.inno.tools.inno_tools.paper_search import get_arxiv_paper_meta
+from research_agent.runtime.artifacts import load_stage_payload, write_stage_artifact
 
 logger = logging.getLogger(__name__)
 
@@ -81,12 +82,13 @@ def persist_stage_result(
     file_name: str,
     payload: Dict[str, Any],
 ) -> str:
-    stage_dir = os.path.join(cache_path, f"{stage_name}_stage")
-    os.makedirs(stage_dir, exist_ok=True)
-    output_path = os.path.join(stage_dir, file_name)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=4)
-    return output_path
+    output_path = os.path.join(cache_path, f"{stage_name}_stage", file_name)
+    return write_stage_artifact(
+        output_path,
+        stage=stage_name,
+        payload=payload,
+        task_id=str(payload["task_id"]) if payload.get("task_id") is not None else None,
+    )
 
 
 def load_cached_stage_result(
@@ -96,7 +98,13 @@ def load_cached_stage_result(
 ) -> Dict:
     if not cache_path:
         return {}
-    return _read_json_file(os.path.join(cache_path, f"{stage_name}_stage", file_name))
+    path = os.path.join(cache_path, f"{stage_name}_stage", file_name)
+    if not os.path.exists(path):
+        return {}
+    try:
+        return load_stage_payload(path, stage=stage_name)
+    except ValueError:
+        return {}
 
 
 def build_project_manifest(local_root: str, workplace_name: str) -> Dict[str, Any]:
@@ -133,8 +141,7 @@ def _persist_plan_artifact_bundle(artifact_dir: str, artifacts: Dict[str, Dict])
     index_payload: Dict[str, str] = {}
     for artifact_name, artifact_payload in artifacts.items():
         artifact_path = os.path.join(artifact_dir, f"{artifact_name}.json")
-        with open(artifact_path, "w", encoding="utf-8") as f:
-            json.dump(artifact_payload, f, ensure_ascii=False, indent=4)
+        write_stage_artifact(artifact_path, stage="plan", payload=artifact_payload)
         index_payload[artifact_name] = artifact_path
 
     index_path = os.path.join(artifact_dir, "plan_index.json")
@@ -236,37 +243,50 @@ def persist_survey_result(
     survey_stage_dir = os.path.join(cache_path, "survey_stage")
     os.makedirs(survey_stage_dir, exist_ok=True)
     survey_result_path = os.path.join(survey_stage_dir, "survey_result.json")
-    with open(survey_result_path, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "task_id": task_id,
-                "query": query,
-                "survey_report": survey_report,
-            },
-            f,
-            ensure_ascii=False,
-            indent=4,
-        )
-    return survey_result_path
+    return write_stage_artifact(
+        survey_result_path,
+        stage="survey",
+        task_id=task_id,
+        payload={
+            "task_id": task_id,
+            "query": query,
+            "survey_report": survey_report,
+        },
+    )
 
 
 def load_cached_survey_result(cache_path: str | None) -> Dict:
     if not cache_path:
         return {}
-    return _read_json_file(os.path.join(cache_path, "survey_stage", "survey_result.json"))
+    return load_cached_stage_result(cache_path, "survey", "survey_result.json")
 
 
 def load_cached_plan_result(cache_path: str | None) -> Dict:
     if not cache_path:
         return {}
-    plan_report = _read_json_file(os.path.join(cache_path, "plan_stages", "plan_report.json"))
+    plan_report_path = os.path.join(cache_path, "plan_stages", "plan_report.json")
+    if not os.path.exists(plan_report_path):
+        return {}
+    try:
+        plan_report = load_stage_payload(plan_report_path, stage="plan")
+    except ValueError:
+        return {}
     if not plan_report:
         return {}
 
     plan_index = _read_json_file(os.path.join(cache_path, "plan_stages", "plan_index.json"))
-    dataset_plan = _read_json_file(plan_index.get("dataset_plan", "")) if plan_index else {}
-    training_plan = _read_json_file(plan_index.get("training_plan", "")) if plan_index else {}
-    testing_plan = _read_json_file(plan_index.get("testing_plan", "")) if plan_index else {}
+    def load_plan_artifact(name: str) -> Dict:
+        path = plan_index.get(name, "") if plan_index else ""
+        if not path or not os.path.exists(path):
+            return {}
+        try:
+            return load_stage_payload(path, stage="plan")
+        except ValueError:
+            return {}
+
+    dataset_plan = load_plan_artifact("dataset_plan")
+    training_plan = load_plan_artifact("training_plan")
+    testing_plan = load_plan_artifact("testing_plan")
 
     if dataset_plan:
         plan_report["dataset_plan"] = dataset_plan
@@ -290,9 +310,12 @@ def _persist_prepare_result(cache_path: str, prepare_dict: Dict) -> str:
     prepare_stage_dir = os.path.join(cache_path, "prepare_stage")
     os.makedirs(prepare_stage_dir, exist_ok=True)
     prepare_result_path = os.path.join(prepare_stage_dir, "prepare_result.json")
-    with open(prepare_result_path, "w", encoding="utf-8") as f:
-        json.dump(prepare_dict, f, ensure_ascii=False, indent=4)
-    return prepare_result_path
+    return write_stage_artifact(
+        prepare_result_path,
+        stage="prepare",
+        payload=prepare_dict,
+        task_id=str(prepare_dict["task_id"]) if prepare_dict.get("task_id") is not None else None,
+    )
 
 
 def _build_vq_prepare_fallback(local_root: str, workplace_name: str) -> Dict:
@@ -361,8 +384,10 @@ def resolve_prepare_result(
     if cache_path:
         cached_prepare_path = os.path.join(cache_path, "prepare_stage", "prepare_result.json")
         if os.path.exists(cached_prepare_path):
-            with open(cached_prepare_path, "r", encoding="utf-8") as f:
-                cached_prepare = json.load(f)
+            try:
+                cached_prepare = load_stage_payload(cached_prepare_path, stage="prepare")
+            except ValueError:
+                cached_prepare = {}
             if _is_valid_prepare_result(cached_prepare):
                 return cached_prepare
 
@@ -387,8 +412,10 @@ def load_cached_prepare_result(cache_path: str | None) -> Dict:
     cached_prepare_path = os.path.join(cache_path, "prepare_stage", "prepare_result.json")
     if not os.path.exists(cached_prepare_path):
         return {}
-    with open(cached_prepare_path, "r", encoding="utf-8") as f:
-        cached_prepare = json.load(f)
+    try:
+        cached_prepare = load_stage_payload(cached_prepare_path, stage="prepare")
+    except ValueError:
+        return {}
     return cached_prepare if _is_valid_prepare_result(cached_prepare) else {}
 
 

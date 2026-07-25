@@ -4,6 +4,7 @@ from research_agent.inno.types import Result
 import json
 import os
 from research_agent.inno.registry import register_tool
+from research_agent.runtime.artifacts import write_stage_artifact
 
 
 def _persist_plan_artifact(
@@ -19,8 +20,7 @@ def _persist_plan_artifact(
 
     os.makedirs(artifact_dir, exist_ok=True)
     artifact_path = os.path.join(artifact_dir, f"{artifact_name}.json")
-    with open(artifact_path, "w", encoding="utf-8") as f:
-        json.dump(artifact_payload, f, ensure_ascii=False, indent=4)
+    write_stage_artifact(artifact_path, stage="plan", payload=artifact_payload)
 
     artifact_index_path = os.path.join(artifact_dir, "plan_index.json")
     existing_index = {}

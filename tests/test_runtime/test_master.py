@@ -159,6 +159,30 @@ def test_master_runtime_rejects_stage_completion_when_guardrail_fails(tmp_dir):
     assert state["prepare"]["status"] == "failed"
     assert state["prepare"]["metadata"]["guardrail_passed"] is False
     assert "missing_reference_papers" in state["prepare"]["metadata"]["guardrail_violations"]
+    events = [
+        json.loads(line)
+        for line in (Path(tmp_dir) / "stage_events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event["status"] for event in events if event["stage"] == "prepare"] == ["failed"]
+
+
+def test_master_runtime_sync_preserves_logical_artifact_keys(tmp_dir):
+    prepare_stage = Path(tmp_dir) / "prepare_stage"
+    prepare_stage.mkdir()
+    (prepare_stage / "prepare_result.json").write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/workplace/repo-a"]}),
+        encoding="utf-8",
+    )
+    runtime = MasterRuntime(tmp_dir)
+
+    state = runtime.record_stage_completion(
+        "prepare",
+        artifacts={"prepare_result": str(prepare_stage / "prepare_result.json")},
+    )
+    synced = runtime.sync_stage_state()
+
+    assert state["prepare"]["artifacts"].keys() == {"prepare_result"}
+    assert synced["prepare"]["artifacts"].keys() == {"prepare_result"}
 
 
 def test_master_runtime_writes_heartbeat_and_run_status(tmp_dir):

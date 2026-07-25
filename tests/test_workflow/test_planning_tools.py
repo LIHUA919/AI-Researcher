@@ -6,6 +6,7 @@ from research_agent.inno.tools.inno_tools.planning_tools import (
     plan_training,
 )
 from research_agent.inno_common import ensure_plan_artifacts
+from research_agent.runtime.artifacts import load_stage_payload
 
 
 def test_plan_tools_persist_stage_artifacts(tmp_path):
@@ -46,7 +47,7 @@ def test_plan_tools_persist_stage_artifacts(tmp_path):
     assert testing_path.exists()
     assert index_path.exists()
 
-    dataset_payload = json.loads(dataset_path.read_text(encoding="utf-8"))
+    dataset_payload = load_stage_payload(dataset_path, stage="plan")
     assert dataset_payload["dataset_description"] == "CIFAR-10"
 
     index_payload = json.loads(index_path.read_text(encoding="utf-8"))

@@ -22,6 +22,7 @@ from research_agent.inno.environment.utils import (
     normalize_workplace_layout,
 )
 from research_agent.runtime import JsonlRuntimeHooks, MasterRuntime, RunContext, refresh_runtime_context_variables
+from research_agent.runtime.artifacts import write_stage_artifact
 from research_agent.inno.evals import (
     build_and_save_eval_result,
 )
@@ -48,9 +49,7 @@ def _persist_stage_output(cache_path: str, stage_name: str, payload: Dict[str, A
     stage_dir = os.path.join(cache_path, "plan_stages")
     os.makedirs(stage_dir, exist_ok=True)
     stage_path = os.path.join(stage_dir, f"{stage_name}.json")
-    with open(stage_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=4)
-    return stage_path
+    return write_stage_artifact(stage_path, stage="plan", payload=payload)
 
 
 def _update_runtime_progress(runtime: MasterRuntime, run_id: str, task_level: str) -> None:
@@ -565,7 +564,7 @@ After you get the result, you should return the result with your analysis and su
         """
         cached_submit = load_cached_stage_result(self.cache_path, "submit", "submit_result.json")
         if not runtime.should_run_stage("submit") and cached_submit:
-            submit_res = cached_submit.get("submission_report", "")
+            submit_res = cached_submit.get("submit_result", "")
         else:
             judge_messages.append({"role": "user", "content": ml_submit_query})
             judge_messages, context_variables = await self.ml_agent(judge_messages, context_variables, iter_times="submit")
@@ -577,7 +576,7 @@ After you get the result, you should return the result with your analysis and su
                 {
                     "task_id": metadata.get("instance_id", task_level),
                     "submission_query": ml_submit_query,
-                    "submission_report": submit_res,
+                    "submit_result": submit_res,
                 },
             )
             _record_stage_completion_or_raise(

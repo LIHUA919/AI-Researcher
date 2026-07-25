@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 from pathlib import Path
 from typing import Any, Callable, Dict
+
+from research_agent.runtime.artifacts import ArtifactContractError, load_stage_payload
 
 
 DEFAULT_STAGE_ORDER = [
@@ -23,16 +24,15 @@ class GuardrailResult:
     violations: tuple[str, ...] = ()
 
 
-def _read_json(path: Path) -> dict[str, Any]:
+def _read_artifact(path: Path, stage: str) -> dict[str, Any]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        return load_stage_payload(path, stage=stage)
+    except ArtifactContractError:
         return {}
-    return payload if isinstance(payload, dict) else {}
 
 
 def _validate_prepare_guardrail(cache_path: str) -> GuardrailResult:
-    payload = _read_json(Path(cache_path) / "prepare_stage" / "prepare_result.json")
+    payload = _read_artifact(Path(cache_path) / "prepare_stage" / "prepare_result.json", "prepare")
     violations: list[str] = []
     if not payload.get("reference_papers"):
         violations.append("missing_reference_papers")
@@ -42,7 +42,7 @@ def _validate_prepare_guardrail(cache_path: str) -> GuardrailResult:
 
 
 def _validate_survey_guardrail(cache_path: str) -> GuardrailResult:
-    payload = _read_json(Path(cache_path) / "survey_stage" / "survey_result.json")
+    payload = _read_artifact(Path(cache_path) / "survey_stage" / "survey_result.json", "survey")
     if payload.get("survey_report"):
         return GuardrailResult(True)
     return GuardrailResult(False, ("missing_survey_report",))
@@ -50,10 +50,10 @@ def _validate_survey_guardrail(cache_path: str) -> GuardrailResult:
 
 def _validate_plan_guardrail(cache_path: str) -> GuardrailResult:
     root = Path(cache_path) / "plan_stages"
-    dataset_plan = _read_json(root / "dataset_plan.json")
-    training_plan = _read_json(root / "training_plan.json")
-    testing_plan = _read_json(root / "testing_plan.json")
-    plan_report = _read_json(root / "plan_report.json")
+    dataset_plan = _read_artifact(root / "dataset_plan.json", "plan")
+    training_plan = _read_artifact(root / "training_plan.json", "plan")
+    testing_plan = _read_artifact(root / "testing_plan.json", "plan")
+    plan_report = _read_artifact(root / "plan_report.json", "plan")
     violations: list[str] = []
     if not dataset_plan.get("dataset_description"):
         violations.append("missing_dataset_description")
@@ -67,13 +67,26 @@ def _validate_plan_guardrail(cache_path: str) -> GuardrailResult:
 
 
 def _validate_implement_guardrail(cache_path: str) -> GuardrailResult:
-    payload = _read_json(Path(cache_path) / "implement_stage" / "project_manifest.json")
+    payload = _read_artifact(
+        Path(cache_path) / "implement_stage" / "project_manifest.json",
+        "implement",
+    )
+    manifest = payload.get("project_manifest") or {}
     violations: list[str] = []
-    if not payload.get("exists"):
+    if not manifest.get("exists"):
         violations.append("project_missing")
-    key_paths = payload.get("key_paths") or {}
-    if not key_paths.get("main_script"):
+    key_paths = manifest.get("key_paths") or {}
+    main_script = key_paths.get("main_script")
+    if not main_script:
         violations.append("missing_main_script_path")
+    elif not Path(main_script).is_file():
+        violations.append("main_script_missing")
+    project_root = manifest.get("project_root")
+    if project_root and main_script:
+        try:
+            Path(main_script).resolve().relative_to(Path(project_root).resolve())
+        except ValueError:
+            violations.append("main_script_outside_project")
     return GuardrailResult(not violations, tuple(violations))
 
 
@@ -83,7 +96,8 @@ def _validate_named_report_guardrail(
     key: str,
     violation: str,
 ) -> GuardrailResult:
-    payload = _read_json(Path(cache_path) / rel_path)
+    stage = rel_path.split("_stage", 1)[0]
+    payload = _read_artifact(Path(cache_path) / rel_path, stage)
     if payload.get(key):
         return GuardrailResult(True)
     return GuardrailResult(False, (violation,))
@@ -149,7 +163,7 @@ DEFAULT_CRITERIA: dict[str, StageCriteria] = {
 def _artifact_map(cache_path: str, criteria: StageCriteria) -> Dict[str, str]:
     root = Path(cache_path)
     return {
-        Path(rel_path).name: str(root / rel_path)
+        Path(rel_path).stem: str(root / rel_path)
         for rel_path in criteria.required_artifacts
     }
 

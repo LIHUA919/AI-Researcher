@@ -1,6 +1,5 @@
-import json
-
 from research_agent.inno.agents.inno_agent.prepare_agent import case_resolved, get_prepare_agent
+from research_agent.runtime.artifacts import load_stage_payload
 
 
 def test_case_resolved_persists_prepare_result(tmp_path):
@@ -13,7 +12,7 @@ def test_case_resolved_persists_prepare_result(tmp_path):
 
     artifact_path = tmp_path / "prepare_result.json"
     assert artifact_path.exists()
-    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload = load_stage_payload(artifact_path, stage="prepare")
     assert payload["reference_codebases"][0] == "repo_a"
     assert result.context_variables["prepare_artifacts"]["prepare_result"] == str(artifact_path)
 

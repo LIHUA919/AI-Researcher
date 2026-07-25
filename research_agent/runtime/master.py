@@ -206,13 +206,6 @@ class MasterRuntime:
         validate_guardrail: bool = True,
     ) -> dict:
         merged_metadata = dict(metadata or {})
-        update_stage_state(
-            self.cache_path,
-            stage_name,
-            "completed",
-            artifacts=artifacts or {},
-            metadata=merged_metadata,
-        )
         evaluation = self.evaluate_stage(stage_name) if validate_guardrail else None
         if validate_guardrail and evaluation and not evaluation["completed"]:
             merged_metadata["guardrail_violations"] = evaluation.get("guardrail_violations", [])
