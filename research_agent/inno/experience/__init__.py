@@ -5,6 +5,16 @@ from research_agent.inno.experience.ledger import (
     RecordNotFoundError,
     SQLiteExperimentLedger,
 )
+from research_agent.inno.experience.evaluation import (
+    CallableVerifier,
+    CommandVerifier,
+    EvaluationContract,
+    EvaluationError,
+    PrimaryMetric,
+    ValidityRules,
+    Verifier,
+    load_evaluation_contract,
+)
 from research_agent.inno.experience.models import (
     ArtifactRef,
     ExperienceQuery,
@@ -18,6 +28,10 @@ from research_agent.inno.experience.models import (
 
 __all__ = [
     "ArtifactRef",
+    "CallableVerifier",
+    "CommandVerifier",
+    "EvaluationContract",
+    "EvaluationError",
     "ExperienceQuery",
     "ExperienceRecord",
     "ExperimentAttempt",
@@ -27,7 +41,11 @@ __all__ = [
     "InMemoryExperimentLedger",
     "KnowledgeRecord",
     "Observation",
+    "PrimaryMetric",
     "RecordNotFoundError",
     "SQLiteExperimentLedger",
+    "ValidityRules",
+    "Verifier",
     "VerificationRecord",
+    "load_evaluation_contract",
 ]
