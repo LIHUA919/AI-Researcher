@@ -43,13 +43,15 @@ class GoalDrivenEvalReport:
     criteria_scores: List[CriterionScore]
     failure_reasons: List[str] = field(default_factory=list)
     next_actions: List[str] = field(default_factory=list)
+    evaluation_kind: str = "structural"
+    scientific_verification: bool = False
 
 
-class GoalDrivenEvaluator:
-    """Evaluate a run against an explicit goal and criteria.
+class StructuralEvaluator:
+    """Evaluate trace completeness and structural quality.
 
-    This mirrors the goal-driven control loop: define a goal, define concrete
-    criteria, then let the evaluator decide whether the run satisfied them.
+    Passing this evaluator never means that a scientific claim or experimental
+    metric has been independently verified.
     """
 
     def __init__(self, goal: str, criteria: List[EvalCriterion]) -> None:
@@ -103,13 +105,16 @@ class GoalDrivenEvaluator:
         return ""
 
 
-def build_default_research_evaluator(goal: str = "") -> GoalDrivenEvaluator:
+GoalDrivenEvaluator = StructuralEvaluator
+
+
+def build_default_research_evaluator(goal: str = "") -> StructuralEvaluator:
     """Build the minimal evaluator for the first eval iteration."""
 
     criteria = [
         EvalCriterion(
             name="evidence_coverage",
-            description="Key claims should be backed by retrieved evidence or tool outputs.",
+            description="Key claims should be backed by cited evidence with a verified digest.",
             threshold=0.7,
             metric_fn=evidence_coverage,
         ),
@@ -120,4 +125,4 @@ def build_default_research_evaluator(goal: str = "") -> GoalDrivenEvaluator:
             metric_fn=lambda trace: plan_executability(trace.plan),
         ),
     ]
-    return GoalDrivenEvaluator(goal=goal, criteria=criteria)
+    return StructuralEvaluator(goal=goal, criteria=criteria)

@@ -31,7 +31,7 @@ def _make_trace(task: BenchmarkTask) -> ResearchRunTrace:
         },
     )
     trace.add_retrieval(
-        RetrievalItem(
+        RetrievalItem.cited(
             source_type="paper",
             identifier="paper-1",
             title="The model uses vector quantization",
@@ -149,7 +149,28 @@ def test_build_research_run_trace_adapter_sets_minimal_fields():
     assert trace.metadata == {"source": "run_infer_plan"}
     assert trace.tool_calls == []
     assert trace.agent_steps == []
-    assert len(trace.retrieved_items) == 2
+    assert trace.retrieved_items == []
+
+
+def test_plan_and_final_output_are_not_treated_as_evidence():
+    claim = "the method improves codebook utilization"
+    trace = build_research_run_trace(
+        run_id="run-self-evidence",
+        task_id="task-self-evidence",
+        query="query",
+        claims=[claim],
+        plan={"model": claim},
+        final_output={"summary": claim},
+    )
+
+    report = build_default_research_evaluator("goal").evaluate(trace)
+    evidence_score = next(
+        score for score in report.criteria_scores if score.name == "evidence_coverage"
+    )
+
+    assert evidence_score.passed is False
+    assert evidence_score.details["unsupported_claims"] == [claim]
+    assert report.scientific_verification is False
 
 
 def test_build_research_run_trace_preserves_runtime_trace():

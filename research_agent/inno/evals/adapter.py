@@ -41,53 +41,6 @@ def _normalize_claims(claims: Optional[List[str]]) -> List[str]:
     return normalized_claims
 
 
-def _collect_evidence_items(
-    plan: Optional[Dict[str, Any]],
-    final_output: Optional[Dict[str, Any]],
-) -> List[RetrievalItem]:
-    items: List[RetrievalItem] = []
-    for section_name, section_value in (plan or {}).items():
-        if isinstance(section_value, str) and section_value.strip():
-            items.append(
-                RetrievalItem(
-                    source_type="other",
-                    identifier=f"plan:{section_name}",
-                    title=section_name,
-                    content=section_value,
-                )
-            )
-        elif isinstance(section_value, dict) and section_value:
-            items.append(
-                RetrievalItem(
-                    source_type="other",
-                    identifier=f"plan:{section_name}",
-                    title=section_name,
-                    content=json.dumps(section_value, ensure_ascii=False),
-                )
-            )
-
-    for output_name, output_value in (final_output or {}).items():
-        if isinstance(output_value, str) and output_value.strip():
-            items.append(
-                RetrievalItem(
-                    source_type="tool_output",
-                    identifier=f"final:{output_name}",
-                    title=output_name,
-                    content=output_value,
-                )
-            )
-        elif isinstance(output_value, dict) and output_value:
-            items.append(
-                RetrievalItem(
-                    source_type="tool_output",
-                    identifier=f"final:{output_name}",
-                    title=output_name,
-                    content=json.dumps(output_value, ensure_ascii=False),
-                )
-            )
-    return items
-
-
 def build_research_run_trace(
     *,
     run_id: str,
@@ -98,6 +51,7 @@ def build_research_run_trace(
     plan: Optional[Dict[str, Any]] = None,
     final_output: Optional[Dict[str, Any]] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    retrieved_items: Optional[List[RetrievalItem]] = None,
     tool_calls: Optional[List[ToolCallTrace]] = None,
     agent_steps: Optional[List[AgentStepTrace]] = None,
 ) -> ResearchRunTrace:
@@ -118,7 +72,7 @@ def build_research_run_trace(
         final_output=dict(final_output or {}),
         metadata=dict(metadata or {}),
     )
-    for item in _collect_evidence_items(plan, final_output):
+    for item in retrieved_items or []:
         trace.add_retrieval(item)
     for tool_call in tool_calls or []:
         trace.add_tool_call(tool_call)
@@ -184,6 +138,7 @@ def build_and_save_eval_result(
         plan=flow_result.get("plan"),
         final_output=flow_result.get("final_output"),
         metadata=flow_result.get("metadata"),
+        retrieved_items=flow_result.get("retrieved_items"),
         tool_calls=flow_result.get("tool_calls"),
         agent_steps=flow_result.get("agent_steps"),
     )

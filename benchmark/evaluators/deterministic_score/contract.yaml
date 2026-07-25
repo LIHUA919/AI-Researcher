@@ -1,0 +1,18 @@
+schema_version: 1
+contract_id: deterministic-score
+version: "1"
+task_id: deterministic-score
+entrypoint: python evaluate.py "{attempt_dir}"
+result_file: verification_result.json
+timeout_seconds: 10
+repetitions: 1
+required_artifacts:
+  - metrics.json
+  - run.log
+primary_metric:
+  name: score
+  direction: maximize
+baseline: 0.5
+validity:
+  require_finite_metrics: true
+  max_failed_repetitions: 0

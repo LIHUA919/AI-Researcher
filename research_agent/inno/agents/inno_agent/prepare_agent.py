@@ -6,6 +6,7 @@ import json
 import os
 from inspect import signature
 from research_agent.inno.environment.docker_env import DockerEnv, with_env
+from research_agent.runtime.artifacts import write_stage_artifact
 
 def case_resolved(reference_codebases: list[str], reference_paths: list[str], reference_papers: list[str], context_variables=None):
     """
@@ -24,8 +25,11 @@ def case_resolved(reference_codebases: list[str], reference_paths: list[str], re
     if context_variables and context_variables.get("prepare_artifact_dir"):
         os.makedirs(context_variables["prepare_artifact_dir"], exist_ok=True)
         prepare_result_path = os.path.join(context_variables["prepare_artifact_dir"], "prepare_result.json")
-        with open(prepare_result_path, "w", encoding="utf-8") as f:
-            json.dump(prepare_result, f, ensure_ascii=False, indent=4)
+        write_stage_artifact(
+            prepare_result_path,
+            stage="prepare",
+            payload=prepare_result,
+        )
         artifact_map["prepare_result"] = prepare_result_path
 
     return Result(

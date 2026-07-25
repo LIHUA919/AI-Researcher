@@ -44,6 +44,10 @@ def test_goal_driven_supervisor_completes_when_goal_is_met(tmp_dir):
     judge_stage.mkdir()
     submit_stage.mkdir()
     analyze_stage.mkdir()
+    project_root = Path(tmp_dir) / "project"
+    project_root.mkdir()
+    main_script = project_root / "run_training_testing.py"
+    main_script.write_text("print('ok')\n", encoding="utf-8")
     (prepare_stage / "prepare_result.json").write_text(
         json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/workplace/repo-a"]}),
         encoding="utf-8",
@@ -57,7 +61,13 @@ def test_goal_driven_supervisor_completes_when_goal_is_met(tmp_dir):
     (plan_stage / "testing_plan.json").write_text(json.dumps({"test_metric": "fid"}), encoding="utf-8")
     (plan_stage / "plan_report.json").write_text(json.dumps({"plan_report": "done"}), encoding="utf-8")
     (implement_stage / "project_manifest.json").write_text(
-        json.dumps({"exists": True, "key_paths": {"main_script": "/tmp/run_training_testing.py"}}),
+        json.dumps(
+            {
+                "project_root": str(project_root),
+                "exists": True,
+                "key_paths": {"main_script": str(main_script)},
+            }
+        ),
         encoding="utf-8",
     )
     (judge_stage / "judge_report.json").write_text(json.dumps({"judge_report": "pass"}), encoding="utf-8")

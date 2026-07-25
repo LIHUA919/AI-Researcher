@@ -268,21 +268,47 @@ pytest -q
 
 Current local baseline:
 
-- 223 tests passing
+- 290 tests passing
 - 46 dynamically registered tools
 - 5 dynamically registered agents
 
 Some dependency deprecation warnings remain and are tracked separately from
 functional test failures.
 
-## Roadmap Toward the Full Loop
+## Verified Experience Loop (Experimental)
 
-1. Persist episodes and consolidated facts across runs.
-2. Retrieve evidence by relevance, novelty, provenance, and expected decision
-   value rather than similarity alone.
-3. Connect analysis and judge feedback to automatic hypothesis revision.
-4. Promote claims to durable knowledge only after reproducible evaluation.
-5. Measure whether retained experience improves future research decisions.
+Both research entrypoints support four explicit modes:
+
+- `off` — preserve the legacy one-run behavior;
+- `record` — independently verify and persist the attempt;
+- `recall` — retrieve scoped verified knowledge without recording;
+- `closed-loop` — recall, run, verify, promote eligible knowledge, and iterate
+  within the configured budget.
+
+Recording modes require a task-specific evaluator contract:
+
+```bash
+python research_agent/run_infer_plan.py \
+  --instance_path benchmark/gnn.json \
+  --experience-mode closed-loop \
+  --experience-store .ai_researcher/experience.sqlite3 \
+  --evaluation-contract path/to/task/contract.yaml \
+  --max-loop-iterations 3 \
+  --cache-policy reuse
+```
+
+The checked-in deterministic contract under
+`benchmark/evaluators/deterministic_score/` is a local integration fixture, not
+evidence of improvement on Scientist-Bench.
+
+## Remaining Validation Roadmap
+
+1. Add task-specific Evaluation Contracts for a representative
+   Scientist-Bench subset.
+2. Run paired memory-off and closed-loop trials on more than one real task.
+3. Add scheduled Docker/GPU benchmark execution outside normal pull-request CI.
+4. Add a ResearchClawBench Adapter after the internal subset is stable.
+5. Validate memory gain separately from the implemented candidate-search gain.
 
 The implementation contracts, module seams, rollout phases, and acceptance
 criteria are defined in the

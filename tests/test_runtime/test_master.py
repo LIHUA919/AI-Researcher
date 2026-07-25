@@ -108,6 +108,32 @@ def test_master_runtime_evaluates_goal_progress(tmp_dir):
     assert goal.all_criteria_met is False
 
 
+def test_master_runtime_requires_independent_verification_when_configured(tmp_dir):
+    prepare_stage = Path(tmp_dir) / "prepare_stage"
+    prepare_stage.mkdir()
+    (prepare_stage / "prepare_result.json").write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/repo-a"]}),
+        encoding="utf-8",
+    )
+    verified = False
+    runtime = MasterRuntime(
+        tmp_dir,
+        stage_order=["prepare"],
+        require_verification_for_completion=True,
+        verification_check=lambda: verified,
+    )
+
+    before = runtime.evaluate_goal()
+    verified = True
+    after = runtime.evaluate_goal()
+
+    assert before.all_criteria_met is False
+    assert before.current_stage == "verify"
+    assert before.verification_met is False
+    assert after.all_criteria_met is True
+    assert after.verification_met is True
+
+
 def test_master_runtime_can_run_only_after_previous_stages_complete(tmp_dir):
     runtime = MasterRuntime(tmp_dir)
     assert runtime.can_run_stage("prepare") is True
@@ -159,6 +185,30 @@ def test_master_runtime_rejects_stage_completion_when_guardrail_fails(tmp_dir):
     assert state["prepare"]["status"] == "failed"
     assert state["prepare"]["metadata"]["guardrail_passed"] is False
     assert "missing_reference_papers" in state["prepare"]["metadata"]["guardrail_violations"]
+    events = [
+        json.loads(line)
+        for line in (Path(tmp_dir) / "stage_events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event["status"] for event in events if event["stage"] == "prepare"] == ["failed"]
+
+
+def test_master_runtime_sync_preserves_logical_artifact_keys(tmp_dir):
+    prepare_stage = Path(tmp_dir) / "prepare_stage"
+    prepare_stage.mkdir()
+    (prepare_stage / "prepare_result.json").write_text(
+        json.dumps({"reference_papers": ["paper-a"], "reference_paths": ["/workplace/repo-a"]}),
+        encoding="utf-8",
+    )
+    runtime = MasterRuntime(tmp_dir)
+
+    state = runtime.record_stage_completion(
+        "prepare",
+        artifacts={"prepare_result": str(prepare_stage / "prepare_result.json")},
+    )
+    synced = runtime.sync_stage_state()
+
+    assert state["prepare"]["artifacts"].keys() == {"prepare_result"}
+    assert synced["prepare"]["artifacts"].keys() == {"prepare_result"}
 
 
 def test_master_runtime_writes_heartbeat_and_run_status(tmp_dir):
