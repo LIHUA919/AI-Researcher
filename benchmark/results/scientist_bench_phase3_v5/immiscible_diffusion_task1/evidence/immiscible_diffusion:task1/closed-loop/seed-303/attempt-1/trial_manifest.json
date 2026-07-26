@@ -1,0 +1,25 @@
+{
+  "budget": {
+    "generation_tokens": 5000,
+    "iterations": 2,
+    "recall_items": 6,
+    "recall_tokens": 2500
+  },
+  "cache_policy": "fresh-ledger-per-trial;identical-model-request-cache",
+  "code_revision": "53cb0350f981a7bec800d361c26eaadbb86601f6a1808aa3e1d31bfaaba7dcf4",
+  "dataset_digest": "b17253407cf78b246582be4f984f1117ff91c1deb7f38e4671eb867afdb495d6",
+  "evaluator_container_image": "python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4",
+  "evaluator_contract_digest": "67c4d39222279d7b909aedddfcd9f9916f71533b5dc57549aba93612401c64e7",
+  "evaluator_contract_id": "scientist-bench-immiscible-diffusion-task1",
+  "evaluator_contract_version": "1",
+  "evaluator_digest": "efc0bdc738556d542acba450b55af76d2e64250f28d923ec70acd14e9fc49402",
+  "generator_configuration_digest": "40107209d66baf9c6a20eca40dc9cac1a606e9a7fbe0a279eeef752b14b688f9",
+  "interface_digest": "5fde1758eb3b6486c7e83b67801914b7916eeb3281e12973591b301cddc4321c",
+  "mode": "closed-loop",
+  "model": "Qwen3-Coder-30B-A3B-Instruct",
+  "schema_version": "1",
+  "score_selection_policy": "best-valid-primary-metric",
+  "seed": 303,
+  "task_id": "immiscible_diffusion:task1",
+  "task_source_digest": "febbfe4f2d4bba279df4b507070766e11f108109d4400f8cb2c62e79dad83260"
+}

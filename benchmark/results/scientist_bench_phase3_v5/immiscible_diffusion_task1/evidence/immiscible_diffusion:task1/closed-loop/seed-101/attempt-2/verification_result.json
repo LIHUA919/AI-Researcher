@@ -1,0 +1,15 @@
+{
+  "failed_repetitions": 0,
+  "metrics": {
+    "fp16_assignment_rate": 0.5,
+    "implementation_score": 0.7000000000000001,
+    "optimal_assignment_rate": 0.6666666666666666,
+    "permutation_validity_rate": 1.0
+  },
+  "public_feedback": [
+    "Some assignments did not achieve the global minimum total squared L2 cost.",
+    "The fp16-before-cost assignment behavior was not fully correct.",
+    "Failing behavior categories: fp16, global_optimum"
+  ],
+  "repetitions": 6
+}

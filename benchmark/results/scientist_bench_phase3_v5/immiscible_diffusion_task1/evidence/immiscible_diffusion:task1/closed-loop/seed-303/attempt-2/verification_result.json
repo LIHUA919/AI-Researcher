@@ -1,0 +1,17 @@
+{
+  "failed_repetitions": 0,
+  "metrics": {
+    "fp16_assignment_rate": 0.0,
+    "implementation_score": 0.0,
+    "optimal_assignment_rate": 0.0,
+    "permutation_validity_rate": 0.0
+  },
+  "public_feedback": [
+    "Some outputs were not complete one-to-one permutations.",
+    "Some assignments did not achieve the global minimum total squared L2 cost.",
+    "The fp16-before-cost assignment behavior was not fully correct.",
+    "Candidate execution failed in one or more cases: candidate_missing_dependency",
+    "Failing behavior categories: basic, fp16, global_optimum, multidimensional, ties"
+  ],
+  "repetitions": 6
+}

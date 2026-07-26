@@ -88,6 +88,12 @@ This fork extends the upstream research workflow with:
   storage, append-only event logs, RAG-backed memory, and fact consolidation.
 - **Isolated experimentation** — Docker and browser environments for code,
   dataset, training, and evaluation workflows.
+- **Verified experience loop** — immutable attempts and Verification Records,
+  deterministic Knowledge promotion, bounded cited recall, and recoverable
+  cross-run feedback.
+- **Paired scientific evaluation** — three executable Scientist-Bench task
+  contracts, provider-request pairing, counterbalanced trials, and
+  evaluator-owned scores with complete provenance.
 
 The conceptual loop maps to the current implementation as follows:
 
@@ -98,8 +104,8 @@ The conceptual loop maps to the current implementation as follows:
 | Hypothesis | Idea, survey, and planning agents | Implemented |
 | Experiment | Docker-backed implementation and training workflow | Implemented, environment-dependent |
 | Evaluation | Stage guardrails, goal-driven metrics, judge reports | Implemented |
-| Knowledge | RAG memory, consolidated facts, code/paper/tool memory | Partial |
-| Feedback | Reuse of retrieved memory in later decisions | Opt-in; not yet a fully automatic cross-run loop |
+| Knowledge | Verification-gated positive/negative records plus legacy memory stores | Implemented in the experimental loop; legacy stores remain partial |
+| Feedback | Bounded cited recall in later iterations and runs | Implemented in explicit `recall` and `closed-loop` modes |
 
 ## Project Status
 
@@ -107,11 +113,11 @@ AI-Researcher is an **alpha research prototype**, not a production-ready
 autonomous scientist.
 
 The framework can orchestrate and supervise a complete research workflow, but
-it does not yet guarantee that every generated implementation is scientifically
-correct or that every experiment completes successfully. Durable knowledge
-feedback across runs is also still partial. The current focus is making each
-transition observable, resumable, and verifiable before closing the
-self-improvement loop.
+it does not guarantee that every generated implementation is scientifically
+correct or that every experiment completes successfully. The verified loop is
+explicit and bounded rather than universally enabled across every legacy
+memory path. The current focus is expanding executable task coverage and
+separating memory gain from later candidate-search gain.
 
 ## Project Structure
 
@@ -154,6 +160,16 @@ source .venv/bin/activate
 pip install -e .
 playwright install
 ```
+
+For a reproducible development environment, use the committed lockfile:
+
+```bash
+uv sync --locked --extra full --extra dev
+uv run --locked --extra full --extra dev pytest -q
+```
+
+The default installation contains the core runtime. Install feature profiles
+only when needed: `research`, `browser`, `documents`, `media`, `ui`, or `full`.
 
 ### Configuration
 
@@ -268,7 +284,7 @@ pytest -q
 
 Current local baseline:
 
-- 290 tests passing
+- 318 tests passing, plus 24 real-Docker evaluator and privacy-boundary checks
 - 46 dynamically registered tools
 - 5 dynamically registered agents
 
@@ -293,22 +309,101 @@ python research_agent/run_infer_plan.py \
   --experience-mode closed-loop \
   --experience-store .ai_researcher/experience.sqlite3 \
   --evaluation-contract path/to/task/contract.yaml \
+  --evaluation-runner container \
   --max-loop-iterations 3 \
   --cache-policy reuse
 ```
+
+Container evaluation is the default. Evaluator images are never pulled during
+the timed verification transaction: pin the image digest in the contract and
+prepare it before the run, for example:
+
+```bash
+docker pull \
+  python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4
+```
+
+Use `--evaluation-runner command` only for trusted local evaluator development.
+Container evaluation disables networking, places evaluator code in a read-only
+Docker named volume, mounts private inputs read-only, drops Linux capabilities,
+executes candidate code under an unprivileged UID, and copies only the
+verification result back into the attempt directory.
 
 The checked-in deterministic contract under
 `benchmark/evaluators/deterministic_score/` is a local integration fixture, not
 evidence of improvement on Scientist-Bench.
 
+### Paired behavioral validation
+
+The repository includes two non-scientific paired benchmarks. Both compare
+`record` (memory-off) and `closed-loop` with identical seeds, model, evaluator,
+and two-attempt budget:
+
+```bash
+# Deterministic causal check: 5 paired seeds.
+python -m benchmark.run_local_experience_benchmark \
+  --output-root .ai_researcher/benchmarks/local-experience-gain
+
+# Optional real-model smoke check against any OpenAI-compatible endpoint.
+python -m benchmark.run_model_experience_smoke \
+  --model YOUR_MODEL \
+  --base-url https://your-provider.example/v1 \
+  --api-key-env YOUR_PROVIDER_API_KEY \
+  --output-root .ai_researcher/benchmarks/model-experience-smoke
+```
+
+Observed on 2026-07-25:
+
+| Check | Pairs | Memory-off mean | Closed-loop mean | Experience Gain | Valid rate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Deterministic policy | 5 | 0.0106 | 1.0000 | +0.9894 | 100% / 100% |
+| GLM-4.7-Flash model smoke | 3 | 0.5238 | 1.0000 | +0.4762 | 100% / 100% |
+
+The model smoke also reduced repeated-failure rate from 0.3333 to 0 under this
+small controlled task. Reports retain each paired trial, token/wall-time cost,
+failure signature, and artifact references. These checks demonstrate that
+verified recall changes later behavior; they do **not** establish scientific
+improvement or generalization.
+
+### Scientist-Bench Phase 3 evidence
+
+The verified benchmark Module now exposes task Adapters for Immiscible
+Diffusion, Finite Scalar Quantization (FSQ), and Exphormer task1. Candidate
+models generate code only; an isolated evaluator owns validity and score.
+Paired modes reuse the byte-identical first provider response, counterbalance
+execution order, share a two-attempt budget, and retain every attempt even when
+an earlier valid result is selected.
+
+The checked-in V5 run used three seeds with
+`Qwen3-Coder-30B-A3B-Instruct`:
+
+| Task | Memory-off mean | Closed-loop mean | Experience Gain |
+| --- | ---: | ---: | ---: |
+| Immiscible Diffusion task1 | 0.9000 | 0.7667 | -0.1333 |
+| FSQ task1 | 0.3424 | 0.5030 | +0.1606 |
+| Exphormer task1 | 0.5833 | 0.6500 | +0.0667 |
+
+Mean repeated-failure rate fell from 0.2222 to 0.1111, while the selected
+result valid rate remained 100% in both modes. This meets the aggregate Phase 3
+criteria on the bounded subset, but the Immiscible regression is retained as a
+counterexample. The evidence supports CPU functional conformance only—not
+paper-scale training, FID, model quality, accuracy, throughput, scalability,
+or state-of-the-art claims.
+
+See the
+[sanitized V5 evidence bundle](benchmark/results/scientist_bench_phase3_v5/README.md)
+and the
+[causal pairing decision](docs/adr/0003-causally-paired-scientist-bench.md).
+
 ## Remaining Validation Roadmap
 
-1. Add task-specific Evaluation Contracts for a representative
-   Scientist-Bench subset.
-2. Run paired memory-off and closed-loop trials on more than one real task.
-3. Add scheduled Docker/GPU benchmark execution outside normal pull-request CI.
-4. Add a ResearchClawBench Adapter after the internal subset is stable.
-5. Validate memory gain separately from the implemented candidate-search gain.
+1. Expand each contract from CPU functional task1 behavior to paper-level
+   training and quality metrics where reproducible infrastructure permits.
+2. Add scheduled Docker/GPU benchmark execution outside normal pull-request CI.
+3. Add a ResearchClawBench Adapter now that the internal subset is stable.
+4. Add Phase 4 candidate search and validate search gain separately from
+   memory gain.
+5. Increase models, tasks, and repetitions before making generalization claims.
 
 The implementation contracts, module seams, rollout phases, and acceptance
 criteria are defined in the

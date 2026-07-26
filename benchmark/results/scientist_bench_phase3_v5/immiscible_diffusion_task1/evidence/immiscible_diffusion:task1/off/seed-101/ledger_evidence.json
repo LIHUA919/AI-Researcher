@@ -1,0 +1,176 @@
+{
+  "knowledge_records": [
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.8,
+      "created_at": "2026-07-25T17:35:19.293637Z",
+      "dataset_id": "b17253407cf78b246582be4f984f1117ff91c1deb7f38e4671eb867afdb495d6",
+      "domain": "diffusion-noise-assignment",
+      "knowledge_id": "78d11f4177b577038d8d7e84a50b8cdd35dc790ed90c4720979aed4df6c750ca",
+      "lesson": "Verified evaluator feedback:\n- Some assignments did not achieve the global minimum total squared L2 cost.\n- The fp16-before-cost assignment behavior was not fully correct.\n- Failing behavior categories: fp16, global_optimum\nFailed candidate rationale (do not repeat):\nCandidate rationale: No rationale supplied.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "24a56af4f5dded7182144b1d68162a8604b2c83022a97abc50778b29105d70f0",
+        "83a992cb5d9abe2143e5ca0ec3443bd73691915661aad95478896f2f4d43cc46"
+      ],
+      "supersedes": null,
+      "task_id": "immiscible_diffusion:task1"
+    },
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.7,
+      "created_at": "2026-07-25T17:35:02.926034Z",
+      "dataset_id": "b17253407cf78b246582be4f984f1117ff91c1deb7f38e4671eb867afdb495d6",
+      "domain": "diffusion-noise-assignment",
+      "knowledge_id": "acabd47d12a39938c820cb09277df10f17c816ed18f11bf08c7c5657c66c2358",
+      "lesson": "Verified evaluator feedback:\n- Some outputs were not complete one-to-one permutations.\n- Some assignments did not achieve the global minimum total squared L2 cost.\n- The fp16-before-cost assignment behavior was not fully correct.\n- Candidate execution failed in one or more cases: candidate_type_or_signature_error\n- Failing behavior categories: fp16\nFailed candidate rationale (do not repeat):\nCandidate rationale: No rationale supplied.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "24a56af4f5dded7182144b1d68162a8604b2c83022a97abc50778b29105d70f0"
+      ],
+      "supersedes": null,
+      "task_id": "immiscible_diffusion:task1"
+    }
+  ],
+  "recall_contexts": [],
+  "verification_records": [
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.30000000000000004,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.6
+      },
+      "contract_id": "scientist-bench-immiscible-diffusion-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:35:02.926034Z",
+      "evaluator_digest": "efc0bdc738556d542acba450b55af76d2e64250f28d923ec70acd14e9fc49402",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-1/solution.py",
+          "schema_version": "1",
+          "sha256": "c95051083b1e8aa89a24e8e66751690d3a14ee5c49c7f19658dd2eb3bdc1b161",
+          "size_bytes": 2660
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-1/run.log",
+          "schema_version": "1",
+          "sha256": "a2c8c1a05a97b9828b40c3f6aa62f305254496eef64d73f5fac8f1af4e53c28e",
+          "size_bytes": 335
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-1/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "ea38482aa5a336d28b3dd05d75abd862920764bfd0c53b445b6f64ba385cdba0",
+          "size_bytes": 1281
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-1/verification_result.json",
+          "schema_version": "1",
+          "sha256": "9521918c009477271f7fdaba00c9b1451aab4e9c05f413e4b1aba31b1f11a073",
+          "size_bytes": 612
+        }
+      ],
+      "observation_id": "6e52258ebb2cd34ceb2bccbf0bfe07685d45332101bfb33ab892035da0bc06a4",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Some outputs were not complete one-to-one permutations.",
+        "Some assignments did not achieve the global minimum total squared L2 cost.",
+        "The fp16-before-cost assignment behavior was not fully correct.",
+        "Candidate execution failed in one or more cases: candidate_type_or_signature_error",
+        "Failing behavior categories: fp16"
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "8da8cf95cadf285a79a8dc418883237bc76061cbe5deba9f49d02192c4eab7c5",
+      "verified_metrics": {
+        "fp16_assignment_rate": 0.0,
+        "implementation_score": 0.6,
+        "optimal_assignment_rate": 0.6666666666666666,
+        "permutation_validity_rate": 0.6666666666666666
+      },
+      "violations": []
+    },
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.19999999999999996,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.7000000000000001
+      },
+      "contract_id": "scientist-bench-immiscible-diffusion-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:35:19.293637Z",
+      "evaluator_digest": "efc0bdc738556d542acba450b55af76d2e64250f28d923ec70acd14e9fc49402",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-2/solution.py",
+          "schema_version": "1",
+          "sha256": "ea45f528aea3ae37c3d83f338d458d3e1e581d30336963c16ba43c432cb9fb93",
+          "size_bytes": 2962
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-2/run.log",
+          "schema_version": "1",
+          "sha256": "8e375821dc332e1f96d5b476b156d5efef4078e151b9d65e63f2bcca6b886dc2",
+          "size_bytes": 335
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-2/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "ea38482aa5a336d28b3dd05d75abd862920764bfd0c53b445b6f64ba385cdba0",
+          "size_bytes": 1281
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-2/verification_result.json",
+          "schema_version": "1",
+          "sha256": "2fcb821c24af34d782091bd94fcb68ab324017773396c3a7d916f3867eecd668",
+          "size_bytes": 475
+        }
+      ],
+      "observation_id": "c37f952e1869821a01ad7c0851db2c9ee377bdca1fd08d89afa17007da35d05c",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Some assignments did not achieve the global minimum total squared L2 cost.",
+        "The fp16-before-cost assignment behavior was not fully correct.",
+        "Failing behavior categories: fp16, global_optimum"
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "b1e21c0c9927f0d108efeed219f87f07da9bae2f02949b3441f2cdf979123d31",
+      "verified_metrics": {
+        "fp16_assignment_rate": 0.5,
+        "implementation_score": 0.7000000000000001,
+        "optimal_assignment_rate": 0.6666666666666666,
+        "permutation_validity_rate": 1.0
+      },
+      "violations": []
+    }
+  ]
+}

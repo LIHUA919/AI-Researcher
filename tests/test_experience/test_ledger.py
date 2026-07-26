@@ -191,6 +191,29 @@ def test_sqlite_ledger_survives_process_reopen(tmp_path):
     assert reopened.get_experience(records[4].experience_id) == records[4]
     assert reopened.list_knowledge() == [records[5]]
     assert reopened.snapshot_id() == snapshot
+    assert reopened.schema_version() == 2
+
+
+def test_sqlite_ledger_migrates_v1_without_losing_records(tmp_path):
+    path = tmp_path / "experience.sqlite3"
+    legacy = SQLiteExperimentLedger(path)
+    records = append_complete_record(legacy)
+    with legacy._connect() as connection:
+        connection.execute("DROP TABLE transaction_transitions")
+        connection.execute("PRAGMA user_version = 1")
+
+    migrated = SQLiteExperimentLedger(path)
+
+    assert migrated.schema_version() == 2
+    assert migrated.get_experience(records[4].experience_id) == records[4]
+    with migrated._connect() as connection:
+        table = connection.execute(
+            """
+            SELECT name FROM sqlite_master
+            WHERE type = 'table' AND name = 'transaction_transitions'
+            """
+        ).fetchone()
+    assert table["name"] == "transaction_transitions"
 
 
 def test_sqlite_ledger_supports_concurrent_writers(tmp_path):

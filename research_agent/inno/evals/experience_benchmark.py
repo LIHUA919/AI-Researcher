@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 from statistics import fmean, pvariance
@@ -47,6 +48,17 @@ class TrialResult(BaseModel):
     gpu_hours: float = Field(default=0.0, ge=0)
     failure_signature: str | None = None
     artifact_refs: list[str] = Field(default_factory=list)
+    artifact_digests: dict[str, str] = Field(default_factory=dict)
+    score_source: Literal["trial", "verification_record"] = "trial"
+    verification_id: str | None = None
+    verification_ids: list[str] = Field(default_factory=list)
+    attempt_id: str | None = None
+    attempt_ids: list[str] = Field(default_factory=list)
+    selected_iteration: int | None = Field(default=None, ge=1)
+    recall_snapshot_id: str | None = None
+    manifest_digest: str | None = None
+    comparison_digest: str | None = None
+    evaluator_digest: str | None = None
 
 
 class ModeSummary(BaseModel):
@@ -63,6 +75,16 @@ class ModeSummary(BaseModel):
     total_gpu_hours: float
 
 
+class TrialPair(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    seed: int
+    baseline: TrialResult
+    closed_loop: TrialResult
+    delta: float
+    execution_order: list[Literal["off", "closed-loop"]]
+
+
 class ExperienceGainReport(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -77,6 +99,7 @@ class ExperienceGainReport(BaseModel):
     baseline: ModeSummary
     closed_loop: ModeSummary
     paired_deltas: list[float]
+    trial_pairs: list[TrialPair] = Field(default_factory=list)
     experience_gain: float
     generated_at: datetime
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -86,8 +109,14 @@ TrialFn = Callable[[TrialConfiguration], TrialResult]
 
 
 class ExperienceBenchmarkRunner:
-    def __init__(self, trial_fn: TrialFn) -> None:
+    def __init__(
+        self,
+        trial_fn: TrialFn,
+        *,
+        require_verified_trials: bool = False,
+    ) -> None:
         self.trial_fn = trial_fn
+        self.require_verified_trials = require_verified_trials
 
     def run(
         self,
@@ -103,9 +132,20 @@ class ExperienceBenchmarkRunner:
     ) -> ExperienceGainReport:
         if not seeds or len(seeds) != len(set(seeds)):
             raise BenchmarkConfigurationError("seeds must be non-empty and unique")
-        results: dict[str, list[TrialResult]] = {"off": [], "closed-loop": []}
-        for seed in seeds:
-            for mode in ("off", "closed-loop"):
+        results: dict[int, dict[str, TrialResult]] = {}
+        execution_orders: dict[int, list[Literal["off", "closed-loop"]]] = {}
+        for pair_index, seed in enumerate(seeds):
+            modes: tuple[
+                Literal["off", "closed-loop"],
+                Literal["off", "closed-loop"],
+            ] = (
+                ("off", "closed-loop")
+                if pair_index % 2 == 0
+                else ("closed-loop", "off")
+            )
+            execution_orders[seed] = list(modes)
+            results[seed] = {}
+            for mode in modes:
                 config = TrialConfiguration(
                     task_id=task.task_id,
                     mode=mode,
@@ -116,25 +156,45 @@ class ExperienceBenchmarkRunner:
                     dataset_digest=dataset_digest,
                     code_revision=code_revision,
                 )
-                results[mode].append(self.trial_fn(config))
+                result = self.trial_fn(config)
+                if self.require_verified_trials:
+                    self._validate_verified_result(result)
+                results[seed][mode] = result
 
-        baseline = self._summary("off", results["off"])
-        closed_loop = self._summary("closed-loop", results["closed-loop"])
-        paired_deltas = [
-            round(
-                self._improvement(
-                    task.direction,
-                    baseline_result.score,
-                    closed_result.score,
+            if self.require_verified_trials:
+                self._validate_comparable_pair(
+                    seed,
+                    results[seed]["off"],
+                    results[seed]["closed-loop"],
+                )
+
+        baseline_results = [results[seed]["off"] for seed in seeds]
+        closed_loop_results = [results[seed]["closed-loop"] for seed in seeds]
+        baseline = self._summary("off", baseline_results)
+        closed_loop = self._summary("closed-loop", closed_loop_results)
+        trial_pairs = [
+            TrialPair(
+                seed=seed,
+                baseline=baseline_result,
+                closed_loop=closed_result,
+                delta=round(
+                    self._improvement(
+                        task.direction,
+                        baseline_result.score,
+                        closed_result.score,
+                    ),
+                    12,
                 ),
-                12,
+                execution_order=execution_orders[seed],
             )
-            for baseline_result, closed_result in zip(
-                results["off"],
-                results["closed-loop"],
+            for seed, baseline_result, closed_result in zip(
+                seeds,
+                baseline_results,
+                closed_loop_results,
                 strict=True,
             )
         ]
+        paired_deltas = [pair.delta for pair in trial_pairs]
         return ExperienceGainReport(
             task=task,
             seeds=seeds,
@@ -146,10 +206,46 @@ class ExperienceBenchmarkRunner:
             baseline=baseline,
             closed_loop=closed_loop,
             paired_deltas=paired_deltas,
+            trial_pairs=trial_pairs,
             experience_gain=round(fmean(paired_deltas), 12),
             generated_at=datetime.now(timezone.utc),
             metadata=dict(metadata or {}),
         )
+
+    @staticmethod
+    def _validate_verified_result(result: TrialResult) -> None:
+        required = {
+            "verification_id": result.verification_id,
+            "attempt_id": result.attempt_id,
+            "recall_snapshot_id": result.recall_snapshot_id,
+            "manifest_digest": result.manifest_digest,
+            "comparison_digest": result.comparison_digest,
+            "evaluator_digest": result.evaluator_digest,
+        }
+        missing = sorted(name for name, value in required.items() if not value)
+        if result.score_source != "verification_record":
+            missing.append("score_source:verification_record")
+        if not result.verification_ids or not result.attempt_ids:
+            missing.append("trial_trajectory_ids")
+        if result.selected_iteration is None:
+            missing.append("selected_iteration")
+        if not result.artifact_refs or not result.artifact_digests:
+            missing.append("verified_artifacts")
+        if missing:
+            raise BenchmarkConfigurationError(
+                "verified trial result is missing provenance: " + ", ".join(missing)
+            )
+
+    @staticmethod
+    def _validate_comparable_pair(
+        seed: int,
+        baseline: TrialResult,
+        closed_loop: TrialResult,
+    ) -> None:
+        if baseline.comparison_digest != closed_loop.comparison_digest:
+            raise BenchmarkConfigurationError(
+                f"seed {seed} trial pair has different comparison manifests"
+            )
 
     @staticmethod
     def _improvement(
@@ -218,6 +314,7 @@ def load_scientist_bench_task(
         direction=direction,
         metadata={
             "source_path": str(source_path),
+            "source_digest": hashlib.sha256(source_path.read_bytes()).hexdigest(),
             "instance_id": payload["instance_id"],
             "year": payload.get("year"),
         },

@@ -1,0 +1,86 @@
+{
+  "knowledge_records": [
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.7,
+      "created_at": "2026-07-25T17:35:59.970487Z",
+      "dataset_id": "b17253407cf78b246582be4f984f1117ff91c1deb7f38e4671eb867afdb495d6",
+      "domain": "diffusion-noise-assignment",
+      "knowledge_id": "bc35eeab875265bf4c0a0bfe532d5f90b8f4e50e3d56ecc42d98b865ec618e35",
+      "lesson": "Candidate rationale: No rationale supplied.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "positive",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "47074b51ad0c74810b57c880c343fc1a198b2e5a7c666d8514c18a818d8c0c39"
+      ],
+      "supersedes": null,
+      "task_id": "immiscible_diffusion:task1"
+    }
+  ],
+  "recall_contexts": [],
+  "verification_records": [
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": 0.09999999999999998,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 1.0
+      },
+      "contract_id": "scientist-bench-immiscible-diffusion-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:35:59.970487Z",
+      "evaluator_digest": "efc0bdc738556d542acba450b55af76d2e64250f28d923ec70acd14e9fc49402",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-202/attempt-1/solution.py",
+          "schema_version": "1",
+          "sha256": "eda1dd0053165ade6dce3e1a2abe48941a6b92f1569962f7f706bbdc6f3d32a8",
+          "size_bytes": 2832
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-202/attempt-1/run.log",
+          "schema_version": "1",
+          "sha256": "943d46ad1f6525bbf1e1e20a418dccd4a588cbaf7dbe845b971ecb642d034aeb",
+          "size_bytes": 334
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-202/attempt-1/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "610a33204b04980c159d774a8e6f97fb5dca7e371b012661ba699d3884f458df",
+          "size_bytes": 1281
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-202/attempt-1/verification_result.json",
+          "schema_version": "1",
+          "sha256": "74d0aee4ad74aa4a942d3559b1d70bd3a3b2853957ea9ef7c51c3cf9c3c4761f",
+          "size_bytes": 233
+        }
+      ],
+      "observation_id": "5b8692a404c24df6d48d918526e99aa9377053abdf7041d462613aa3a48088fb",
+      "outcome": "positive",
+      "passed": true,
+      "public_feedback": [],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "e7319c3a401fb06af49e875bebffca8a595d8b749f72a36afa067a1cb6436a13",
+      "verified_metrics": {
+        "fp16_assignment_rate": 1.0,
+        "implementation_score": 1.0,
+        "optimal_assignment_rate": 1.0,
+        "permutation_validity_rate": 1.0
+      },
+      "violations": []
+    }
+  ]
+}

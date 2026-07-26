@@ -1,0 +1,17 @@
+{
+  "failed_repetitions": 0,
+  "metrics": {
+    "determinism_rate": 1.0,
+    "global_edge_rate": 1.0,
+    "implementation_score": 0.6000000000000001,
+    "local_edge_rate": 1.0,
+    "regular_expander_rate": 0.0,
+    "seed_sensitivity": 1.0,
+    "structure_rate": 0.0
+  },
+  "public_feedback": [
+    "Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.",
+    "The original-node expander component was not simple, symmetric, and d-regular."
+  ],
+  "repetitions": 6
+}

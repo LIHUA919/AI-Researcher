@@ -1,0 +1,316 @@
+{
+  "baseline": {
+    "mean": 0.9,
+    "mode": "off",
+    "repeated_failure_rate": 0.0,
+    "scores": [
+      0.7000000000000001,
+      1.0,
+      1.0
+    ],
+    "total_gpu_hours": 0.0,
+    "total_tokens": 8262,
+    "total_wall_seconds": 62.87586074899809,
+    "valid_rate": 1.0,
+    "variance": 0.02
+  },
+  "budget": {
+    "generation_tokens": 5000,
+    "iterations": 2,
+    "recall_items": 6,
+    "recall_tokens": 2500
+  },
+  "closed_loop": {
+    "mean": 0.766666666667,
+    "mode": "closed-loop",
+    "repeated_failure_rate": 0.0,
+    "scores": [
+      0.7000000000000001,
+      1.0,
+      0.6
+    ],
+    "total_gpu_hours": 0.0,
+    "total_tokens": 8980,
+    "total_wall_seconds": 55.38655108200328,
+    "valid_rate": 1.0,
+    "variance": 0.028888888889
+  },
+  "code_revision": "53cb0350f981a7bec800d361c26eaadbb86601f6a1808aa3e1d31bfaaba7dcf4",
+  "dataset_digest": "b17253407cf78b246582be4f984f1117ff91c1deb7f38e4671eb867afdb495d6",
+  "evaluator_version": "scientist-bench-immiscible-diffusion-task1@1",
+  "experience_gain": -0.133333333333,
+  "generated_at": "2026-07-25T17:36:43.492126Z",
+  "metadata": {
+    "benchmark_subset": "Scientist-Bench task1",
+    "candidate_cache": "identical first-attempt model requests are reused across modes",
+    "claim_scope": "Scientist-Bench task1 CPU implementation conformance for globally optimal batch noise assignment and fp16 assignment inputs; no diffusion training, FID, image-quality, or speed claim.",
+    "execution_order": "counterbalanced by pair index",
+    "pairing": "same model, seed, budget, evaluator, and source revision",
+    "score_authority": "independent containerized VerificationRecord",
+    "source_url": "https://arxiv.org/abs/2406.12303",
+    "synthetic": false
+  },
+  "model": "Qwen3-Coder-30B-A3B-Instruct",
+  "paired_deltas": [
+    0.0,
+    0.0,
+    -0.4
+  ],
+  "schema_version": "1",
+  "seeds": [
+    101,
+    202,
+    303
+  ],
+  "task": {
+    "direction": "maximize",
+    "goal": "Immiscible Diffusion: Accelerating Diffusion Training with Noise Assignment",
+    "metadata": {
+      "instance_id": "immiscible_diffusion",
+      "source_digest": "febbfe4f2d4bba279df4b507070766e11f108109d4400f8cb2c62e79dad83260",
+      "source_path": "benchmark/final/diffu_flow/immiscible_diffusion.json",
+      "year": 2024
+    },
+    "primary_metric": "implementation_score",
+    "query": "To implement the core methodology of this paper, follow these detailed technical instructions:\n\n1. **Task**: The proposed approach targets accelerating the training of diffusion models by improving the assignment of noise to images to enhance the image quality during both unconditional and conditional generation tasks.\n\n2. **Core Techniques/Algorithms**: The methodology employs a batch-wise linear assignment algorithm, specifically the Hungarian method, to optimize noise-image pairing based on L2 distance. Additionally, it incorporates quantization to reduce the computational overhead associated with high-dimensional data during the assignment step.\n\n3. **Major Technical Components**:\n   - **Batch-wise Linear Assignment**: Matches noise and image batches to minimize the total distance, facilitating efficient training by keeping image-noise mappings distinguishable.\n   - **Quantization**: Reduces the precision of input representations to lower 32-bit floating point formats (to 16-bit), without compromising the overall Gaussian distribution of noise.\n\n4. **Implementation Details**:\n   - **Batch-wise Linear Assignment**:\n     - **Key Parameters**: Use L2 distance as the metric for assignment.\n     - **Input Specifications**: \n       - `x_b`: Batch of images.\n       - `n_rand_b`: Batch of random noise.\n       - `t_b`: Sampled diffusion steps.\n       - `α`: Diffusion schedule.\n     - **Output Specification**: The output is the batch of diffused images, `x_t,b`.\n     - **Constraints/Requirements**: Requires compatible dimensions between image and noise batches for proper assignment.\n\n   - **Quantization**:\n     - Apply quantization to reduce data size before performing assignments to ensure efficiency in memory usage.\n     - Ensure that the quantization does not interfere with the network's ability to learn from the assigned noise.\n\n5. **Step-by-Step Description**:\n   1. Prepare a batch of images and a corresponding batch of random Gaussian noise.\n   2. Convert the image and noise data to a lower precision (fp16).\n   3. Compute the pairwise L2 distances between the image and noise batches.\n   4. Execute the linear assignment using an optimization function (e.g., from SciPy) to obtain the optimal pairing of images to noise.\n   5. Using the assignment matrix, modify the input noise according to the matches derived in the assignment step.\n   6. Pass the reassigned noise to the diffusion process to generate the output images.\n   7. Optionally, repeat the process for multiple training iterations or modify the input data accordingly.\n\n6. **Critical Implementation Details**: \n   - Ensure that the image and noise assignment can run efficiently with large batch sizes; this study benchmarks a high batch size (e.g., 1024) and notes that the assignment operation takes about 22.8 ms. Utilizing quantization significantly impacts training speed by reducing memory and computational requirements.\n   - Monitor the performance of the proposed model during training to validate that the mapping retains a Gaussian distribution while improving the quality of generated images through the assignment of nearby noise points.\n\nFollowing these steps will allow researchers to implement the core methodology of the proposed approach effectively.",
+    "task_id": "immiscible_diffusion:task1"
+  },
+  "trial_pairs": [
+    {
+      "baseline": {
+        "artifact_digests": {
+          "run.log": "8e375821dc332e1f96d5b476b156d5efef4078e151b9d65e63f2bcca6b886dc2",
+          "solution.py": "ea45f528aea3ae37c3d83f338d458d3e1e581d30336963c16ba43c432cb9fb93",
+          "trial_manifest.json": "ea38482aa5a336d28b3dd05d75abd862920764bfd0c53b445b6f64ba385cdba0",
+          "verification_result.json": "2fcb821c24af34d782091bd94fcb68ab324017773396c3a7d916f3867eecd668"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-2/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-2/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-2/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-101/attempt-2/verification_result.json"
+        ],
+        "attempt_id": "6b7c3bd75aa751997245d37e468917d3de9f2f81b83f852918f86d65634fcbfe",
+        "attempt_ids": [
+          "c0097acd038942099280e4e096625b5c87e113fb5338f04c4752d10069b903aa",
+          "6b7c3bd75aa751997245d37e468917d3de9f2f81b83f852918f86d65634fcbfe"
+        ],
+        "comparison_digest": "0ec17ba108635ff3848b95a1d02929b63128e2c7780d178d2182b3a77f1a225c",
+        "evaluator_digest": "efc0bdc738556d542acba450b55af76d2e64250f28d923ec70acd14e9fc49402",
+        "failure_signature": "verified-negative:a3f68b3750d86921",
+        "gpu_hours": 0.0,
+        "manifest_digest": "f8d7a824c2db2123140678a97eddd387020bb40544580b7d8e0016eb361f9751",
+        "recall_snapshot_id": "edc54900c3c17a81e42821e161c61fe4d86ebcf0c11dec828b5bd9b7868aa1df",
+        "score": 0.7000000000000001,
+        "score_source": "verification_record",
+        "selected_iteration": 2,
+        "tokens": 3321,
+        "valid": true,
+        "verification_id": "b1e21c0c9927f0d108efeed219f87f07da9bae2f02949b3441f2cdf979123d31",
+        "verification_ids": [
+          "8da8cf95cadf285a79a8dc418883237bc76061cbe5deba9f49d02192c4eab7c5",
+          "b1e21c0c9927f0d108efeed219f87f07da9bae2f02949b3441f2cdf979123d31"
+        ],
+        "wall_seconds": 34.69405487499898
+      },
+      "closed_loop": {
+        "artifact_digests": {
+          "run.log": "d448fc9aed505cc1e00686a3655e7996c56616381c3270e8e9411154a2706f35",
+          "solution.py": "b51afbdea81d02485a41c06cd2e838b975954532702bee6ff7b5033ed6d21a04",
+          "trial_manifest.json": "98bef5c1f196823db956c057328517215af1be8dea06fa71f80693fb8fa20fbe",
+          "verification_result.json": "2fcb821c24af34d782091bd94fcb68ab324017773396c3a7d916f3867eecd668"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-101/attempt-2/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-101/attempt-2/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-101/attempt-2/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-101/attempt-2/verification_result.json"
+        ],
+        "attempt_id": "0fb96465c9fb5c0211241dd2cd1bbbd61f66f9c6a8102271b616f11d75ab8b88",
+        "attempt_ids": [
+          "571c64c40245fa13e259408f76ff71228d127f67d3a60641c64a4e9945362196",
+          "0fb96465c9fb5c0211241dd2cd1bbbd61f66f9c6a8102271b616f11d75ab8b88"
+        ],
+        "comparison_digest": "0ec17ba108635ff3848b95a1d02929b63128e2c7780d178d2182b3a77f1a225c",
+        "evaluator_digest": "efc0bdc738556d542acba450b55af76d2e64250f28d923ec70acd14e9fc49402",
+        "failure_signature": "verified-negative:a3f68b3750d86921",
+        "gpu_hours": 0.0,
+        "manifest_digest": "764d5c7f9f3918d94a74a62d246e45b328fd3f3b140fa849f90f617742bf9a9b",
+        "recall_snapshot_id": "fdc8c73656612d97f1cbeff7131673e100c00feba680a5bd01abd479464b5904",
+        "score": 0.7000000000000001,
+        "score_source": "verification_record",
+        "selected_iteration": 2,
+        "tokens": 3845,
+        "valid": true,
+        "verification_id": "5418291e5c5220b9aeacf731dc4f785182f3a3b6652b34038308195a068f0421",
+        "verification_ids": [
+          "4af245a5550b0ec79f594f79a89f1ed592f2c146c646468bcfee33e5dc70b655",
+          "5418291e5c5220b9aeacf731dc4f785182f3a3b6652b34038308195a068f0421"
+        ],
+        "wall_seconds": 24.11600779100263
+      },
+      "delta": 0.0,
+      "execution_order": [
+        "off",
+        "closed-loop"
+      ],
+      "seed": 101
+    },
+    {
+      "baseline": {
+        "artifact_digests": {
+          "run.log": "943d46ad1f6525bbf1e1e20a418dccd4a588cbaf7dbe845b971ecb642d034aeb",
+          "solution.py": "eda1dd0053165ade6dce3e1a2abe48941a6b92f1569962f7f706bbdc6f3d32a8",
+          "trial_manifest.json": "610a33204b04980c159d774a8e6f97fb5dca7e371b012661ba699d3884f458df",
+          "verification_result.json": "74d0aee4ad74aa4a942d3559b1d70bd3a3b2853957ea9ef7c51c3cf9c3c4761f"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-202/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-202/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-202/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-202/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "9f217c8606a1cd7d335f55ded5e752a1e39f6790c7b665c4c5bd78bd5b8b2336",
+        "attempt_ids": [
+          "9f217c8606a1cd7d335f55ded5e752a1e39f6790c7b665c4c5bd78bd5b8b2336"
+        ],
+        "comparison_digest": "4d57234453a69abe8b641e3c132a1039c6824e0e63e543400b47fa8e80069c7a",
+        "evaluator_digest": "efc0bdc738556d542acba450b55af76d2e64250f28d923ec70acd14e9fc49402",
+        "failure_signature": null,
+        "gpu_hours": 0.0,
+        "manifest_digest": "9ceea8d4acce27ef34a1ebb229ac12f39431d151b0f012928070575ea5e8454c",
+        "recall_snapshot_id": "0091b1c4e41b4f68a53ccc4a92e3fcee478709f30a6a38b25c9d9f9ff1cfee3d",
+        "score": 1.0,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 1680,
+        "valid": true,
+        "verification_id": "e7319c3a401fb06af49e875bebffca8a595d8b749f72a36afa067a1cb6436a13",
+        "verification_ids": [
+          "e7319c3a401fb06af49e875bebffca8a595d8b749f72a36afa067a1cb6436a13"
+        ],
+        "wall_seconds": 0.6131564579991391
+      },
+      "closed_loop": {
+        "artifact_digests": {
+          "run.log": "83515d2cde66e0bf9dae999533bf6fd955e4e97c6237c8d2711666bdaf8877f2",
+          "solution.py": "eda1dd0053165ade6dce3e1a2abe48941a6b92f1569962f7f706bbdc6f3d32a8",
+          "trial_manifest.json": "b7d182d4ef3ca06c890e31f74d493fd6025e7155035d0108eb69774ab17f4dd4",
+          "verification_result.json": "74d0aee4ad74aa4a942d3559b1d70bd3a3b2853957ea9ef7c51c3cf9c3c4761f"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-202/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-202/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-202/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-202/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "912cb3494d02edd0a1b659bd4b28ee4662c9a92a51bfd0dfa62432941d1f95e8",
+        "attempt_ids": [
+          "912cb3494d02edd0a1b659bd4b28ee4662c9a92a51bfd0dfa62432941d1f95e8"
+        ],
+        "comparison_digest": "4d57234453a69abe8b641e3c132a1039c6824e0e63e543400b47fa8e80069c7a",
+        "evaluator_digest": "efc0bdc738556d542acba450b55af76d2e64250f28d923ec70acd14e9fc49402",
+        "failure_signature": null,
+        "gpu_hours": 0.0,
+        "manifest_digest": "255062c2eae100a093d71c5f62ff6e7c56c35a59a94d2b9f35ae8ed2d02e8a01",
+        "recall_snapshot_id": "97b8a8338bce5497bd40b772d6e6c8ccfdd5ad90fafdcd656aeb4654e9053c25",
+        "score": 1.0,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 1680,
+        "valid": true,
+        "verification_id": "b12808eae74af97c685ffab71c585d9d8307a482e9d46cca8091e470b1630cb5",
+        "verification_ids": [
+          "b12808eae74af97c685ffab71c585d9d8307a482e9d46cca8091e470b1630cb5"
+        ],
+        "wall_seconds": 15.926881290997699
+      },
+      "delta": 0.0,
+      "execution_order": [
+        "closed-loop",
+        "off"
+      ],
+      "seed": 202
+    },
+    {
+      "baseline": {
+        "artifact_digests": {
+          "run.log": "18deb07d7f38e584b2b37b71d205a6ac9f9a1fe315765585453097b3595b983a",
+          "solution.py": "d6c7b70112579bd0528600e7333aa045872a9a8b8daae8602f9490be52643e0d",
+          "trial_manifest.json": "fb69ef36cde32954511161545dc1d5de5e234de159d3dbfd3c16e14d5dcf8049",
+          "verification_result.json": "74d0aee4ad74aa4a942d3559b1d70bd3a3b2853957ea9ef7c51c3cf9c3c4761f"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-303/attempt-2/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-303/attempt-2/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-303/attempt-2/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/off/seed-303/attempt-2/verification_result.json"
+        ],
+        "attempt_id": "846fd42c6c6a798e10316705b68a8132557ae58b96f4690fc8e3150e376e1a0a",
+        "attempt_ids": [
+          "1384ba18dc3b141e3ffc151c4e5da51329488db331b6989b6450ee651eba0309",
+          "846fd42c6c6a798e10316705b68a8132557ae58b96f4690fc8e3150e376e1a0a"
+        ],
+        "comparison_digest": "b157dc40bc67aeed8f61043b20055dbda356e5f3eb7cb9f62b3589f4989c37ac",
+        "evaluator_digest": "efc0bdc738556d542acba450b55af76d2e64250f28d923ec70acd14e9fc49402",
+        "failure_signature": null,
+        "gpu_hours": 0.0,
+        "manifest_digest": "0a8f0c9a9011d4d8d0aed69d0749253811ccc4c1bc6a75364b229a0a9b9e06b7",
+        "recall_snapshot_id": "96557cb32c7b48e9fe23570e442413fa7378db77922f3177231815d1fb3a4df0",
+        "score": 1.0,
+        "score_source": "verification_record",
+        "selected_iteration": 2,
+        "tokens": 3261,
+        "valid": true,
+        "verification_id": "1215b7ff81aff6b2c4a94ad4f70712b6cde809d7641f6b868081fd5712af6477",
+        "verification_ids": [
+          "cac36806ccfc3af84876abba9d16ef1d88d610bdfabe2d513e081cf716eb1aad",
+          "1215b7ff81aff6b2c4a94ad4f70712b6cde809d7641f6b868081fd5712af6477"
+        ],
+        "wall_seconds": 27.56864941599997
+      },
+      "closed_loop": {
+        "artifact_digests": {
+          "run.log": "99ba1153da0140769d7d90b32be962e90cbcdb7f11e112a964b434859698ab93",
+          "solution.py": "cf4b81037cd3de54033a4ebcdf3e140f519eeaceebadbba224bf43414660c7cb",
+          "trial_manifest.json": "c59ae2239ce172159b00cfe2fd99497c16a6f53e18c0db37dd7d4d2650eae713",
+          "verification_result.json": "c89fe07e2a8355ed37076dabd813b8066038cc6ade1fb05e5f5277634934ebea"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-303/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-303/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-303/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-303/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "8a7a7e75ba9d461a4e175b3ea70902f0437260b504e0a7dd7ddac7f3fb1a3b84",
+        "attempt_ids": [
+          "8a7a7e75ba9d461a4e175b3ea70902f0437260b504e0a7dd7ddac7f3fb1a3b84",
+          "408aca002095453f5ccf2945f3c61df323f7bb7939c211c0b077ba41f745b572"
+        ],
+        "comparison_digest": "b157dc40bc67aeed8f61043b20055dbda356e5f3eb7cb9f62b3589f4989c37ac",
+        "evaluator_digest": "efc0bdc738556d542acba450b55af76d2e64250f28d923ec70acd14e9fc49402",
+        "failure_signature": "verified-negative:23d690cdfda72717",
+        "gpu_hours": 0.0,
+        "manifest_digest": "7577d8e48c1e4ffe7e62f369ec28acd0eeeaf0425784333a2fc864fdfe5986f0",
+        "recall_snapshot_id": "97b8a8338bce5497bd40b772d6e6c8ccfdd5ad90fafdcd656aeb4654e9053c25",
+        "score": 0.6,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 3455,
+        "valid": true,
+        "verification_id": "537587ad0631920cbb44c4b4274d47d604bc11ed5507a4a8b6b5a7d30aaded8f",
+        "verification_ids": [
+          "537587ad0631920cbb44c4b4274d47d604bc11ed5507a4a8b6b5a7d30aaded8f",
+          "eb9ad53e06fdde2c53cc24d825b43a99dbb19875ca32f35af16807b102199367"
+        ],
+        "wall_seconds": 15.34366200000295
+      },
+      "delta": -0.4,
+      "execution_order": [
+        "off",
+        "closed-loop"
+      ],
+      "seed": 303
+    }
+  ]
+}

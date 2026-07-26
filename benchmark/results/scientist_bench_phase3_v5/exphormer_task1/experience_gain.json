@@ -1,0 +1,320 @@
+{
+  "baseline": {
+    "mean": 0.583333333333,
+    "mode": "off",
+    "repeated_failure_rate": 0.333333333333,
+    "scores": [
+      0.55,
+      0.6000000000000001,
+      0.6000000000000001
+    ],
+    "total_gpu_hours": 0.0,
+    "total_tokens": 10745,
+    "total_wall_seconds": 112.97783129200252,
+    "valid_rate": 1.0,
+    "variance": 0.000555555556
+  },
+  "budget": {
+    "generation_tokens": 5000,
+    "iterations": 2,
+    "recall_items": 6,
+    "recall_tokens": 2500
+  },
+  "closed_loop": {
+    "mean": 0.65,
+    "mode": "closed-loop",
+    "repeated_failure_rate": 0.333333333333,
+    "scores": [
+      0.7500000000000001,
+      0.6000000000000001,
+      0.6000000000000001
+    ],
+    "total_gpu_hours": 0.0,
+    "total_tokens": 11527,
+    "total_wall_seconds": 124.8805131669942,
+    "valid_rate": 1.0,
+    "variance": 0.005
+  },
+  "code_revision": "53cb0350f981a7bec800d361c26eaadbb86601f6a1808aa3e1d31bfaaba7dcf4",
+  "dataset_digest": "ca42bedfae1004247e09168a91daad5b646f93f3ad9f8dd57b3d472070ebce1e",
+  "evaluator_version": "scientist-bench-exphormer-task1@1",
+  "experience_gain": 0.066666666667,
+  "generated_at": "2026-07-25T17:38:53.785481Z",
+  "metadata": {
+    "benchmark_subset": "Scientist-Bench task1",
+    "candidate_cache": "identical first-attempt model requests are reused across modes",
+    "claim_scope": "Scientist-Bench task1 CPU implementation conformance for typed local, regular-expander, and global-node interaction graph construction; no graph-transformer training, accuracy, throughput, or scalability claim.",
+    "execution_order": "counterbalanced by pair index",
+    "pairing": "same model, seed, budget, evaluator, and source revision",
+    "score_authority": "independent containerized VerificationRecord",
+    "source_url": "https://arxiv.org/abs/2303.06147",
+    "synthetic": false
+  },
+  "model": "Qwen3-Coder-30B-A3B-Instruct",
+  "paired_deltas": [
+    0.2,
+    0.0,
+    0.0
+  ],
+  "schema_version": "1",
+  "seeds": [
+    101,
+    202,
+    303
+  ],
+  "task": {
+    "direction": "maximize",
+    "goal": "Exphormer: Sparse Transformers for Graphs",
+    "metadata": {
+      "instance_id": "exphormer",
+      "source_digest": "2dfae96453c07ac178eb7840304606fc28c8dd2c8843f22f0c20f0e39e5e7afa",
+      "source_path": "benchmark/final/gnn/exphormer.json",
+      "year": 2023
+    },
+    "primary_metric": "implementation_score",
+    "query": "To implement the methodology from this paper on the sparse graph transformer architecture, follow these detailed instructions:\n\n1. **Task**: The proposed model is designed for graph learning tasks, particularly focusing on node classification, graph classification, and representation learning on large graphs.\n\n2. **Core Techniques/Algorithms**:\n   - **Sparse Attention Mechanism**: Utilizes expander graphs and global nodes to achieve linear complexity in attention calculations.\n   - **Graph Construction**: Generates interaction graphs based on the input graph using three types of edges: expander graph edges, global nodes edges, and local neighborhood edges.\n\n3. **Purpose and Function of Major Components**:\n   - **Expander Graph Attention**: Provides a sparse connection pattern that allows information propagation between distant nodes while maintaining a linear number of edges.\n   - **Global Attention**: Introduces virtual nodes that connect to all other nodes, facilitating global information flow and serving as a universal approximator.\n   - **Local Neighborhood Attention**: Ensures that each node can attend to its immediate neighbors, preserving local graph structure.\n\n4. **Implementation Details**:\n   - **Key Parameters**:\n     - **Number of Layers**: Typically between 3 to 7 layers depending on the dataset.\n     - **Hidden Dimension**: Common choices range from 32 to 128.\n     - **Number of Heads**: Set to 4 or 8, depending on the complexity of the task.\n     - **Dropout Rate**: Generally between 0.1 to 0.3 to prevent overfitting.\n     - **Expander Degree**: Between 6 to 22, determined through linear search based on performance.\n     - **Number of Virtual Nodes**: Ranges from 1 to 6 based on the dataset.\n   - **Input/Output Specifications**:\n     - **Input**: The proposed model accepts a graph represented as an adjacency matrix and node feature matrix.\n     - **Output**: The output is typically a node classification or graph embedding.\n   - **Constraints**: Ensure that the expander graph is generated correctly; it should be a d-regular graph for optimal performance.\n\n5. **Step-by-Step Interaction of Components**:\n   - Step 1: Construct the input graph and generate the local neighborhood edges based on the adjacency matrix.\n   - Step 2: Generate expander graphs using a random regular expander graph construction method (e.g., using permutations as described).\n   - Step 3: Add a set of global nodes connected to every other node in the graph.\n   - Step 4: Combine these three types of edges to form the interaction graph H, which will be used for attention calculations.\n   - Step 5: Implement the attention mechanism using the interaction graph H, ensuring to compute attention scores using the defined edge types.\n   - Step 6: Process the output through a feedforward layer after the attention step, and use a suitable activation function (e.g., ReLU).\n\n6. **Critical Implementation Details**:\n   - The choice of parameters such as the number of heads and the hidden dimension can significantly affect performance; tuning these parameters is crucial.\n   - Ensure that the proposed model manages memory efficiently, especially when scaling to larger graphs; utilize batch sizes that fit within the GPU memory constraints.\n   - Implement mechanisms to handle edge features effectively, particularly for local neighborhood edges, to enhance the model's expressivity.\n   - Use positional encodings to maintain the order and structure of nodes, which is vital for the proposed model to learn effectively from the graph data.\n\nBy following these steps and guidelines, researchers can effectively reproduce the core methodology of the proposed sparse graph transformer architecture.",
+    "task_id": "exphormer:task1"
+  },
+  "trial_pairs": [
+    {
+      "baseline": {
+        "artifact_digests": {
+          "run.log": "60f26c0b1b1369c19f2d26fa6ec013d3c18851780c0dc948c36569d471c359d6",
+          "solution.py": "b1905abc21c8d4d8ef6862265336fb81b1addf0989840d413d9ece296228f999",
+          "trial_manifest.json": "1999e5a6044e8edd382e2610e012e7076539963ebc72e13eac3188f55d9dbda7",
+          "verification_result.json": "4e0ec8883d0e5ba104ff538f4e89fe85245167505cc7ea97e7883c7a68ab2154"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "832c0155b2857ef78c04114ba8b36abbc0e49c097d057a05b22b517aba62a248",
+        "attempt_ids": [
+          "832c0155b2857ef78c04114ba8b36abbc0e49c097d057a05b22b517aba62a248",
+          "7fd69e209ac98bbb275aff9c6c8100237853e3be8794b90bf64f8693e50720bc"
+        ],
+        "comparison_digest": "6c24c57ef2e9dca005d15934937a290708f5b1b724dcdff447755d98eeebbb96",
+        "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+        "failure_signature": "verified-negative:f0ff0b7737a0fee9",
+        "gpu_hours": 0.0,
+        "manifest_digest": "765ffad0b7ea6c626cdda3c2c1cc298d75e2db5e432bb933ac86cbb204c91d80",
+        "recall_snapshot_id": "36d7e26ae5457f54e93762b703e8438106224c4b603ee067db3a35f0e872262b",
+        "score": 0.55,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 3529,
+        "valid": true,
+        "verification_id": "7865319de881348adebed619f7df8b748f13d50b20f1f5ad6846b52537811440",
+        "verification_ids": [
+          "7865319de881348adebed619f7df8b748f13d50b20f1f5ad6846b52537811440",
+          "17282ecbca79e770501c9a43b41cfbd88dae30c3f29615b27090514bffa52192"
+        ],
+        "wall_seconds": 27.952634375000343
+      },
+      "closed_loop": {
+        "artifact_digests": {
+          "run.log": "e696d1cea4c1d5ddf73a910794b981981c1c6d045bf6ef78bf964c0dfd5fc8c7",
+          "solution.py": "0be73919e62b937f7e4e9587ecafae0f601e4d55b25157ea6c3ef5f9b59772d6",
+          "trial_manifest.json": "92ee61505138099404c16e69b0cad7bb1c889893d1a81e2c0ed7253bb28715a2",
+          "verification_result.json": "5b90e1371834707d6b216083607566480f340b199e68be1e3f825eba8ecfc657"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-101/attempt-2/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-101/attempt-2/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-101/attempt-2/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-101/attempt-2/verification_result.json"
+        ],
+        "attempt_id": "c4e85da5fa5941e25ef30cf7e69cd280cc02bbdd08019f3b54a5fadecad62041",
+        "attempt_ids": [
+          "2d01b7280b9ff1500550334e5007717f28c7e626b192702606f674606cd87fae",
+          "c4e85da5fa5941e25ef30cf7e69cd280cc02bbdd08019f3b54a5fadecad62041"
+        ],
+        "comparison_digest": "6c24c57ef2e9dca005d15934937a290708f5b1b724dcdff447755d98eeebbb96",
+        "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+        "failure_signature": "verified-negative:f0ff0b7737a0fee9",
+        "gpu_hours": 0.0,
+        "manifest_digest": "6718f8be84e94c0aae25b216a87640c2ca17dc0de043d8019a7d57367f327549",
+        "recall_snapshot_id": "fac4a6f3e5b56b57a606858ae3dea0532f10f464cf5225e35491c52df2b0034f",
+        "score": 0.7500000000000001,
+        "score_source": "verification_record",
+        "selected_iteration": 2,
+        "tokens": 3932,
+        "valid": true,
+        "verification_id": "6d056442884207f3cfbcf9aa9f0e2738d37c80c92640f1705cf57b6e6d1749b9",
+        "verification_ids": [
+          "1980241e9b36829d478c42dc9f1e529d61a962299789b32138582e3e1d982796",
+          "6d056442884207f3cfbcf9aa9f0e2738d37c80c92640f1705cf57b6e6d1749b9"
+        ],
+        "wall_seconds": 19.343545457999426
+      },
+      "delta": 0.2,
+      "execution_order": [
+        "off",
+        "closed-loop"
+      ],
+      "seed": 101
+    },
+    {
+      "baseline": {
+        "artifact_digests": {
+          "run.log": "9e0a34fefd350c7b4ed098e06a7c8856d7666f4001a77607286e73708333cea9",
+          "solution.py": "adf0806a1f583bf8af3414c711085c3eeafe50a32586f4233423a38f60955bd7",
+          "trial_manifest.json": "c84780fc3b255ec584792ba774aed67cfc14ff455edb3c82644e82f140dc318d",
+          "verification_result.json": "c5d66338af90612f45232a7c8e342e62ee9cc7b17665178af1c0a47e4d652d64"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-202/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-202/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-202/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-202/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "866a9c0df9616a7ae0048a53daf3d14086acc8114b235a22b817e6a306f8940d",
+        "attempt_ids": [
+          "866a9c0df9616a7ae0048a53daf3d14086acc8114b235a22b817e6a306f8940d",
+          "5830c1611a6625a5c1c1dcc034f6a755c9d6197f7e96968eb7eb253f5e9398cc"
+        ],
+        "comparison_digest": "8810f6701030b0832318624fd4bc623a5a0723ebded6daa656f93662a55c7070",
+        "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+        "failure_signature": "verified-negative:63bd88ae2dfab900",
+        "gpu_hours": 0.0,
+        "manifest_digest": "a92a980679661e2770064efedf2c058a8e1027db3f8a6809d0db4c39b8f7230f",
+        "recall_snapshot_id": "36d7e26ae5457f54e93762b703e8438106224c4b603ee067db3a35f0e872262b",
+        "score": 0.6000000000000001,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 3613,
+        "valid": true,
+        "verification_id": "fd41991ad6ff6fab1a21445df8c75377b42862b5965665bb56a841fd00791ef1",
+        "verification_ids": [
+          "fd41991ad6ff6fab1a21445df8c75377b42862b5965665bb56a841fd00791ef1",
+          "7516080a9fbf81f7e87d8ed0c96055a330730b77625de19ef2469f2eb5331451"
+        ],
+        "wall_seconds": 41.83201766700222
+      },
+      "closed_loop": {
+        "artifact_digests": {
+          "run.log": "b83f6d7c3277f1c72143759004307b3a9ef0bd30e3ec0f2e867b66e3d7d628a7",
+          "solution.py": "adf0806a1f583bf8af3414c711085c3eeafe50a32586f4233423a38f60955bd7",
+          "trial_manifest.json": "4307ef6030814b0b53308558dd6b3f40b2b5fb26c0288841d860fae313f37920",
+          "verification_result.json": "c5d66338af90612f45232a7c8e342e62ee9cc7b17665178af1c0a47e4d652d64"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-202/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-202/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-202/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-202/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "6dbcb52bede085bf09cf5c519da127eb058227d6f44c536cd099cc50e6821c31",
+        "attempt_ids": [
+          "6dbcb52bede085bf09cf5c519da127eb058227d6f44c536cd099cc50e6821c31",
+          "852b36ef0fe9342670205fcf427520f5c8ccfadc2d858bfbe6e77e7b70cdb06d"
+        ],
+        "comparison_digest": "8810f6701030b0832318624fd4bc623a5a0723ebded6daa656f93662a55c7070",
+        "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+        "failure_signature": "verified-negative:63bd88ae2dfab900",
+        "gpu_hours": 0.0,
+        "manifest_digest": "03399ffba871bb89a46ac416ec69c82143dcf903486db7f355c1ff2152e2b6d1",
+        "recall_snapshot_id": "36d7e26ae5457f54e93762b703e8438106224c4b603ee067db3a35f0e872262b",
+        "score": 0.6000000000000001,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 3623,
+        "valid": true,
+        "verification_id": "ce61c090a968559481894904f2dc6483a618537e01a300d8e6e478488b7be1aa",
+        "verification_ids": [
+          "ce61c090a968559481894904f2dc6483a618537e01a300d8e6e478488b7be1aa",
+          "a531efe95c16026dda786ce08140ebe3ac37da985e63e110f314efb57dd078ac"
+        ],
+        "wall_seconds": 55.88828124999782
+      },
+      "delta": 0.0,
+      "execution_order": [
+        "closed-loop",
+        "off"
+      ],
+      "seed": 202
+    },
+    {
+      "baseline": {
+        "artifact_digests": {
+          "run.log": "f04dafb8fc85b3ed1c453ac576c9abc4a770ca7f66aba43725e0423497ebb83e",
+          "solution.py": "e79589495efd9f5841ce9a30745811bb113ae4638f10e91e189638c30ee26023",
+          "trial_manifest.json": "ebaaedae40969888ef8e8a3e16c4d9e7b694f6fc78b03e6b74bf7a2c15ad1c01",
+          "verification_result.json": "c5d66338af90612f45232a7c8e342e62ee9cc7b17665178af1c0a47e4d652d64"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "4026ee4622b7437ba60cf7f63f3d3b23d3a655b3e8b541ece9f40fad2e7b8ca8",
+        "attempt_ids": [
+          "4026ee4622b7437ba60cf7f63f3d3b23d3a655b3e8b541ece9f40fad2e7b8ca8",
+          "5e648ddab912b109413249add344d666cb13d586eeb1218e3ef30cc8c644e7d5"
+        ],
+        "comparison_digest": "e3987a9d516aa5561ff53349b72e1c65cdd1b8be67caff516a779a6794679f88",
+        "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+        "failure_signature": "verified-negative:63bd88ae2dfab900",
+        "gpu_hours": 0.0,
+        "manifest_digest": "88f4c59a9dfc77856288208be2c393d8e17773ad7b51dbde58522bc3c9c3e97e",
+        "recall_snapshot_id": "36d7e26ae5457f54e93762b703e8438106224c4b603ee067db3a35f0e872262b",
+        "score": 0.6000000000000001,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 3603,
+        "valid": true,
+        "verification_id": "ba57f392cdf7c4b1ad2be9f7cc101beeac51e076aff9668188a0c19238eaa9e5",
+        "verification_ids": [
+          "ba57f392cdf7c4b1ad2be9f7cc101beeac51e076aff9668188a0c19238eaa9e5",
+          "a95cd995ddfcc2480f153de20c185878509e8087f6562ccb8f531b30fd803351"
+        ],
+        "wall_seconds": 43.19317924999996
+      },
+      "closed_loop": {
+        "artifact_digests": {
+          "run.log": "74be24976e281fa063afaedd370aac0795dacea01de537a77be549e9b26422c6",
+          "solution.py": "e79589495efd9f5841ce9a30745811bb113ae4638f10e91e189638c30ee26023",
+          "trial_manifest.json": "557d4750e2d1cc621b05ce518181f7c2033e08be9a5b342341f13a27b47d29ec",
+          "verification_result.json": "c5d66338af90612f45232a7c8e342e62ee9cc7b17665178af1c0a47e4d652d64"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "361c115b3811a601457fdcf08bb7fc345d1e35df0b7f216c630e96629d291e53",
+        "attempt_ids": [
+          "361c115b3811a601457fdcf08bb7fc345d1e35df0b7f216c630e96629d291e53",
+          "9080faf12241c230dec959a43ff950354b2ec16f0606b32185f35aef2f652aa6"
+        ],
+        "comparison_digest": "e3987a9d516aa5561ff53349b72e1c65cdd1b8be67caff516a779a6794679f88",
+        "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+        "failure_signature": "verified-negative:63bd88ae2dfab900",
+        "gpu_hours": 0.0,
+        "manifest_digest": "7cae48546361c30ff17c89df3c57275e303663d3d06e0d8f0be48bda6914ad66",
+        "recall_snapshot_id": "36d7e26ae5457f54e93762b703e8438106224c4b603ee067db3a35f0e872262b",
+        "score": 0.6000000000000001,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 3972,
+        "valid": true,
+        "verification_id": "f5a780d481c77925879e037ded61c3b36a9d7e0ea1bb5d63a8d2e4e2304c2fd4",
+        "verification_ids": [
+          "f5a780d481c77925879e037ded61c3b36a9d7e0ea1bb5d63a8d2e4e2304c2fd4",
+          "8cc90b6533ff1b8e9810319d14cf73363dbfeb02d1808820c24e710748e469e8"
+        ],
+        "wall_seconds": 49.64868645899696
+      },
+      "delta": 0.0,
+      "execution_order": [
+        "off",
+        "closed-loop"
+      ],
+      "seed": 303
+    }
+  ]
+}

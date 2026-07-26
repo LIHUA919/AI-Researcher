@@ -46,12 +46,25 @@ class KnowledgeGate:
             {experience.experience_id, *(item.experience_id for item in consistent)}
         )
         confidence = round(min(0.99, 0.7 + 0.1 * len(consistent)), 2)
+        analysis = experience.analysis.strip()
+        lesson = analysis
+        if verification.public_feedback:
+            feedback = "\n".join(
+                f"- {item}" for item in verification.public_feedback
+            )
+            if verification.outcome == "negative":
+                lesson = (
+                    f"Verified evaluator feedback:\n{feedback}\n"
+                    f"Failed candidate rationale (do not repeat):\n{analysis}"
+                )
+            else:
+                lesson = f"{analysis}\nVerified evaluator feedback:\n{feedback}"
         knowledge_payload = {
             "task_id": experience.task_id,
             "domain": self.domain,
             "dataset_id": experience.attempt.dataset_id,
             "model_family": self.model_family,
-            "lesson": experience.analysis.strip(),
+            "lesson": lesson,
             "conditions": experience.hypothesis.conditions,
             "outcome": verification.outcome,
             "confidence": confidence,

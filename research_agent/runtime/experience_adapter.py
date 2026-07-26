@@ -11,6 +11,7 @@ from typing import Any, Literal
 from research_agent.inno.experience import (
     ArtifactRef,
     CommandVerifier,
+    ContainerVerifier,
     EvaluationContract,
     ExperienceLoop,
     ExperienceMode,
@@ -78,12 +79,16 @@ class ExperienceRunAdapter:
         max_iterations: int = 3,
         recall_item_budget: int = 8,
         recall_token_budget: int = 3000,
+        evaluation_runner: Literal["command", "container"] = "command",
+        evaluator_image: str | None = None,
+        evaluator_private_root: str | Path | None = None,
     ) -> None:
         self.mode = mode
         self.cache_path = Path(cache_path)
         self.max_iterations = max(1, max_iterations)
         self.recall_item_budget = max(0, recall_item_budget)
         self.recall_token_budget = max(0, recall_token_budget)
+        self.evaluation_runner = evaluation_runner
         self.ledger = (
             SQLiteExperimentLedger(store_path) if self.mode != "off" else None
         )
@@ -102,10 +107,22 @@ class ExperienceRunAdapter:
                 )
             self.contract = load_evaluation_contract(self.contract_path)
             assert self.ledger is not None
+            verifier = (
+                ContainerVerifier(
+                    contract_dir=self.contract_path.parent,
+                    image=evaluator_image,
+                    private_root=evaluator_private_root,
+                )
+                if evaluation_runner == "container"
+                else CommandVerifier(
+                    contract_dir=self.contract_path.parent,
+                    private_root=evaluator_private_root,
+                )
+            )
             self.loop = ExperienceLoop(
                 ledger=self.ledger,
                 retriever=KeywordExperienceRetriever(self.ledger),
-                verifier=CommandVerifier(contract_dir=self.contract_path.parent),
+                verifier=verifier,
                 knowledge_gate=KnowledgeGate(
                     domain="runtime",
                     model_family="runtime",
@@ -134,6 +151,9 @@ class ExperienceRunAdapter:
             max_iterations=getattr(args, "max_loop_iterations", 3),
             recall_item_budget=getattr(args, "recall_item_budget", 8),
             recall_token_budget=getattr(args, "recall_token_budget", 3000),
+            evaluation_runner=getattr(args, "evaluation_runner", "command"),
+            evaluator_image=getattr(args, "evaluator_image", None),
+            evaluator_private_root=getattr(args, "evaluator_private_root", None),
         )
 
     @property

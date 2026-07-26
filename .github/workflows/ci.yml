@@ -14,10 +14,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install ruff==0.11.13
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --extra dev
       - name: Lint maintained Python sources
         run: |
-          ruff check \
+          uv run --locked --extra dev ruff check \
             research_agent \
             paper_agent \
             benchmark_collection \
@@ -33,12 +34,45 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - uses: astral-sh/setup-uv@v6
       - name: Install dependencies
-        run: |
-          pip install -e ".[test]" || pip install -e .
-          pip install pytest
+        run: uv sync --locked --extra full --extra dev
       - name: Run tests
         env:
           DEBUG: "False"
           DEFAULT_LOG: "False"
-        run: pytest tests/ -v --tb=short
+        run: uv run --locked --extra full --extra dev pytest tests/ -v --tb=short
+      - name: Run isolated evaluator integration
+        env:
+          RUN_DOCKER_TESTS: "1"
+        run: |
+          docker pull \
+            python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4
+          uv run --locked --extra full --extra dev pytest -q \
+            tests/test_experience/test_evaluation.py \
+            -k checked_in_contract_runs_in_real_container
+
+  core-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@v6
+      - name: Install locked core dependencies
+        run: uv sync --locked --extra dev
+      - name: Verify core import and CLI
+        run: |
+          uv run --locked --extra dev python -c \
+            "from research_agent.inno.experience import ExperienceLoop; print(ExperienceLoop.__name__)"
+          uv run --locked --extra dev ai-researcher --help
+      - name: Run core contract tests
+        run: |
+          uv run --locked --extra dev pytest -q \
+            tests/test_types.py \
+            tests/test_core_timeout.py \
+            tests/test_experience/test_evaluation.py \
+            tests/test_experience/test_knowledge.py \
+            tests/test_experience/test_ledger.py \
+            tests/test_experience/test_loop.py

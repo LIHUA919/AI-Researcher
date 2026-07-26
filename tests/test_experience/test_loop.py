@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from research_agent.inno.experience import (
     CallableVerifier,
     CommandVerifier,
@@ -136,6 +138,101 @@ def test_loop_restart_is_idempotent_at_durable_transitions():
     assert repeated == first
     assert len(ledger.query(ExperienceQuery(task_id="task-vq"))) == 1
     assert len(ledger.list_knowledge()) == 1
+    assert len(ledger.list_promotion_decisions()) == 1
+
+
+class CountingVerifier:
+    def __init__(self, *, fail_first: bool = False) -> None:
+        self.calls = 0
+        self.fail_first = fail_first
+        self.delegate = CallableVerifier(
+            lambda _, observation: {
+                "metrics": {"score": observation.metrics["score"]},
+                "repetitions": 1,
+            }
+        )
+
+    def verify(self, contract, observation):
+        self.calls += 1
+        if self.fail_first and self.calls == 1:
+            raise RuntimeError("simulated verifier crash")
+        return self.delegate.verify(contract, observation)
+
+
+class CrashAfterVerificationLedger(InMemoryExperimentLedger):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail_next_experience = True
+
+    def append_experience(self, experience):
+        if self.fail_next_experience:
+            self.fail_next_experience = False
+            raise RuntimeError("simulated crash after verification")
+        return super().append_experience(experience)
+
+
+def make_loop_with_verifier(ledger, verifier):
+    return ExperienceLoop(
+        ledger=ledger,
+        retriever=KeywordExperienceRetriever(ledger),
+        verifier=verifier,
+        knowledge_gate=KnowledgeGate(domain="vision", model_family="vq"),
+        evaluation_contract=EvaluationContract(
+            contract_id="deterministic-score",
+            task_id="task-vq",
+            primary_metric=PrimaryMetric(name="score", direction="maximize"),
+            baseline=0.5,
+        ),
+    )
+
+
+def test_restart_after_observation_retries_only_verification_and_later_stages():
+    ledger = InMemoryExperimentLedger()
+    verifier = CountingVerifier(fail_first=True)
+    loop = make_loop_with_verifier(ledger, verifier)
+    run = completion(suffix="1", score=0.8, iteration_number=1)
+
+    with pytest.raises(RuntimeError, match="simulated verifier crash"):
+        loop.after_run(run)
+
+    assert [item.stage for item in ledger.list_transitions(run.attempt.attempt_id)] == [
+        "attempt_recorded",
+        "observation_recorded",
+    ]
+
+    outcome = loop.after_run(run)
+
+    assert outcome.action == "completed"
+    assert verifier.calls == 2
+    assert {item.stage for item in ledger.list_transitions(run.attempt.attempt_id)} == {
+        "attempt_recorded",
+        "observation_recorded",
+        "verification_recorded",
+        "experience_recorded",
+        "promotion_decided",
+    }
+
+
+def test_restart_after_verification_does_not_execute_evaluator_twice():
+    ledger = CrashAfterVerificationLedger()
+    verifier = CountingVerifier()
+    loop = make_loop_with_verifier(ledger, verifier)
+    run = completion(suffix="1", score=0.8, iteration_number=1)
+
+    with pytest.raises(RuntimeError, match="simulated crash after verification"):
+        loop.after_run(run)
+
+    assert verifier.calls == 1
+    assert {item.stage for item in ledger.list_transitions(run.attempt.attempt_id)} == {
+        "attempt_recorded",
+        "observation_recorded",
+        "verification_recorded",
+    }
+
+    outcome = loop.after_run(run)
+
+    assert outcome.action == "completed"
+    assert verifier.calls == 1
     assert len(ledger.list_promotion_decisions()) == 1
 
 

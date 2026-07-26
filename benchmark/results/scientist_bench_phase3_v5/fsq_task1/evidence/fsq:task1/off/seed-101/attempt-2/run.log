@@ -1,0 +1,10 @@
+{
+  "candidate_generation_cache_hit": false,
+  "candidate_generation_failure": null,
+  "citations": [],
+  "iteration": 2,
+  "mode": "off",
+  "recall_snapshot_id": "4af9011782613be7455294dc9286173d9331e6d0376b41e0c4e12383148af044",
+  "seed": 101,
+  "solution_digest": "887883ee14060a7b9dab8317527a159f79c2ebdbd0f1708c4e82f27edb2ee053"
+}

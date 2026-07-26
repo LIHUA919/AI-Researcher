@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.console import Console
-import inquirer
 from rich.markdown import Markdown
 from prompt_toolkit.completion import Completer, Completion
 def debug_print_swarm(debug: bool, *args: str) -> None:
@@ -82,6 +81,13 @@ def single_select_menu(options, message: str = ""):
     ):
         # No TTY available, auto-select first option
         return options[0]
+    try:
+        import inquirer
+    except ImportError as exc:
+        raise RuntimeError(
+            "Interactive menus require the optional 'ui' dependency profile: "
+            "pip install 'ai-researcher[ui]'"
+        ) from exc
     questions = [
         inquirer.List(
             'choice',

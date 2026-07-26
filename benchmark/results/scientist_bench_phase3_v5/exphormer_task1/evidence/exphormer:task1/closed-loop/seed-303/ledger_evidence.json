@@ -1,0 +1,239 @@
+{
+  "knowledge_records": [
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.7,
+      "created_at": "2026-07-25T17:38:04.139588Z",
+      "dataset_id": "ca42bedfae1004247e09168a91daad5b646f93f3ad9f8dd57b3d472070ebce1e",
+      "domain": "sparse-graph-transformer",
+      "knowledge_id": "8136dca7a3672a6d417a954389f7a33bb5def850bf1cb3a58d0293e21102c55f",
+      "lesson": "Verified evaluator feedback:\n- Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.\n- The original-node expander component was not simple, symmetric, and d-regular.\nFailed candidate rationale (do not repeat):\nCandidate rationale: No rationale supplied.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "b93e1e5e8e89ac28cd047768c9c5832d7ae3cf08d449c16116203e253be96248"
+      ],
+      "supersedes": null,
+      "task_id": "exphormer:task1"
+    },
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.8,
+      "created_at": "2026-07-25T17:38:52.693495Z",
+      "dataset_id": "ca42bedfae1004247e09168a91daad5b646f93f3ad9f8dd57b3d472070ebce1e",
+      "domain": "sparse-graph-transformer",
+      "knowledge_id": "9c52439e7a1500784856418abdbf6315111cc78c0e0c45846c093044534793e8",
+      "lesson": "Verified evaluator feedback:\n- Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.\n- The original-node expander component was not simple, symmetric, and d-regular.\nFailed candidate rationale (do not repeat):\nCandidate rationale: No rationale supplied.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "3d1149caf3b634e85edce9a4cb192b6eb5e4320f678baae25082b74705e1ab11",
+        "b93e1e5e8e89ac28cd047768c9c5832d7ae3cf08d449c16116203e253be96248"
+      ],
+      "supersedes": null,
+      "task_id": "exphormer:task1"
+    }
+  ],
+  "recall_contexts": [
+    {
+      "created_at": "2026-07-25T17:38:04.139105Z",
+      "items": [],
+      "memory_snapshot_id": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "request": {
+        "cross_task": false,
+        "dataset_id": "ca42bedfae1004247e09168a91daad5b646f93f3ad9f8dd57b3d472070ebce1e",
+        "domain": "sparse-graph-transformer",
+        "include_negative": true,
+        "max_items": 6,
+        "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+        "query": "To implement the methodology from this paper on the sparse graph transformer architecture, follow these detailed instructions:\n\n1. **Task**: The proposed model is designed for graph learning tasks, particularly focusing on node classification, graph classification, and representation learning on large graphs.\n\n2. **Core Techniques/Algorithms**:\n   - **Sparse Attention Mechanism**: Utilizes expander graphs and global nodes to achieve linear complexity in attention calculations.\n   - **Graph Construction**: Generates interaction graphs based on the input graph using three types of edges: expander graph edges, global nodes edges, and local neighborhood edges.\n\n3. **Purpose and Function of Major Components**:\n   - **Expander Graph Attention**: Provides a sparse connection pattern that allows information propagation between distant nodes while maintaining a linear number of edges.\n   - **Global Attention**: Introduces virtual nodes that connect to all other nodes, facilitating global information flow and serving as a universal approximator.\n   - **Local Neighborhood Attention**: Ensures that each node can attend to its immediate neighbors, preserving local graph structure.\n\n4. **Implementation Details**:\n   - **Key Parameters**:\n     - **Number of Layers**: Typically between 3 to 7 layers depending on the dataset.\n     - **Hidden Dimension**: Common choices range from 32 to 128.\n     - **Number of Heads**: Set to 4 or 8, depending on the complexity of the task.\n     - **Dropout Rate**: Generally between 0.1 to 0.3 to prevent overfitting.\n     - **Expander Degree**: Between 6 to 22, determined through linear search based on performance.\n     - **Number of Virtual Nodes**: Ranges from 1 to 6 based on the dataset.\n   - **Input/Output Specifications**:\n     - **Input**: The proposed model accepts a graph represented as an adjacency matrix and node feature matrix.\n     - **Output**: The output is typically a node classification or graph embedding.\n   - **Constraints**: Ensure that the expander graph is generated correctly; it should be a d-regular graph for optimal performance.\n\n5. **Step-by-Step Interaction of Components**:\n   - Step 1: Construct the input graph and generate the local neighborhood edges based on the adjacency matrix.\n   - Step 2: Generate expander graphs using a random regular expander graph construction method (e.g., using permutations as described).\n   - Step 3: Add a set of global nodes connected to every other node in the graph.\n   - Step 4: Combine these three types of edges to form the interaction graph H, which will be used for attention calculations.\n   - Step 5: Implement the attention mechanism using the interaction graph H, ensuring to compute attention scores using the defined edge types.\n   - Step 6: Process the output through a feedforward layer after the attention step, and use a suitable activation function (e.g., ReLU).\n\n6. **Critical Implementation Details**:\n   - The choice of parameters such as the number of heads and the hidden dimension can significantly affect performance; tuning these parameters is crucial.\n   - Ensure that the proposed model manages memory efficiently, especially when scaling to larger graphs; utilize batch sizes that fit within the GPU memory constraints.\n   - Implement mechanisms to handle edge features effectively, particularly for local neighborhood edges, to enhance the model's expressivity.\n   - Use positional encodings to maintain the order and structure of nodes, which is vital for the proposed model to learn effectively from the graph data.\n\nBy following these steps and guidelines, researchers can effectively reproduce the core methodology of the proposed sparse graph transformer architecture.",
+        "schema_version": "1",
+        "task_id": "exphormer:task1",
+        "token_budget": 2500
+      },
+      "schema_version": "1",
+      "snapshot_id": "36d7e26ae5457f54e93762b703e8438106224c4b603ee067db3a35f0e872262b",
+      "token_count": 0
+    },
+    {
+      "created_at": "2026-07-25T17:38:05.123100Z",
+      "items": [
+        {
+          "citation_id": "knowledge:8136dca7a3672a6d417a954389f7a33bb5def850bf1cb3a58d0293e21102c55f",
+          "knowledge_id": "8136dca7a3672a6d417a954389f7a33bb5def850bf1cb3a58d0293e21102c55f",
+          "lesson": "Verified evaluator feedback:\n- Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.\n- The original-node expander component was not simple, symmetric, and d-regular.\nFailed candidate rationale (do not repeat):\nCandidate rationale: No rationale supplied.",
+          "outcome": "negative",
+          "schema_version": "1",
+          "score": 0.30997071,
+          "score_breakdown": {
+            "outcome_utility": 0.9,
+            "provenance_quality": 0.59,
+            "recency": 0.89250054,
+            "redundancy": -0.0,
+            "relevance": 0.02469136
+          },
+          "source_experience_ids": [
+            "b93e1e5e8e89ac28cd047768c9c5832d7ae3cf08d449c16116203e253be96248"
+          ],
+          "token_count": 69
+        }
+      ],
+      "memory_snapshot_id": "c56d3d7b2f7d3cbff7ccec9389dec8e59b1baef5f523548db095619cfbc08ff6",
+      "request": {
+        "cross_task": false,
+        "dataset_id": "ca42bedfae1004247e09168a91daad5b646f93f3ad9f8dd57b3d472070ebce1e",
+        "domain": "sparse-graph-transformer",
+        "include_negative": true,
+        "max_items": 6,
+        "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+        "query": "To implement the methodology from this paper on the sparse graph transformer architecture, follow these detailed instructions:\n\n1. **Task**: The proposed model is designed for graph learning tasks, particularly focusing on node classification, graph classification, and representation learning on large graphs.\n\n2. **Core Techniques/Algorithms**:\n   - **Sparse Attention Mechanism**: Utilizes expander graphs and global nodes to achieve linear complexity in attention calculations.\n   - **Graph Construction**: Generates interaction graphs based on the input graph using three types of edges: expander graph edges, global nodes edges, and local neighborhood edges.\n\n3. **Purpose and Function of Major Components**:\n   - **Expander Graph Attention**: Provides a sparse connection pattern that allows information propagation between distant nodes while maintaining a linear number of edges.\n   - **Global Attention**: Introduces virtual nodes that connect to all other nodes, facilitating global information flow and serving as a universal approximator.\n   - **Local Neighborhood Attention**: Ensures that each node can attend to its immediate neighbors, preserving local graph structure.\n\n4. **Implementation Details**:\n   - **Key Parameters**:\n     - **Number of Layers**: Typically between 3 to 7 layers depending on the dataset.\n     - **Hidden Dimension**: Common choices range from 32 to 128.\n     - **Number of Heads**: Set to 4 or 8, depending on the complexity of the task.\n     - **Dropout Rate**: Generally between 0.1 to 0.3 to prevent overfitting.\n     - **Expander Degree**: Between 6 to 22, determined through linear search based on performance.\n     - **Number of Virtual Nodes**: Ranges from 1 to 6 based on the dataset.\n   - **Input/Output Specifications**:\n     - **Input**: The proposed model accepts a graph represented as an adjacency matrix and node feature matrix.\n     - **Output**: The output is typically a node classification or graph embedding.\n   - **Constraints**: Ensure that the expander graph is generated correctly; it should be a d-regular graph for optimal performance.\n\n5. **Step-by-Step Interaction of Components**:\n   - Step 1: Construct the input graph and generate the local neighborhood edges based on the adjacency matrix.\n   - Step 2: Generate expander graphs using a random regular expander graph construction method (e.g., using permutations as described).\n   - Step 3: Add a set of global nodes connected to every other node in the graph.\n   - Step 4: Combine these three types of edges to form the interaction graph H, which will be used for attention calculations.\n   - Step 5: Implement the attention mechanism using the interaction graph H, ensuring to compute attention scores using the defined edge types.\n   - Step 6: Process the output through a feedforward layer after the attention step, and use a suitable activation function (e.g., ReLU).\n\n6. **Critical Implementation Details**:\n   - The choice of parameters such as the number of heads and the hidden dimension can significantly affect performance; tuning these parameters is crucial.\n   - Ensure that the proposed model manages memory efficiently, especially when scaling to larger graphs; utilize batch sizes that fit within the GPU memory constraints.\n   - Implement mechanisms to handle edge features effectively, particularly for local neighborhood edges, to enhance the model's expressivity.\n   - Use positional encodings to maintain the order and structure of nodes, which is vital for the proposed model to learn effectively from the graph data.\n\nBy following these steps and guidelines, researchers can effectively reproduce the core methodology of the proposed sparse graph transformer architecture.",
+        "schema_version": "1",
+        "task_id": "exphormer:task1",
+        "token_budget": 2500
+      },
+      "schema_version": "1",
+      "snapshot_id": "cedbd16247a2d111139dd127220fac29399a99c1e80a464e4b36b999d87e0126",
+      "token_count": 69
+    }
+  ],
+  "verification_records": [
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.29999999999999993,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.6000000000000001
+      },
+      "contract_id": "scientist-bench-exphormer-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:38:52.693495Z",
+      "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-2/solution.py",
+          "schema_version": "1",
+          "sha256": "31c505de94cc3500cda6e1f7f756170600cd9f805bb040103cfde6354aaf0ecc",
+          "size_bytes": 3423
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-2/run.log",
+          "schema_version": "1",
+          "sha256": "e00efa8b791928a6f0831737f88dccf07edfa04a3dcd622ef58d788e9cc784ec",
+          "size_bytes": 427
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-2/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "557d4750e2d1cc621b05ce518181f7c2033e08be9a5b342341f13a27b47d29ec",
+          "size_bytes": 1267
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-2/verification_result.json",
+          "schema_version": "1",
+          "sha256": "c5d66338af90612f45232a7c8e342e62ee9cc7b17665178af1c0a47e4d652d64",
+          "size_bytes": 487
+        }
+      ],
+      "observation_id": "80f774e163222b9376fa29735f3f753970aa898120e708288f3a69e15ef2f3a8",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.",
+        "The original-node expander component was not simple, symmetric, and d-regular."
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "8cc90b6533ff1b8e9810319d14cf73363dbfeb02d1808820c24e710748e469e8",
+      "verified_metrics": {
+        "determinism_rate": 1.0,
+        "global_edge_rate": 1.0,
+        "implementation_score": 0.6000000000000001,
+        "local_edge_rate": 1.0,
+        "regular_expander_rate": 0.0,
+        "seed_sensitivity": 1.0,
+        "structure_rate": 0.0
+      },
+      "violations": []
+    },
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.29999999999999993,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.6000000000000001
+      },
+      "contract_id": "scientist-bench-exphormer-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:38:04.139588Z",
+      "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-1/solution.py",
+          "schema_version": "1",
+          "sha256": "e79589495efd9f5841ce9a30745811bb113ae4638f10e91e189638c30ee26023",
+          "size_bytes": 3234
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-1/run.log",
+          "schema_version": "1",
+          "sha256": "74be24976e281fa063afaedd370aac0795dacea01de537a77be549e9b26422c6",
+          "size_bytes": 342
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-1/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "557d4750e2d1cc621b05ce518181f7c2033e08be9a5b342341f13a27b47d29ec",
+          "size_bytes": 1267
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/closed-loop/seed-303/attempt-1/verification_result.json",
+          "schema_version": "1",
+          "sha256": "c5d66338af90612f45232a7c8e342e62ee9cc7b17665178af1c0a47e4d652d64",
+          "size_bytes": 487
+        }
+      ],
+      "observation_id": "9d96f6441aebf3111567e1a85bcf9f8f42762657e20cfa01066ae6619bf6cc24",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.",
+        "The original-node expander component was not simple, symmetric, and d-regular."
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "f5a780d481c77925879e037ded61c3b36a9d7e0ea1bb5d63a8d2e4e2304c2fd4",
+      "verified_metrics": {
+        "determinism_rate": 1.0,
+        "global_edge_rate": 1.0,
+        "implementation_score": 0.6000000000000001,
+        "local_edge_rate": 1.0,
+        "regular_expander_rate": 0.0,
+        "seed_sensitivity": 1.0,
+        "structure_rate": 0.0
+      },
+      "violations": []
+    }
+  ]
+}

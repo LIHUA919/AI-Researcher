@@ -29,9 +29,18 @@ from research_agent.inno.evals.experience_benchmark import (
     ExperienceGainReport,
     ModeSummary,
     TrialConfiguration,
+    TrialPair,
     TrialResult,
     load_scientist_bench_task,
     save_experience_gain_report,
+)
+from research_agent.inno.evals.scientist_bench import (
+    CandidateGeneration,
+    CandidateRequest,
+    OpenAICompatibleSolutionGenerator,
+    ScientistBenchTrialAdapter,
+    SolutionGenerator,
+    VerifiedTrialManifest,
 )
 
 __all__ = [
@@ -40,6 +49,8 @@ __all__ = [
     "BenchmarkRunner",
     "BenchmarkConfigurationError",
     "BenchmarkTask",
+    "CandidateGeneration",
+    "CandidateRequest",
     "CriterionScore",
     "EvalCriterion",
     "ExperienceBenchmarkRunner",
@@ -50,10 +61,15 @@ __all__ = [
     "StructuralEvaluator",
     "ResearchRunTrace",
     "ModeSummary",
+    "OpenAICompatibleSolutionGenerator",
     "RetrievalItem",
+    "ScientistBenchTrialAdapter",
+    "SolutionGenerator",
     "ToolCallTrace",
     "TrialConfiguration",
+    "TrialPair",
     "TrialResult",
+    "VerifiedTrialManifest",
     "build_and_save_eval_result",
     "build_research_run_trace",
     "save_eval_artifacts",

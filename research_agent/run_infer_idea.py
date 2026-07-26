@@ -8,22 +8,15 @@ from research_agent.inno.agents.inno_agent.exp_analyser import get_exp_analyser_
 from research_agent.inno.agents.inno_agent.idea_agent import get_idea_agent, get_code_survey_agent
 from research_agent.inno.tools.arxiv_source import download_arxiv_source_by_title
 from research_agent.constant import COMPLETION_MODEL, CHEEP_MODEL
-from research_agent.inno.environment.docker_env import DockerEnv, DockerConfig
+from research_agent.inno.environment.docker_env import DockerEnv
 from research_agent.inno.environment.browser_env import BrowserEnv
 from research_agent.inno.environment.markdown_browser import RequestsMarkdownBrowser
-import asyncio
 import os
 from typing import Dict, Any, Union
 from research_agent.inno.logger import MetaChainLogger
 import importlib
-from research_agent.inno.environment.utils import (
-    setup_dataset,
-    ensure_legacy_workspace_aliases,
-    normalize_workplace_layout,
-)
 from research_agent.runtime import (
     ExperienceRunAdapter,
-    MasterRuntime,
     ReferenceIdeationStrategy,
     ResearchPipeline,
     RunRequest,
@@ -31,8 +24,10 @@ from research_agent.runtime import (
     refresh_runtime_context_variables,
 )
 from research_agent.runtime.artifacts import write_stage_artifact
-from research_agent.inno.evals import (
-    build_and_save_eval_result,
+from research_agent.runtime.run_orchestrator import (
+    DockerFlowExecutionAdapter,
+    ResearchRunLaunch,
+    ResearchRunOrchestrator,
 )
 from research_agent.inno_common import (
     build_project_manifest,
@@ -707,159 +702,34 @@ Note that you should fully utilize the existing code in the directory `/{workpla
         }
         
 def main(args, references):
-    """
-    MAX_ATTEMPTS
-
-    # load the eval instance
-
-    # choose the code base
-
-    # generate the detailed coding plan
-
-    # coding and debuging -> fail to implement the plan
-
-    -> success to implement the plan
-
-    # submit the code to the environment -> get the result
-
-    for attempt in range(MAX_ATTEMPTS): 
-        # evaluate the result
-
-        # coding and debuging
-
-        # submit the code to the environment -> get the result
-        if done:
-            break
-    """
-    # load the eval instance
     with open(args.instance_path, "r", encoding="utf-8") as f:
         eval_instance = json.load(f)
     instance_id = eval_instance["instance_id"] + "_idea"
-    model_suffix = args.model.replace("/", "__")
-    cache_path = args.cache_path + "_" + instance_id + "_" + model_suffix
-    local_root = os.path.join(
-        os.getcwd(),
-        "workplace_paper",
-        f"task_{instance_id}" + "_" + model_suffix,
+    execution = DockerFlowExecutionAdapter.from_args(
+        args,
+        run_id=instance_id,
+        flow_factory=InnoFlow,
+        flow_arguments={"references": references, "run_id": instance_id},
     )
-    container_name = args.container_name + "_" + instance_id + "_" + model_suffix
-    os.makedirs(local_root, exist_ok=True)
-    experience = ExperienceRunAdapter.from_args(args, cache_path=cache_path)
-    env_config = DockerConfig(container_name = container_name, 
-                              workplace_name = args.workplace_name, 
-                              communication_port = args.port, 
-                              local_root = local_root,
-                              )
-    
-    code_env = DockerEnv(env_config)
-    normalize_workplace_layout(code_env.local_workplace)
-    code_env.init_container()
-    setup_dataset(args.category, code_env.local_workplace)
-    ensure_legacy_workspace_aliases(code_env.local_workplace)
-    web_env = BrowserEnv(browsergym_eval_env = None, local_root=env_config.local_root, workplace_name=env_config.workplace_name)
-    file_env = RequestsMarkdownBrowser(viewport_size=1024 * 4, local_root=env_config.local_root, workplace_name=env_config.workplace_name, downloads_folder=os.path.join(env_config.local_root, env_config.workplace_name, "downloads"))
-    flow = InnoFlow(cache_path=cache_path, log_path="log_" + instance_id, code_env=code_env, web_env=web_env, file_env=file_env, model=args.model, cache_policy=getattr(args, "cache_policy", "reuse"))
-    runtime = MasterRuntime(cache_path)
-    project_dir = os.path.join(local_root, args.workplace_name, "project")
-    recall_context = None
-    iteration_number = 1
-    attempt_recorded = False
-    try:
-        recall_context = experience.before_run(
+    experience = ExperienceRunAdapter.from_args(
+        args,
+        cache_path=str(execution.cache_path),
+    )
+    return ResearchRunOrchestrator(
+        experience=experience,
+        execution=execution,
+    ).run(
+        ResearchRunLaunch(
+            run_id=instance_id,
             task_id=instance_id,
             query=references,
+            entrypoint="run_infer_idea",
+            task_level=args.task_level,
+            model=args.model,
             domain=args.category,
             dataset_id=args.category,
-            model_family=args.model,
         )
-        outcome = None
-        iteration_limit = (
-            experience.max_iterations if experience.runs_closed_loop else 1
-        )
-        for iteration_number in range(1, iteration_limit + 1):
-            attempt_recorded = False
-            result = asyncio.run(
-                flow(
-                    instance_path=args.instance_path,
-                    task_level=args.task_level,
-                    local_root=local_root,
-                    workplace_name=args.workplace_name,
-                    max_iter_times=args.max_iter_times,
-                    category=args.category,
-                    references=references,
-                    run_id=instance_id,
-                    recall_context=recall_context,
-                    verification_check=experience.pending_verification_check(),
-                )
-            )
-            outcome = experience.after_flow(
-                result,
-                project_dir=project_dir,
-                run_id=instance_id,
-                model=args.model,
-                domain=args.category,
-                dataset_id=args.category,
-                model_family=args.model,
-                recall_context=recall_context,
-                iteration_number=iteration_number,
-            )
-            attempt_recorded = experience.records_experience
-            experience.finalize_runtime(run_id=instance_id, outcome=outcome)
-            if (
-                not experience.runs_closed_loop
-                or outcome is None
-                or outcome.action != "continue"
-            ):
-                break
-            recall_context = experience.before_run(
-                task_id=instance_id,
-                query=references,
-                domain=args.category,
-                dataset_id=args.category,
-                model_family=args.model,
-            )
-        bundle = build_and_save_eval_result(result, cache_path)
-        bundle["experience_outcome"] = (
-            outcome.model_dump(mode="json") if outcome is not None else None
-        )
-        return bundle
-    except Exception as exc:
-        experience_recording_error = None
-        if experience.records_experience and not attempt_recorded:
-            try:
-                failed_outcome = experience.after_failure(
-                    project_dir=project_dir,
-                    run_id=instance_id,
-                    task_id=instance_id,
-                    query=references,
-                    model=args.model,
-                    domain=args.category,
-                    dataset_id=args.category,
-                    model_family=args.model,
-                    recall_context=recall_context,
-                    iteration_number=iteration_number,
-                    error=exc,
-                )
-                experience.finalize_runtime(
-                    run_id=instance_id,
-                    outcome=failed_outcome,
-                )
-            except Exception as record_exc:
-                experience_recording_error = (
-                    f"{type(record_exc).__name__}: {record_exc}"
-                )
-        runtime.write_failure_status(
-            run_id=instance_id,
-            error_message=str(exc),
-            stage_name=runtime.next_stage(),
-            metadata={
-                "entrypoint": "run_infer_idea",
-                "task_level": args.task_level,
-                "experience_recording_error": experience_recording_error,
-            },
-        )
-        raise
-    # print(judge_result)
+    )
 
 
 

@@ -78,6 +78,7 @@ class VerificationRecord(ImmutableModel):
     verified_metrics: dict[str, float]
     baseline_comparison: dict[str, float | str]
     violations: list[str] = Field(default_factory=list)
+    public_feedback: list[str] = Field(default_factory=list)
     evidence_refs: list[ArtifactRef] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
 
@@ -117,6 +118,23 @@ class PromotionDecision(ImmutableModel):
     policy_version: str
     knowledge_id: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
+
+
+TransactionStage = Literal[
+    "attempt_recorded",
+    "observation_recorded",
+    "verification_recorded",
+    "experience_recorded",
+    "promotion_decided",
+]
+
+
+class TransactionTransition(ImmutableModel):
+    transition_id: str
+    attempt_id: str
+    stage: TransactionStage
+    record_id: str
+    created_at: datetime
 
 
 class RecallRequest(ImmutableModel):

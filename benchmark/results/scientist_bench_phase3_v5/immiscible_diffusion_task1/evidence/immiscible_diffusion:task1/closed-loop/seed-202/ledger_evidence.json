@@ -1,0 +1,107 @@
+{
+  "knowledge_records": [
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.7,
+      "created_at": "2026-07-25T17:35:59.341017Z",
+      "dataset_id": "b17253407cf78b246582be4f984f1117ff91c1deb7f38e4671eb867afdb495d6",
+      "domain": "diffusion-noise-assignment",
+      "knowledge_id": "969cd5473bb0e9d3b6f13e77cbd9930c68151f1068164e9e8cea9d0ddc42723c",
+      "lesson": "Candidate rationale: No rationale supplied.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "positive",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "53e86268571ef72b55a1ca756ffeda611e785d7bda825cd28045012caa4af55c"
+      ],
+      "supersedes": null,
+      "task_id": "immiscible_diffusion:task1"
+    }
+  ],
+  "recall_contexts": [
+    {
+      "created_at": "2026-07-25T17:35:44.041706Z",
+      "items": [],
+      "memory_snapshot_id": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "request": {
+        "cross_task": false,
+        "dataset_id": "b17253407cf78b246582be4f984f1117ff91c1deb7f38e4671eb867afdb495d6",
+        "domain": "diffusion-noise-assignment",
+        "include_negative": true,
+        "max_items": 6,
+        "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+        "query": "To implement the core methodology of this paper, follow these detailed technical instructions:\n\n1. **Task**: The proposed approach targets accelerating the training of diffusion models by improving the assignment of noise to images to enhance the image quality during both unconditional and conditional generation tasks.\n\n2. **Core Techniques/Algorithms**: The methodology employs a batch-wise linear assignment algorithm, specifically the Hungarian method, to optimize noise-image pairing based on L2 distance. Additionally, it incorporates quantization to reduce the computational overhead associated with high-dimensional data during the assignment step.\n\n3. **Major Technical Components**:\n   - **Batch-wise Linear Assignment**: Matches noise and image batches to minimize the total distance, facilitating efficient training by keeping image-noise mappings distinguishable.\n   - **Quantization**: Reduces the precision of input representations to lower 32-bit floating point formats (to 16-bit), without compromising the overall Gaussian distribution of noise.\n\n4. **Implementation Details**:\n   - **Batch-wise Linear Assignment**:\n     - **Key Parameters**: Use L2 distance as the metric for assignment.\n     - **Input Specifications**: \n       - `x_b`: Batch of images.\n       - `n_rand_b`: Batch of random noise.\n       - `t_b`: Sampled diffusion steps.\n       - `α`: Diffusion schedule.\n     - **Output Specification**: The output is the batch of diffused images, `x_t,b`.\n     - **Constraints/Requirements**: Requires compatible dimensions between image and noise batches for proper assignment.\n\n   - **Quantization**:\n     - Apply quantization to reduce data size before performing assignments to ensure efficiency in memory usage.\n     - Ensure that the quantization does not interfere with the network's ability to learn from the assigned noise.\n\n5. **Step-by-Step Description**:\n   1. Prepare a batch of images and a corresponding batch of random Gaussian noise.\n   2. Convert the image and noise data to a lower precision (fp16).\n   3. Compute the pairwise L2 distances between the image and noise batches.\n   4. Execute the linear assignment using an optimization function (e.g., from SciPy) to obtain the optimal pairing of images to noise.\n   5. Using the assignment matrix, modify the input noise according to the matches derived in the assignment step.\n   6. Pass the reassigned noise to the diffusion process to generate the output images.\n   7. Optionally, repeat the process for multiple training iterations or modify the input data accordingly.\n\n6. **Critical Implementation Details**: \n   - Ensure that the image and noise assignment can run efficiently with large batch sizes; this study benchmarks a high batch size (e.g., 1024) and notes that the assignment operation takes about 22.8 ms. Utilizing quantization significantly impacts training speed by reducing memory and computational requirements.\n   - Monitor the performance of the proposed model during training to validate that the mapping retains a Gaussian distribution while improving the quality of generated images through the assignment of nearby noise points.\n\nFollowing these steps will allow researchers to implement the core methodology of the proposed approach effectively.",
+        "schema_version": "1",
+        "task_id": "immiscible_diffusion:task1",
+        "token_budget": 2500
+      },
+      "schema_version": "1",
+      "snapshot_id": "97b8a8338bce5497bd40b772d6e6c8ccfdd5ad90fafdcd656aeb4654e9053c25",
+      "token_count": 0
+    }
+  ],
+  "verification_records": [
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": 0.09999999999999998,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 1.0
+      },
+      "contract_id": "scientist-bench-immiscible-diffusion-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:35:59.341017Z",
+      "evaluator_digest": "efc0bdc738556d542acba450b55af76d2e64250f28d923ec70acd14e9fc49402",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-202/attempt-1/solution.py",
+          "schema_version": "1",
+          "sha256": "eda1dd0053165ade6dce3e1a2abe48941a6b92f1569962f7f706bbdc6f3d32a8",
+          "size_bytes": 2832
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-202/attempt-1/run.log",
+          "schema_version": "1",
+          "sha256": "83515d2cde66e0bf9dae999533bf6fd955e4e97c6237c8d2711666bdaf8877f2",
+          "size_bytes": 343
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-202/attempt-1/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "b7d182d4ef3ca06c890e31f74d493fd6025e7155035d0108eb69774ab17f4dd4",
+          "size_bytes": 1289
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/immiscible_diffusion_task1/evidence/immiscible_diffusion:task1/closed-loop/seed-202/attempt-1/verification_result.json",
+          "schema_version": "1",
+          "sha256": "74d0aee4ad74aa4a942d3559b1d70bd3a3b2853957ea9ef7c51c3cf9c3c4761f",
+          "size_bytes": 233
+        }
+      ],
+      "observation_id": "889123104ed4295df7ce4501b74d997a45c6041f6b6401b4958e393690713d6c",
+      "outcome": "positive",
+      "passed": true,
+      "public_feedback": [],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "b12808eae74af97c685ffab71c585d9d8307a482e9d46cca8091e470b1630cb5",
+      "verified_metrics": {
+        "fp16_assignment_rate": 1.0,
+        "implementation_score": 1.0,
+        "optimal_assignment_rate": 1.0,
+        "permutation_validity_rate": 1.0
+      },
+      "violations": []
+    }
+  ]
+}

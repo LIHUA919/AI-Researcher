@@ -1,0 +1,12 @@
+{
+  "candidate_generation_cache_hit": false,
+  "candidate_generation_failure": null,
+  "citations": [
+    "knowledge:8136dca7a3672a6d417a954389f7a33bb5def850bf1cb3a58d0293e21102c55f"
+  ],
+  "iteration": 2,
+  "mode": "closed-loop",
+  "recall_snapshot_id": "cedbd16247a2d111139dd127220fac29399a99c1e80a464e4b36b999d87e0126",
+  "seed": 303,
+  "solution_digest": "5c4aa7fe491e22a438eaf943f5a47aac8ceb3bf7c42a892d44d3ab1507ada8d5"
+}

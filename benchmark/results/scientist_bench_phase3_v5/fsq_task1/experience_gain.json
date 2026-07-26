@@ -1,0 +1,320 @@
+{
+  "baseline": {
+    "mean": 0.342424242424,
+    "mode": "off",
+    "repeated_failure_rate": 0.333333333333,
+    "scores": [
+      0.22727272727272727,
+      0.6,
+      0.2
+    ],
+    "total_gpu_hours": 0.0,
+    "total_tokens": 12872,
+    "total_wall_seconds": 185.9480912509971,
+    "valid_rate": 1.0,
+    "variance": 0.033296602388
+  },
+  "budget": {
+    "generation_tokens": 5000,
+    "iterations": 2,
+    "recall_items": 6,
+    "recall_tokens": 2500
+  },
+  "closed_loop": {
+    "mean": 0.50303030303,
+    "mode": "closed-loop",
+    "repeated_failure_rate": 0.0,
+    "scores": [
+      0.5545454545454546,
+      0.6,
+      0.35454545454545455
+    ],
+    "total_gpu_hours": 0.0,
+    "total_tokens": 13053,
+    "total_wall_seconds": 116.84637378999832,
+    "valid_rate": 1.0,
+    "variance": 0.011368227732
+  },
+  "code_revision": "53cb0350f981a7bec800d361c26eaadbb86601f6a1808aa3e1d31bfaaba7dcf4",
+  "dataset_digest": "7574cdba9ca87d2f241fcd5a6fbf71a755abbd711ec97ab8b79f07aa9c85de08",
+  "evaluator_version": "scientist-bench-fsq-task1@1",
+  "experience_gain": 0.160606060606,
+  "generated_at": "2026-07-25T17:39:54.337887Z",
+  "metadata": {
+    "benchmark_subset": "Scientist-Bench task1",
+    "candidate_cache": "identical first-attempt model requests are reused across modes",
+    "claim_scope": "Scientist-Bench task1 CPU implementation conformance for FSQ bounding, normalization, and mixed-radix indexing; no autograd, VAE training, codebook-utilization, FID, or quality claim.",
+    "execution_order": "counterbalanced by pair index",
+    "pairing": "same model, seed, budget, evaluator, and source revision",
+    "score_authority": "independent containerized VerificationRecord",
+    "source_url": "https://arxiv.org/abs/2309.15505",
+    "synthetic": false
+  },
+  "model": "Qwen3-Coder-30B-A3B-Instruct",
+  "paired_deltas": [
+    0.327272727273,
+    0.0,
+    0.154545454545
+  ],
+  "schema_version": "1",
+  "seeds": [
+    101,
+    202,
+    303
+  ],
+  "task": {
+    "direction": "maximize",
+    "goal": "Finite Scalar Quantization: VQ-VAE Made Simple",
+    "metadata": {
+      "instance_id": "fsq",
+      "source_digest": "3d3a3451f4b0d9dac162263ac8c74c33c208853eb3fe5d439b1322e6585c8b8b",
+      "source_path": "benchmark/final/vq/fsq.json",
+      "year": 2023
+    },
+    "primary_metric": "implementation_score",
+    "query": "To implement the core methodology of the research on finite scalar quantization as a replacement for vector quantization (VQ) in variational autoencoders (VAEs), follow the detailed steps below:\n\n1. **Task Definition**: The proposed model focuses on discrete representation learning for tasks such as image generation, depth estimation, colorization, and segmentation using the proposed approach integrated into architectures like autoregressive transformers.\n\n2. **Core Techniques**: \n   - Use a simplified quantization approach utilizing scalar quantization instead of VQ.\n   - Define a function to project the encoder output to a manageable dimensionality (typically between 3 to 10).\n   - Implement the Straight-Through Estimator (STE) for gradient propagation through the quantization operation.\n\n3. **Technical Components**:\n   - **Bounding Function**: This compresses data dimensionality and confines values to a desired range. Use a function like \\(f(z) = \\left\\lfloor \\frac{L}{2} \\right\\rfloor \\tanh(z)\\) to project the data, where \\(L\\) is the number of quantization levels.\n   - **Quantization process**: Round each bounded dimension to its nearest integer to yield the quantized output.\n   - **Loss function**: Operate under a reconstruction loss paradigm typical in VAEs to optimize the proposed model parameters.\n\n4. **Implementation Details**:\n   - **Key Parameters**: \n     - Number of dimensions \\(d\\) and levels \\(L\\) per dimension should be defined based on the codebook size you aim to replicate (e.g., set \\(L_i \\geq 5\\) for all \\(i\\)).\n   - **Input/Output Specifications**: The input to the bounding function will be the output from the final encoder layer; the output after quantization will be in the format \\(\\hat{z}\\), with shape matching the original \\(z\\).\n   - **Constraints**: Ensure all inputs are preprocessed adequately to be within the functioning range of the bounding function.\n\n5. **Step-by-Step Integration**:\n   - **Step 1**: Train a standard VAE model and obtain its encoder output \\(z\\).\n   - **Step 2**: Apply the bounding function \\(f\\) on \\(z\\) to limit the output dimensions to usable values.\n   - **Step 3**: Quantize the resultant bounded \\(z\\) using the rounding procedure to generate \\( \\hat{z} \\).\n   - **Step 4**: Use the original \\(z\\) and \\(\\hat{z}\\) in conjunction with the reconstruction loss to backpropagate through the network using the STE for gradient calculation.\n\n6. **Critical Implementation Details**:\n   - Ensure the rounding process is correctly differentiable; utilize the STE to maintain gradient flow during backpropagation.\n   - Maintain high codebook utilization by selecting optimal dimensions and levels based on empirical trials, and monitor performance to refine the parameters if needed.\n   - Adjust the proposed model configurations (number of epochs, batch size) based on the structures laid out in this paper, ensuring hyperparameters match those recommended for the proposed approach integration.\n\nBy following these steps sequentially, researchers can effectively implement the proposed model-based methodology and achieve comparable performance to traditional VQ methods in their applications.",
+    "task_id": "fsq:task1"
+  },
+  "trial_pairs": [
+    {
+      "baseline": {
+        "artifact_digests": {
+          "run.log": "ac7246a0ffdcb7f85fd940bc5b03c6fbb8db6f6be8cf0551e24b7fe5f7382c32",
+          "solution.py": "7b129e919d96034dac5caff9df987b91b8bff1db21060cf89e41da593e879d57",
+          "trial_manifest.json": "871bfd25cbd8c7530715ea685df7143ebc14c7c3f30e3b0bb66cdefe407ac4d3",
+          "verification_result.json": "fd3d80e900065f7d51f020ce65962768fad095759541f6568c4318d7079827b6"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-101/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-101/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-101/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-101/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "26746b05a4f2ceb4000cbe45b3bc137924f93b8bbd8667b17a3b1101a138e1b4",
+        "attempt_ids": [
+          "26746b05a4f2ceb4000cbe45b3bc137924f93b8bbd8667b17a3b1101a138e1b4",
+          "c15624ddbcac91a6d0783e50e4700ff443a1ab13497a6a2989e19f6a3e3d8914"
+        ],
+        "comparison_digest": "938ab392ab0f27b01a2cced542738f00f4b4a2532b8e73852877be7008a51a8e",
+        "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+        "failure_signature": "verified-negative:5652a769326d5431",
+        "gpu_hours": 0.0,
+        "manifest_digest": "d8f23853310db8b412ed423187a563d8cfc2a83239895bbdc7f27b537a0edbe9",
+        "recall_snapshot_id": "260768b8836865114ae2e83a8ca1dfc48f9b30de166cdcec1a9f72d28d4ffbd4",
+        "score": 0.22727272727272727,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 3869,
+        "valid": true,
+        "verification_id": "59363cd33b5f926cc9a3588475a8362df1db9d3147ecba1a8a2035aaae1f3a28",
+        "verification_ids": [
+          "59363cd33b5f926cc9a3588475a8362df1db9d3147ecba1a8a2035aaae1f3a28",
+          "87dad61f8f99922bf710c2eedb67b96358bec4864705f57d0d93fa306a7dcc63"
+        ],
+        "wall_seconds": 44.51178504199925
+      },
+      "closed_loop": {
+        "artifact_digests": {
+          "run.log": "e26bacfbf4ff0f2b708e62d13c85b7b1771ed6380cee4f457bdb223a4533cc23",
+          "solution.py": "ca33fb92fbf40aa476bc553fb20065ffbf878efaba369caedede9f6eacacd44a",
+          "trial_manifest.json": "bd23ded10d2ff4d9543d468a1722be67e1a52f91dfdbde9d726d6e6aef8704e2",
+          "verification_result.json": "77818e4a726c992d2228aeb30fd1b5ed1136f8fc746c29aca08122a9c9b2c13c"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-101/attempt-2/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-101/attempt-2/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-101/attempt-2/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-101/attempt-2/verification_result.json"
+        ],
+        "attempt_id": "42f4c8e300de59ca771e92a57f51cdf8e2d045ff25c45bc216deda9d91a1f1f2",
+        "attempt_ids": [
+          "f6b47cf761b6329c1e9e3c148b79ee57caddabc71a940f7abe885af94e467ce9",
+          "42f4c8e300de59ca771e92a57f51cdf8e2d045ff25c45bc216deda9d91a1f1f2"
+        ],
+        "comparison_digest": "938ab392ab0f27b01a2cced542738f00f4b4a2532b8e73852877be7008a51a8e",
+        "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+        "failure_signature": "verified-negative:debea91749e98811",
+        "gpu_hours": 0.0,
+        "manifest_digest": "f1fae5ab4b2b5ddc3514ffc0e0733fe815a087a5f5a2bc6374a9348ec01b6256",
+        "recall_snapshot_id": "a013a1a85a5b60d051c28a13a2466e5579e51d595440d6bc638d12b9f97cedeb",
+        "score": 0.5545454545454546,
+        "score_source": "verification_record",
+        "selected_iteration": 2,
+        "tokens": 4052,
+        "valid": true,
+        "verification_id": "e8210ef6a126042e52af62808f5232209eaef1ded229ccc4daf54785ac1cff64",
+        "verification_ids": [
+          "2b9a140d9c5310e251ff7c1d274039daacd3282cbab976ea1c3a0942f4c57549",
+          "e8210ef6a126042e52af62808f5232209eaef1ded229ccc4daf54785ac1cff64"
+        ],
+        "wall_seconds": 19.890907540997432
+      },
+      "delta": 0.327272727273,
+      "execution_order": [
+        "off",
+        "closed-loop"
+      ],
+      "seed": 101
+    },
+    {
+      "baseline": {
+        "artifact_digests": {
+          "run.log": "cce78a29dacd96b855b4c7b72a28ae18246af555495fd472581904c960d34e0f",
+          "solution.py": "2dc101ddcceb81a68250a3b087a8846c878f191b4644aee6ea7abadd42f5e5ab",
+          "trial_manifest.json": "e0a1b4ef231d1be6ba868ab747fb63a1342d2be7b7a3e0e143a535ebac7efbe6",
+          "verification_result.json": "a71a8880802227e92b3e2cc6b525e0c7315c40c3acbf44574261c7ab54204379"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "2a90a3258b33bbd95776108274a55169b52590ec62a58550f0df2ea4513cc1ce",
+        "attempt_ids": [
+          "2a90a3258b33bbd95776108274a55169b52590ec62a58550f0df2ea4513cc1ce",
+          "8b120fcc6456e6c27d295b0f13bc43e81a86124b6403eb35d57790155cbee374"
+        ],
+        "comparison_digest": "a46c300b053a54ea9ed70a4c056c17fce301f4391c5e38277be4de67213771d6",
+        "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+        "failure_signature": "verified-negative:85d1a693406503f5",
+        "gpu_hours": 0.0,
+        "manifest_digest": "8060021b66e21e81acd6083725884eca96182055eb0f832bd439e2b948e5f3d4",
+        "recall_snapshot_id": "260768b8836865114ae2e83a8ca1dfc48f9b30de166cdcec1a9f72d28d4ffbd4",
+        "score": 0.6,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 4165,
+        "valid": true,
+        "verification_id": "04e16bd97043420bd544ff21d08ec082f9a4e32575b94cb5109f4be04c6fd6e5",
+        "verification_ids": [
+          "04e16bd97043420bd544ff21d08ec082f9a4e32575b94cb5109f4be04c6fd6e5",
+          "db395e965e80d71b4acd620d604a15307d40de1f38a8b112abc4509ddda6e185"
+        ],
+        "wall_seconds": 29.00285441699816
+      },
+      "closed_loop": {
+        "artifact_digests": {
+          "run.log": "4aa3444a2ff11e87da860dcd838b654c88cb4d6d12ca1154c1ecc2d489f7c40f",
+          "solution.py": "2dc101ddcceb81a68250a3b087a8846c878f191b4644aee6ea7abadd42f5e5ab",
+          "trial_manifest.json": "049ee4ce8655a8d2897e3a1d6f78c458fce3870d4ff90d909430cb8353de1855",
+          "verification_result.json": "a71a8880802227e92b3e2cc6b525e0c7315c40c3acbf44574261c7ab54204379"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "b5161c527e113bf93f115386249c3d7fa50ce02bb238f6d940a3d0a12a6590c7",
+        "attempt_ids": [
+          "b5161c527e113bf93f115386249c3d7fa50ce02bb238f6d940a3d0a12a6590c7",
+          "da32a4f8cb633c0b4b78fe45936a93d665e184e832ce5d3721a81c5d5aeb3699"
+        ],
+        "comparison_digest": "a46c300b053a54ea9ed70a4c056c17fce301f4391c5e38277be4de67213771d6",
+        "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+        "failure_signature": "verified-negative:85d1a693406503f5",
+        "gpu_hours": 0.0,
+        "manifest_digest": "e078b3c98cee3b42195d8dfe534d6566f0b7dc9a2c2e1150fee4ee18b2750af8",
+        "recall_snapshot_id": "260768b8836865114ae2e83a8ca1dfc48f9b30de166cdcec1a9f72d28d4ffbd4",
+        "score": 0.6,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 4562,
+        "valid": true,
+        "verification_id": "90128590d99462823b6c7c0304d389546c54890b72f90aa28b07ad3fce3fe512",
+        "verification_ids": [
+          "90128590d99462823b6c7c0304d389546c54890b72f90aa28b07ad3fce3fe512",
+          "79413acdbc526d950706844108c526269a6cb1da01c73d82562f2e2d3b545120"
+        ],
+        "wall_seconds": 45.86978941599955
+      },
+      "delta": 0.0,
+      "execution_order": [
+        "closed-loop",
+        "off"
+      ],
+      "seed": 202
+    },
+    {
+      "baseline": {
+        "artifact_digests": {
+          "run.log": "2b5db1be93c99bc3e690e99b13f31f287f8e5a09bc0d516f3bc280bf88d334aa",
+          "solution.py": "1a5586cbf4d1ff0223bcfb835417321227f936267be4e6e41ca054666ddc4a80",
+          "trial_manifest.json": "e734f7f97160c608a8611035aaa6d72bd31c4787b6fbeaa05adeb292ed3494fd",
+          "verification_result.json": "c9959cb31bff08fe0be5a898e8ab933366937216fcc6930cd10f29b489a134c1"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-1/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-1/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-1/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-1/verification_result.json"
+        ],
+        "attempt_id": "b45287b05eb156496ebae1241bdc7b0e6c4bd26a15162132834e938753e684a1",
+        "attempt_ids": [
+          "b45287b05eb156496ebae1241bdc7b0e6c4bd26a15162132834e938753e684a1",
+          "228e0514a3cb2d84f87a5d3f1231f2435a762a70545328404ce9dab2ba8a7172"
+        ],
+        "comparison_digest": "e9ab958903ba95912f5301c6102fed1c7557f744c12a518eb30ab6852b09d3bf",
+        "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+        "failure_signature": "verified-negative:5652a769326d5431",
+        "gpu_hours": 0.0,
+        "manifest_digest": "f09d9a0fc329cf2a2a45aa4ca3c8f2e7feafcb15e87bec52003da328689b1b2f",
+        "recall_snapshot_id": "260768b8836865114ae2e83a8ca1dfc48f9b30de166cdcec1a9f72d28d4ffbd4",
+        "score": 0.2,
+        "score_source": "verification_record",
+        "selected_iteration": 1,
+        "tokens": 4838,
+        "valid": true,
+        "verification_id": "8a6318b0b3726a31a6d2d9f8649fe515f7baef4a6fc1fd04e66102cc83138df1",
+        "verification_ids": [
+          "8a6318b0b3726a31a6d2d9f8649fe515f7baef4a6fc1fd04e66102cc83138df1",
+          "a3ab46b20039a5773f165b0efe0b28ed5c7fc28d9c8c875877f88a7733ed0112"
+        ],
+        "wall_seconds": 112.43345179199969
+      },
+      "closed_loop": {
+        "artifact_digests": {
+          "run.log": "775dc9fa418313187248b72225dd219dc7b2ba93659766e191cb9c2329694206",
+          "solution.py": "a7e62bfce7c332ae76b1f9b7330cb137588a76faf24c8831c8b2948333f15c4b",
+          "trial_manifest.json": "99a806ba5ce85c5fa3e1d91ed3b80491bc3cbf433a56576844908269105df88d",
+          "verification_result.json": "d34e5b36ce2fed27b78cc1e40357372a759254eb56ce53a7231075257df09a35"
+        },
+        "artifact_refs": [
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-303/attempt-2/solution.py",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-303/attempt-2/run.log",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-303/attempt-2/trial_manifest.json",
+          "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-303/attempt-2/verification_result.json"
+        ],
+        "attempt_id": "cc5e881b9e5723f092bee6f3346939637a56d7abf4f0fa590a3554ad4b4a85e5",
+        "attempt_ids": [
+          "ef6667a6570ec5c18b6090629a1553ffc39728ef9a707a2aa6d4605e8a86849a",
+          "cc5e881b9e5723f092bee6f3346939637a56d7abf4f0fa590a3554ad4b4a85e5"
+        ],
+        "comparison_digest": "e9ab958903ba95912f5301c6102fed1c7557f744c12a518eb30ab6852b09d3bf",
+        "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+        "failure_signature": "verified-negative:5652a769326d5431",
+        "gpu_hours": 0.0,
+        "manifest_digest": "cbb5902e3e7913dcb2b71afc6e65dadb89c62298755e1a57293bf7b81a641124",
+        "recall_snapshot_id": "f954538f5cd0102ab1bc9280901c252114e8118adc1bfb16f8477ab37d0371bc",
+        "score": 0.35454545454545455,
+        "score_source": "verification_record",
+        "selected_iteration": 2,
+        "tokens": 4439,
+        "valid": true,
+        "verification_id": "9fe178cdf78aa5ca5f780756ac99f66aefa02c283c8485d9d6eed474104ae687",
+        "verification_ids": [
+          "480d047c635a837a5b67d761372a34f8be02931559a4d45d0cd890eda8e88077",
+          "9fe178cdf78aa5ca5f780756ac99f66aefa02c283c8485d9d6eed474104ae687"
+        ],
+        "wall_seconds": 51.085676833001344
+      },
+      "delta": 0.154545454545,
+      "execution_order": [
+        "off",
+        "closed-loop"
+      ],
+      "seed": 303
+    }
+  ]
+}

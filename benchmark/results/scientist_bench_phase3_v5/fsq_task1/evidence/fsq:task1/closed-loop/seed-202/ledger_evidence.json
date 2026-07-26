@@ -1,0 +1,236 @@
+{
+  "knowledge_records": [
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.7,
+      "created_at": "2026-07-25T17:36:15.811354Z",
+      "dataset_id": "7574cdba9ca87d2f241fcd5a6fbf71a755abbd711ec97ab8b79f07aa9c85de08",
+      "domain": "finite-scalar-quantization",
+      "knowledge_id": "861c0e0c1d1ecc932c92532766a892076ce76330ff028c2177a31a6ffac9c81c",
+      "lesson": "Verified evaluator feedback:\n- Bounding, rounding, or normalization was incorrect for some level sets.\n- The mixed-radix code/index mapping was not a complete round trip.\n- Failing behavior categories: custom_epsilon, mixed_radix_indexing, saturation\nFailed candidate rationale (do not repeat):\nCandidate rationale: I need to implement the FSQ (Finite Scalar Quantization) methods as specified. Let me analyze the requirements:\n\n1. `quantize(values, levels, eps=1e-3)` - Returns normalized FSQ codes\n2. `codes_to_index(codes, levels)` - Maps normalized code vector to mixed-radix index\n3. `index_to_codes(index, levels)` - Maps index back to normalized code vector\n\nKey requirements:\n- Bound inputs with epsilon margin and even-level offset\n- Round bounded values and normalize to [-1, 1]\n- First dimension is least-significant in mixed-radix\n- Support both odd and even level counts\n- Maintain proper code/index round trips\n\nLet me break down the implementation:\n1. For quantize: bound values, round, normalize\n2. For codes_to_index: convert mixed-radix representation\n3. For index_to_codes: convert back from mixed-radix\n\nThe bounding function: f(z) = floor(L/2) * tanh(z) where L is levels\nThe normalization: (rounded_value + floor(L/2)) / floor(L/2) - 1 to get [-1, 1]\n\nFor mixed-radix conversion, I need to process dimensions from least to most significant.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "4a8262260f5fc03b3a71728ff10c7686a74d22b89c7c4297d26520b51ef4abaa"
+      ],
+      "supersedes": null,
+      "task_id": "fsq:task1"
+    },
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.8,
+      "created_at": "2026-07-25T17:36:40.092357Z",
+      "dataset_id": "7574cdba9ca87d2f241fcd5a6fbf71a755abbd711ec97ab8b79f07aa9c85de08",
+      "domain": "finite-scalar-quantization",
+      "knowledge_id": "97c80fe5d1f6abb6d85797f71f5f3f7aae445df1f5e3bcf9ff38412f73fad17d",
+      "lesson": "Verified evaluator feedback:\n- Bounding, rounding, or normalization was incorrect for some level sets.\n- The mixed-radix code/index mapping was not a complete round trip.\n- Candidate execution failed in one or more cases: candidate_missing_dependency\n- Failing behavior categories: custom_epsilon, even_offset, mixed_levels, mixed_radix_indexing, rounding, saturation\nFailed candidate rationale (do not repeat):\nCandidate rationale: Looking at the verified feedback, I need to implement FSQ (Finite Scalar Quantization) with correct bounding, rounding, and normalization. The main issues identified are:\n\n1. Bounding, rounding, or normalization was incorrect for some level sets\n2. Mixed-radix code/index mapping was not a complete round trip\n3. Issues with custom epsilon, mixed radix indexing, and saturation\n\nLet me analyze what's needed:\n- The bounding function should be f(z) = floor(L/2) * tanh(z)\n- Values need to be bounded within [-floor(L/2), floor(L/2)]\n- Round to nearest integer and normalize to [-1, 1]\n- Mixed-radix indexing should work correctly with first dimension as least-significant\n- Handle both odd and even level counts properly\n\nThe key insight is that when we have L levels, the valid range for the quantized values is from -floor(L/2) to floor(L/2) (inclusive), which gives us L total levels.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "4a8262260f5fc03b3a71728ff10c7686a74d22b89c7c4297d26520b51ef4abaa",
+        "8e404d80e7d2936a722dd994ea18f85a83247a972218bf4648cc598eaf16e86b"
+      ],
+      "supersedes": null,
+      "task_id": "fsq:task1"
+    }
+  ],
+  "recall_contexts": [
+    {
+      "created_at": "2026-07-25T17:35:55.947800Z",
+      "items": [],
+      "memory_snapshot_id": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "request": {
+        "cross_task": false,
+        "dataset_id": "7574cdba9ca87d2f241fcd5a6fbf71a755abbd711ec97ab8b79f07aa9c85de08",
+        "domain": "finite-scalar-quantization",
+        "include_negative": true,
+        "max_items": 6,
+        "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+        "query": "To implement the core methodology of the research on finite scalar quantization as a replacement for vector quantization (VQ) in variational autoencoders (VAEs), follow the detailed steps below:\n\n1. **Task Definition**: The proposed model focuses on discrete representation learning for tasks such as image generation, depth estimation, colorization, and segmentation using the proposed approach integrated into architectures like autoregressive transformers.\n\n2. **Core Techniques**: \n   - Use a simplified quantization approach utilizing scalar quantization instead of VQ.\n   - Define a function to project the encoder output to a manageable dimensionality (typically between 3 to 10).\n   - Implement the Straight-Through Estimator (STE) for gradient propagation through the quantization operation.\n\n3. **Technical Components**:\n   - **Bounding Function**: This compresses data dimensionality and confines values to a desired range. Use a function like \\(f(z) = \\left\\lfloor \\frac{L}{2} \\right\\rfloor \\tanh(z)\\) to project the data, where \\(L\\) is the number of quantization levels.\n   - **Quantization process**: Round each bounded dimension to its nearest integer to yield the quantized output.\n   - **Loss function**: Operate under a reconstruction loss paradigm typical in VAEs to optimize the proposed model parameters.\n\n4. **Implementation Details**:\n   - **Key Parameters**: \n     - Number of dimensions \\(d\\) and levels \\(L\\) per dimension should be defined based on the codebook size you aim to replicate (e.g., set \\(L_i \\geq 5\\) for all \\(i\\)).\n   - **Input/Output Specifications**: The input to the bounding function will be the output from the final encoder layer; the output after quantization will be in the format \\(\\hat{z}\\), with shape matching the original \\(z\\).\n   - **Constraints**: Ensure all inputs are preprocessed adequately to be within the functioning range of the bounding function.\n\n5. **Step-by-Step Integration**:\n   - **Step 1**: Train a standard VAE model and obtain its encoder output \\(z\\).\n   - **Step 2**: Apply the bounding function \\(f\\) on \\(z\\) to limit the output dimensions to usable values.\n   - **Step 3**: Quantize the resultant bounded \\(z\\) using the rounding procedure to generate \\( \\hat{z} \\).\n   - **Step 4**: Use the original \\(z\\) and \\(\\hat{z}\\) in conjunction with the reconstruction loss to backpropagate through the network using the STE for gradient calculation.\n\n6. **Critical Implementation Details**:\n   - Ensure the rounding process is correctly differentiable; utilize the STE to maintain gradient flow during backpropagation.\n   - Maintain high codebook utilization by selecting optimal dimensions and levels based on empirical trials, and monitor performance to refine the parameters if needed.\n   - Adjust the proposed model configurations (number of epochs, batch size) based on the structures laid out in this paper, ensuring hyperparameters match those recommended for the proposed approach integration.\n\nBy following these steps sequentially, researchers can effectively implement the proposed model-based methodology and achieve comparable performance to traditional VQ methods in their applications.",
+        "schema_version": "1",
+        "task_id": "fsq:task1",
+        "token_budget": 2500
+      },
+      "schema_version": "1",
+      "snapshot_id": "260768b8836865114ae2e83a8ca1dfc48f9b30de166cdcec1a9f72d28d4ffbd4",
+      "token_count": 0
+    },
+    {
+      "created_at": "2026-07-25T17:36:17.604994Z",
+      "items": [
+        {
+          "citation_id": "knowledge:861c0e0c1d1ecc932c92532766a892076ce76330ff028c2177a31a6ffac9c81c",
+          "knowledge_id": "861c0e0c1d1ecc932c92532766a892076ce76330ff028c2177a31a6ffac9c81c",
+          "lesson": "Verified evaluator feedback:\n- Bounding, rounding, or normalization was incorrect for some level sets.\n- The mixed-radix code/index mapping was not a complete round trip.\n- Failing behavior categories: custom_epsilon, mixed_radix_indexing, saturation\nFailed candidate rationale (do not repeat):\nCandidate rationale: I need to implement the FSQ (Finite Scalar Quantization) methods as specified. Let me analyze the requirements:\n\n1. `quantize(values, levels, eps=1e-3)` - Returns normalized FSQ codes\n2. `codes_to_index(codes, levels)` - Maps normalized code vector to mixed-radix index\n3. `index_to_codes(index, levels)` - Maps index back to normalized code vector\n\nKey requirements:\n- Bound inputs with epsilon margin and even-level offset\n- Round bounded values and normalize to [-1, 1]\n- First dimension is least-significant in mixed-radix\n- Support both odd and even level counts\n- Maintain proper code/index round trips\n\nLet me break down the implementation:\n1. For quantize: bound values, round, normalize\n2. For codes_to_index: convert mixed-radix representation\n3. For index_to_codes: convert back from mixed-radix\n\nThe bounding function: f(z) = floor(L/2) * tanh(z) where L is levels\nThe normalization: (rounded_value + floor(L/2)) / floor(L/2) - 1 to get [-1, 1]\n\nFor mixed-radix conversion, I need to process dimensions from least to most significant.",
+          "outcome": "negative",
+          "schema_version": "1",
+          "score": 0.35432606,
+          "score_breakdown": {
+            "outcome_utility": 0.9,
+            "provenance_quality": 0.59,
+            "recency": 0.89250049,
+            "redundancy": -0.0,
+            "relevance": 0.11340206
+          },
+          "source_experience_ids": [
+            "4a8262260f5fc03b3a71728ff10c7686a74d22b89c7c4297d26520b51ef4abaa"
+          ],
+          "token_count": 341
+        }
+      ],
+      "memory_snapshot_id": "679e2937d7c6bd75297494c81fbd5bf3d66318ba4f01349023c41ddbf062a465",
+      "request": {
+        "cross_task": false,
+        "dataset_id": "7574cdba9ca87d2f241fcd5a6fbf71a755abbd711ec97ab8b79f07aa9c85de08",
+        "domain": "finite-scalar-quantization",
+        "include_negative": true,
+        "max_items": 6,
+        "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+        "query": "To implement the core methodology of the research on finite scalar quantization as a replacement for vector quantization (VQ) in variational autoencoders (VAEs), follow the detailed steps below:\n\n1. **Task Definition**: The proposed model focuses on discrete representation learning for tasks such as image generation, depth estimation, colorization, and segmentation using the proposed approach integrated into architectures like autoregressive transformers.\n\n2. **Core Techniques**: \n   - Use a simplified quantization approach utilizing scalar quantization instead of VQ.\n   - Define a function to project the encoder output to a manageable dimensionality (typically between 3 to 10).\n   - Implement the Straight-Through Estimator (STE) for gradient propagation through the quantization operation.\n\n3. **Technical Components**:\n   - **Bounding Function**: This compresses data dimensionality and confines values to a desired range. Use a function like \\(f(z) = \\left\\lfloor \\frac{L}{2} \\right\\rfloor \\tanh(z)\\) to project the data, where \\(L\\) is the number of quantization levels.\n   - **Quantization process**: Round each bounded dimension to its nearest integer to yield the quantized output.\n   - **Loss function**: Operate under a reconstruction loss paradigm typical in VAEs to optimize the proposed model parameters.\n\n4. **Implementation Details**:\n   - **Key Parameters**: \n     - Number of dimensions \\(d\\) and levels \\(L\\) per dimension should be defined based on the codebook size you aim to replicate (e.g., set \\(L_i \\geq 5\\) for all \\(i\\)).\n   - **Input/Output Specifications**: The input to the bounding function will be the output from the final encoder layer; the output after quantization will be in the format \\(\\hat{z}\\), with shape matching the original \\(z\\).\n   - **Constraints**: Ensure all inputs are preprocessed adequately to be within the functioning range of the bounding function.\n\n5. **Step-by-Step Integration**:\n   - **Step 1**: Train a standard VAE model and obtain its encoder output \\(z\\).\n   - **Step 2**: Apply the bounding function \\(f\\) on \\(z\\) to limit the output dimensions to usable values.\n   - **Step 3**: Quantize the resultant bounded \\(z\\) using the rounding procedure to generate \\( \\hat{z} \\).\n   - **Step 4**: Use the original \\(z\\) and \\(\\hat{z}\\) in conjunction with the reconstruction loss to backpropagate through the network using the STE for gradient calculation.\n\n6. **Critical Implementation Details**:\n   - Ensure the rounding process is correctly differentiable; utilize the STE to maintain gradient flow during backpropagation.\n   - Maintain high codebook utilization by selecting optimal dimensions and levels based on empirical trials, and monitor performance to refine the parameters if needed.\n   - Adjust the proposed model configurations (number of epochs, batch size) based on the structures laid out in this paper, ensuring hyperparameters match those recommended for the proposed approach integration.\n\nBy following these steps sequentially, researchers can effectively implement the proposed model-based methodology and achieve comparable performance to traditional VQ methods in their applications.",
+        "schema_version": "1",
+        "task_id": "fsq:task1",
+        "token_budget": 2500
+      },
+      "schema_version": "1",
+      "snapshot_id": "7de735de9233e28dd6b42cd68864e9e5c677f64ac8cf37b8c45df79d006855b3",
+      "token_count": 341
+    }
+  ],
+  "verification_records": [
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.9,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.0
+      },
+      "contract_id": "scientist-bench-fsq-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:36:40.092357Z",
+      "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-2/solution.py",
+          "schema_version": "1",
+          "sha256": "c6510c469659428539f4d6c6bcaf3b3e56642ed78fa65522afad4ab311d35833",
+          "size_bytes": 3905
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-2/run.log",
+          "schema_version": "1",
+          "sha256": "4e07d09381e98534750003b49ecd9c6c8fbd4009facf60f08fb0f72d9a0e48fb",
+          "size_bytes": 427
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-2/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "049ee4ce8655a8d2897e3a1d6f78c458fce3870d4ff90d909430cb8353de1855",
+          "size_bytes": 1255
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-2/verification_result.json",
+          "schema_version": "1",
+          "sha256": "3e5e32842454eee68ac1533a1ae6bb779c4e33ad252a022d0f4f2040ad26037e",
+          "size_bytes": 581
+        }
+      ],
+      "observation_id": "294ffaa598ff33b09a5054623ef6cde8d252b0021924019297128f4dc12afe0c",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Bounding, rounding, or normalization was incorrect for some level sets.",
+        "The mixed-radix code/index mapping was not a complete round trip.",
+        "Candidate execution failed in one or more cases: candidate_missing_dependency",
+        "Failing behavior categories: custom_epsilon, even_offset, mixed_levels, mixed_radix_indexing, rounding, saturation"
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "79413acdbc526d950706844108c526269a6cb1da01c73d82562f2e2d3b545120",
+      "verified_metrics": {
+        "implementation_score": 0.0,
+        "index_decoding_rate": 0.0,
+        "index_encoding_rate": 0.0,
+        "quantization_rate": 0.0
+      },
+      "violations": []
+    },
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.30000000000000004,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.6
+      },
+      "contract_id": "scientist-bench-fsq-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:36:15.811354Z",
+      "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-1/solution.py",
+          "schema_version": "1",
+          "sha256": "2dc101ddcceb81a68250a3b087a8846c878f191b4644aee6ea7abadd42f5e5ab",
+          "size_bytes": 2948
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-1/run.log",
+          "schema_version": "1",
+          "sha256": "4aa3444a2ff11e87da860dcd838b654c88cb4d6d12ca1154c1ecc2d489f7c40f",
+          "size_bytes": 343
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-1/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "049ee4ce8655a8d2897e3a1d6f78c458fce3870d4ff90d909430cb8353de1855",
+          "size_bytes": 1255
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/closed-loop/seed-202/attempt-1/verification_result.json",
+          "schema_version": "1",
+          "sha256": "a71a8880802227e92b3e2cc6b525e0c7315c40c3acbf44574261c7ab54204379",
+          "size_bytes": 474
+        }
+      ],
+      "observation_id": "84b6a2614639fd154279eef5e972a78d514a51341130734debac9c18aaad2c6b",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Bounding, rounding, or normalization was incorrect for some level sets.",
+        "The mixed-radix code/index mapping was not a complete round trip.",
+        "Failing behavior categories: custom_epsilon, mixed_radix_indexing, saturation"
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "90128590d99462823b6c7c0304d389546c54890b72f90aa28b07ad3fce3fe512",
+      "verified_metrics": {
+        "implementation_score": 0.6,
+        "index_decoding_rate": 0.0,
+        "index_encoding_rate": 1.0,
+        "quantization_rate": 0.6666666666666666
+      },
+      "violations": []
+    }
+  ]
+}

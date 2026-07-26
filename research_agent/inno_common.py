@@ -15,8 +15,6 @@ from typing import Any, Dict, List
 from pydantic import BaseModel, Field
 from tqdm import tqdm
 
-from research_agent.inno.tools.inno_tools.code_search import search_github_repos
-from research_agent.inno.tools.inno_tools.paper_search import get_arxiv_paper_meta
 from research_agent.runtime.artifacts import load_stage_payload, write_stage_artifact
 
 logger = logging.getLogger(__name__)
@@ -582,6 +580,13 @@ def get_args():
         default=".ai_researcher/experience.sqlite3",
     )
     parser.add_argument("--evaluation-contract")
+    parser.add_argument(
+        "--evaluation-runner",
+        choices=("command", "container"),
+        default="container",
+    )
+    parser.add_argument("--evaluator-image")
+    parser.add_argument("--evaluator-private-root")
     parser.add_argument("--max-loop-iterations", type=int, default=3)
     parser.add_argument("--recall-item-budget", type=int, default=8)
     parser.add_argument("--recall-token-budget", type=int, default=3000)
@@ -602,6 +607,10 @@ class EvalMetadata(BaseModel):
 
 
 def load_instance(instance_path: str, task_level: str) -> Dict:
+    from research_agent.inno.tools.inno_tools.paper_search import (
+        get_arxiv_paper_meta,
+    )
+
     with open(instance_path, "r", encoding="utf-8") as f:
         eval_instance = json.load(f)
     source_papers = eval_instance["source_papers"]
@@ -622,6 +631,8 @@ def load_instance(instance_path: str, task_level: str) -> Dict:
 
 
 def github_search(metadata: Dict) -> str:
+    from research_agent.inno.tools.inno_tools.code_search import search_github_repos
+
     github_result = ""
     for source_paper in tqdm(metadata["source_papers"]):
         github_result += search_github_repos(metadata, source_paper["reference"], 10)

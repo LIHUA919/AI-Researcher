@@ -1,13 +1,13 @@
 # Experience-Driven Research Loop
 
-**Status:** Proposed
+**Status:** Accepted; Phases 1–3 implemented
 
 **Audience:** maintainers and contributors implementing the next architecture phase
 
 **Scope:** turn verified research runs into reusable experience that measurably
 improves later runs
 
-**Last updated:** 2026-07-25
+**Last updated:** 2026-07-26
 
 ## 1. Decision
 
@@ -891,20 +891,32 @@ Each slice is independently reviewable and must leave the test suite green.
 
 ### Phase 3 — Demonstrate Experience Gain
 
+**Status:** completed for the bounded three-task CPU functional subset. See the
+[V5 evidence bundle](../../benchmark/results/scientist_bench_phase3_v5/README.md)
+and [ADR-0003](../adr/0003-causally-paired-scientist-bench.md).
+
 **Deliverables**
 
-- Define Evaluation Contracts for a representative Scientist-Bench subset.
-- Add memory-off versus closed-loop benchmark runner.
-- Execute repeated trials with identical model and budget settings.
-- Publish result artifacts, cost, variance, and failure analysis.
+- [x] Define Evaluation Contracts for a representative Scientist-Bench subset.
+- [x] Add memory-off versus closed-loop benchmark runner.
+- [x] Execute repeated trials with identical model and budget settings.
+- [x] Publish result artifacts, cost, variance, and failure analysis.
 - Add a ResearchClawBench Adapter after the internal subset is stable.
 
 **Exit criteria**
 
-- Positive Experience Gain on more than one task.
-- Lower repeated-failure rate without materially increasing invalid results.
-- Results can be reproduced from stored config, code, data, evaluator, and
+- [x] Positive Experience Gain on more than one task.
+- [x] Lower repeated-failure rate without materially increasing invalid
+  results.
+- [x] Results can be reproduced from stored config, code, data, evaluator, and
   memory snapshot IDs.
+
+The V5 run improved FSQ by `+0.1606` and Exphormer by `+0.0667`, but regressed
+Immiscible Diffusion by `-0.1333`. Mean repeated-failure rate fell from
+`0.2222` to `0.1111`; both modes retained a 100% valid selected-result rate.
+This satisfies the aggregate criteria without implying universal improvement.
+The result is limited to the task1 CPU functional contracts and makes no
+paper-level quality, accuracy, speed, or state-of-the-art claim.
 
 ### Phase 4 — Candidate search
 

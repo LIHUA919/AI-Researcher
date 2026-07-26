@@ -1,0 +1,179 @@
+{
+  "knowledge_records": [
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.8,
+      "created_at": "2026-07-25T17:38:03.143160Z",
+      "dataset_id": "ca42bedfae1004247e09168a91daad5b646f93f3ad9f8dd57b3d472070ebce1e",
+      "domain": "sparse-graph-transformer",
+      "knowledge_id": "5a1a82382d0745f3b9994d946c4bc682d6c6471dfe78cd17078b4d375bef2516",
+      "lesson": "Verified evaluator feedback:\n- Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.\n- The original-node expander component was not simple, symmetric, and d-regular.\n- Seed behavior was not both deterministic and sensitive to a changed seed.\nFailed candidate rationale (do not repeat):\nCandidate rationale: No rationale supplied.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "3b18a759d83c8da1b01be72dcd5d70040fbd66e431eabba9f9fc4973d5afdf1f",
+        "3f458fb58ca84b1ffe1e0be8103b7cdbba4b35ca330ff150f9745d88221c9c53"
+      ],
+      "supersedes": null,
+      "task_id": "exphormer:task1"
+    },
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.7,
+      "created_at": "2026-07-25T17:37:36.111773Z",
+      "dataset_id": "ca42bedfae1004247e09168a91daad5b646f93f3ad9f8dd57b3d472070ebce1e",
+      "domain": "sparse-graph-transformer",
+      "knowledge_id": "a3bb5902e2423fbbd33a1adf5bf8eef06d72e8cd740cac101b913ec0325be1aa",
+      "lesson": "Verified evaluator feedback:\n- Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.\n- The original-node expander component was not simple, symmetric, and d-regular.\nFailed candidate rationale (do not repeat):\nCandidate rationale: No rationale supplied.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "3b18a759d83c8da1b01be72dcd5d70040fbd66e431eabba9f9fc4973d5afdf1f"
+      ],
+      "supersedes": null,
+      "task_id": "exphormer:task1"
+    }
+  ],
+  "recall_contexts": [],
+  "verification_records": [
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.35,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.55
+      },
+      "contract_id": "scientist-bench-exphormer-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:38:03.143160Z",
+      "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-2/solution.py",
+          "schema_version": "1",
+          "sha256": "6f9bf1ffa6df619db3696f52942af9cb59a130e79b17bd3e475dc68700d4a67a",
+          "size_bytes": 2130
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-2/run.log",
+          "schema_version": "1",
+          "sha256": "fad87f3eed6fa4cf9de01f0263d73137663a07ff95058c3e7e355336026462f1",
+          "size_bytes": 335
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-2/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "ebaaedae40969888ef8e8a3e16c4d9e7b694f6fc78b03e6b74bf7a2c15ad1c01",
+          "size_bytes": 1259
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-2/verification_result.json",
+          "schema_version": "1",
+          "sha256": "4e0ec8883d0e5ba104ff538f4e89fe85245167505cc7ea97e7883c7a68ab2154",
+          "size_bytes": 554
+        }
+      ],
+      "observation_id": "7dd825a1edceaa41818438a6fadc576cde2d975c69512a9e69b94d2cd787e897",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.",
+        "The original-node expander component was not simple, symmetric, and d-regular.",
+        "Seed behavior was not both deterministic and sensitive to a changed seed."
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "a95cd995ddfcc2480f153de20c185878509e8087f6562ccb8f531b30fd803351",
+      "verified_metrics": {
+        "determinism_rate": 1.0,
+        "global_edge_rate": 1.0,
+        "implementation_score": 0.55,
+        "local_edge_rate": 1.0,
+        "regular_expander_rate": 0.0,
+        "seed_sensitivity": 0.0,
+        "structure_rate": 0.0
+      },
+      "violations": []
+    },
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.29999999999999993,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.6000000000000001
+      },
+      "contract_id": "scientist-bench-exphormer-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:37:36.111773Z",
+      "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-1/solution.py",
+          "schema_version": "1",
+          "sha256": "e79589495efd9f5841ce9a30745811bb113ae4638f10e91e189638c30ee26023",
+          "size_bytes": 3234
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-1/run.log",
+          "schema_version": "1",
+          "sha256": "f04dafb8fc85b3ed1c453ac576c9abc4a770ca7f66aba43725e0423497ebb83e",
+          "size_bytes": 335
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-1/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "ebaaedae40969888ef8e8a3e16c4d9e7b694f6fc78b03e6b74bf7a2c15ad1c01",
+          "size_bytes": 1259
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-303/attempt-1/verification_result.json",
+          "schema_version": "1",
+          "sha256": "c5d66338af90612f45232a7c8e342e62ee9cc7b17665178af1c0a47e4d652d64",
+          "size_bytes": 487
+        }
+      ],
+      "observation_id": "bfb5458fe3c7a7b45844251992be55b2f96ce75a17ef2c5a80dcbde5d1333ddc",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.",
+        "The original-node expander component was not simple, symmetric, and d-regular."
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "ba57f392cdf7c4b1ad2be9f7cc101beeac51e076aff9668188a0c19238eaa9e5",
+      "verified_metrics": {
+        "determinism_rate": 1.0,
+        "global_edge_rate": 1.0,
+        "implementation_score": 0.6000000000000001,
+        "local_edge_rate": 1.0,
+        "regular_expander_rate": 0.0,
+        "seed_sensitivity": 1.0,
+        "structure_rate": 0.0
+      },
+      "violations": []
+    }
+  ]
+}

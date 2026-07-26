@@ -18,6 +18,7 @@ from research_agent.inno.experience.models import (
     Observation,
     PromotionDecision,
     RecallContext,
+    TransactionTransition,
     VerificationRecord,
 )
 
@@ -42,7 +43,21 @@ class ExperimentLedger(Protocol):
     def append_knowledge(self, knowledge: KnowledgeRecord) -> None: ...
     def append_promotion_decision(self, decision: PromotionDecision) -> None: ...
     def append_recall_context(self, context: RecallContext) -> None: ...
+    def append_transition(self, transition: TransactionTransition) -> None: ...
     def get_experience(self, experience_id: str) -> ExperienceRecord: ...
+    def get_knowledge(self, knowledge_id: str) -> KnowledgeRecord: ...
+    def find_verification(
+        self,
+        observation_id: str,
+        contract_id: str,
+        contract_version: str,
+    ) -> VerificationRecord | None: ...
+    def find_promotion_decision(
+        self,
+        experience_id: str,
+        policy_version: str,
+    ) -> PromotionDecision | None: ...
+    def list_transitions(self, attempt_id: str) -> list[TransactionTransition]: ...
     def query(self, query: ExperienceQuery) -> list[ExperienceRecord]: ...
     def list_knowledge(self) -> list[KnowledgeRecord]: ...
     def list_promotion_decisions(self) -> list[PromotionDecision]: ...
@@ -79,6 +94,7 @@ class InMemoryExperimentLedger:
         self._knowledge: dict[str, KnowledgeRecord] = {}
         self._promotion_decisions: dict[str, PromotionDecision] = {}
         self._recall_contexts: dict[str, RecallContext] = {}
+        self._transitions: dict[str, TransactionTransition] = {}
         self._lock = RLock()
 
     def append_hypothesis(self, hypothesis: Hypothesis) -> None:
@@ -153,11 +169,73 @@ class InMemoryExperimentLedger:
                 context,
             )
 
+    def append_transition(self, transition: TransactionTransition) -> None:
+        with self._lock:
+            if transition.attempt_id not in self._attempts:
+                raise RecordNotFoundError(transition.attempt_id)
+            _append_immutable(
+                self._transitions,
+                transition.transition_id,
+                transition,
+            )
+
     def get_experience(self, experience_id: str) -> ExperienceRecord:
         try:
             return self._experiences[experience_id]
         except KeyError as exc:
             raise RecordNotFoundError(experience_id) from exc
+
+    def get_knowledge(self, knowledge_id: str) -> KnowledgeRecord:
+        try:
+            return self._knowledge[knowledge_id]
+        except KeyError as exc:
+            raise RecordNotFoundError(knowledge_id) from exc
+
+    def find_verification(
+        self,
+        observation_id: str,
+        contract_id: str,
+        contract_version: str,
+    ) -> VerificationRecord | None:
+        return next(
+            (
+                item
+                for item in self._verifications.values()
+                if item.observation_id == observation_id
+                and item.contract_id == contract_id
+                and item.contract_version == contract_version
+            ),
+            None,
+        )
+
+    def find_promotion_decision(
+        self,
+        experience_id: str,
+        policy_version: str,
+    ) -> PromotionDecision | None:
+        return next(
+            (
+                item
+                for item in self._promotion_decisions.values()
+                if item.experience_id == experience_id
+                and item.policy_version == policy_version
+            ),
+            None,
+        )
+
+    def list_transitions(self, attempt_id: str) -> list[TransactionTransition]:
+        return sorted(
+            (
+                item
+                for item in self._transitions.values()
+                if item.attempt_id == attempt_id
+            ),
+            key=lambda item: (
+                _TRANSITION_ORDER[item.stage],
+                item.created_at,
+                item.transition_id,
+            ),
+        )
 
     def query(self, query: ExperienceQuery) -> list[ExperienceRecord]:
         records = sorted(
@@ -217,6 +295,7 @@ class InMemoryExperimentLedger:
             self._experiences,
             self._knowledge,
             self._promotion_decisions,
+            self._transitions,
         ):
             records.extend(store[key] for key in sorted(store))
         payload = "\n".join(_canonical(record) for record in records)
@@ -232,10 +311,22 @@ _TABLES: dict[str, tuple[str, type[BaseModel]]] = {
     "knowledge_records": ("knowledge_id", KnowledgeRecord),
     "promotion_decisions": ("decision_id", PromotionDecision),
     "recall_contexts": ("snapshot_id", RecallContext),
+    "transaction_transitions": ("transition_id", TransactionTransition),
 }
 _SNAPSHOT_TABLES = tuple(
-    table for table in _TABLES if table != "recall_contexts"
+    table
+    for table in _TABLES
+    if table != "recall_contexts"
 )
+
+LATEST_LEDGER_SCHEMA_VERSION = 2
+_TRANSITION_ORDER = {
+    "attempt_recorded": 0,
+    "observation_recorded": 1,
+    "verification_recorded": 2,
+    "experience_recorded": 3,
+    "promotion_decided": 4,
+}
 
 
 class SQLiteExperimentLedger:
@@ -255,67 +346,109 @@ class SQLiteExperimentLedger:
     def _initialize(self) -> None:
         with self._connect() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
-            connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS hypotheses (
-                    record_id TEXT PRIMARY KEY,
-                    payload_json TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS experiment_attempts (
-                    record_id TEXT PRIMARY KEY,
-                    hypothesis_id TEXT NOT NULL,
-                    payload_json TEXT NOT NULL,
-                    FOREIGN KEY (hypothesis_id) REFERENCES hypotheses(record_id)
-                );
-                CREATE TABLE IF NOT EXISTS observations (
-                    record_id TEXT PRIMARY KEY,
-                    attempt_id TEXT NOT NULL,
-                    payload_json TEXT NOT NULL,
-                    FOREIGN KEY (attempt_id) REFERENCES experiment_attempts(record_id)
-                );
-                CREATE TABLE IF NOT EXISTS verification_records (
-                    record_id TEXT PRIMARY KEY,
-                    observation_id TEXT NOT NULL,
-                    payload_json TEXT NOT NULL,
-                    FOREIGN KEY (observation_id) REFERENCES observations(record_id)
-                );
-                CREATE TABLE IF NOT EXISTS experience_records (
-                    record_id TEXT PRIMARY KEY,
-                    task_id TEXT NOT NULL,
-                    outcome TEXT,
-                    valid INTEGER NOT NULL,
-                    created_at TEXT NOT NULL,
-                    payload_json TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS knowledge_records (
-                    record_id TEXT PRIMARY KEY,
-                    task_id TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    payload_json TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS knowledge_sources (
-                    knowledge_id TEXT NOT NULL,
-                    experience_id TEXT NOT NULL,
-                    PRIMARY KEY (knowledge_id, experience_id),
-                    FOREIGN KEY (knowledge_id) REFERENCES knowledge_records(record_id),
-                    FOREIGN KEY (experience_id) REFERENCES experience_records(record_id)
-                );
-                CREATE TABLE IF NOT EXISTS promotion_decisions (
-                    record_id TEXT PRIMARY KEY,
-                    experience_id TEXT NOT NULL,
-                    knowledge_id TEXT,
-                    created_at TEXT NOT NULL,
-                    payload_json TEXT NOT NULL,
-                    FOREIGN KEY (experience_id) REFERENCES experience_records(record_id),
-                    FOREIGN KEY (knowledge_id) REFERENCES knowledge_records(record_id)
-                );
-                CREATE TABLE IF NOT EXISTS recall_contexts (
-                    record_id TEXT PRIMARY KEY,
-                    created_at TEXT NOT NULL,
-                    payload_json TEXT NOT NULL
-                );
-                """
-            )
+            current_version = connection.execute("PRAGMA user_version").fetchone()[0]
+            if current_version > LATEST_LEDGER_SCHEMA_VERSION:
+                raise RuntimeError(
+                    "experience ledger schema is newer than this runtime: "
+                    f"{current_version} > {LATEST_LEDGER_SCHEMA_VERSION}"
+                )
+            if current_version == 0:
+                self._create_schema_v1(connection)
+                connection.execute("PRAGMA user_version = 1")
+                current_version = 1
+            if current_version == 1:
+                self._migrate_v1_to_v2(connection)
+                connection.execute("PRAGMA user_version = 2")
+
+    @staticmethod
+    def _create_schema_v1(connection: sqlite3.Connection) -> None:
+        connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS hypotheses (
+                record_id TEXT PRIMARY KEY,
+                payload_json TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS experiment_attempts (
+                record_id TEXT PRIMARY KEY,
+                hypothesis_id TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                FOREIGN KEY (hypothesis_id) REFERENCES hypotheses(record_id)
+            );
+            CREATE TABLE IF NOT EXISTS observations (
+                record_id TEXT PRIMARY KEY,
+                attempt_id TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                FOREIGN KEY (attempt_id) REFERENCES experiment_attempts(record_id)
+            );
+            CREATE TABLE IF NOT EXISTS verification_records (
+                record_id TEXT PRIMARY KEY,
+                observation_id TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                FOREIGN KEY (observation_id) REFERENCES observations(record_id)
+            );
+            CREATE TABLE IF NOT EXISTS experience_records (
+                record_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                outcome TEXT,
+                valid INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS knowledge_records (
+                record_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS knowledge_sources (
+                knowledge_id TEXT NOT NULL,
+                experience_id TEXT NOT NULL,
+                PRIMARY KEY (knowledge_id, experience_id),
+                FOREIGN KEY (knowledge_id) REFERENCES knowledge_records(record_id),
+                FOREIGN KEY (experience_id) REFERENCES experience_records(record_id)
+            );
+            CREATE TABLE IF NOT EXISTS promotion_decisions (
+                record_id TEXT PRIMARY KEY,
+                experience_id TEXT NOT NULL,
+                knowledge_id TEXT,
+                created_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                FOREIGN KEY (experience_id) REFERENCES experience_records(record_id),
+                FOREIGN KEY (knowledge_id) REFERENCES knowledge_records(record_id)
+            );
+            CREATE TABLE IF NOT EXISTS recall_contexts (
+                record_id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            );
+            """
+        )
+
+    @staticmethod
+    def _migrate_v1_to_v2(connection: sqlite3.Connection) -> None:
+        connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS transaction_transitions (
+                record_id TEXT PRIMARY KEY,
+                attempt_id TEXT NOT NULL,
+                stage TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                UNIQUE (attempt_id, stage),
+                FOREIGN KEY (attempt_id) REFERENCES experiment_attempts(record_id)
+            );
+            CREATE INDEX IF NOT EXISTS
+                idx_verification_records_observation
+                ON verification_records(observation_id);
+            CREATE INDEX IF NOT EXISTS
+                idx_promotion_decisions_experience
+                ON promotion_decisions(experience_id);
+            """
+        )
+
+    def schema_version(self) -> int:
+        with self._connect() as connection:
+            return int(connection.execute("PRAGMA user_version").fetchone()[0])
 
     def _append(
         self,
@@ -466,6 +599,18 @@ class SQLiteExperimentLedger:
             columns={"created_at": context.created_at.isoformat()},
         )
 
+    def append_transition(self, transition: TransactionTransition) -> None:
+        self._append(
+            "transaction_transitions",
+            transition.transition_id,
+            transition,
+            columns={
+                "attempt_id": transition.attempt_id,
+                "stage": transition.stage,
+                "created_at": transition.created_at.isoformat(),
+            },
+        )
+
     def _load_one(self, table: str, record_id: str, model: type[RecordT]) -> RecordT:
         with self._connect() as connection:
             row = connection.execute(
@@ -478,6 +623,84 @@ class SQLiteExperimentLedger:
 
     def get_experience(self, experience_id: str) -> ExperienceRecord:
         return self._load_one("experience_records", experience_id, ExperienceRecord)
+
+    def get_knowledge(self, knowledge_id: str) -> KnowledgeRecord:
+        return self._load_one("knowledge_records", knowledge_id, KnowledgeRecord)
+
+    def find_verification(
+        self,
+        observation_id: str,
+        contract_id: str,
+        contract_version: str,
+    ) -> VerificationRecord | None:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT payload_json FROM verification_records
+                WHERE observation_id = ?
+                ORDER BY record_id
+                """,
+                (observation_id,),
+            ).fetchall()
+        records = [
+            VerificationRecord.model_validate_json(row["payload_json"])
+            for row in rows
+        ]
+        return next(
+            (
+                item
+                for item in records
+                if item.contract_id == contract_id
+                and item.contract_version == contract_version
+            ),
+            None,
+        )
+
+    def find_promotion_decision(
+        self,
+        experience_id: str,
+        policy_version: str,
+    ) -> PromotionDecision | None:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT payload_json FROM promotion_decisions
+                WHERE experience_id = ?
+                ORDER BY record_id
+                """,
+                (experience_id,),
+            ).fetchall()
+        records = [
+            PromotionDecision.model_validate_json(row["payload_json"])
+            for row in rows
+        ]
+        return next(
+            (item for item in records if item.policy_version == policy_version),
+            None,
+        )
+
+    def list_transitions(self, attempt_id: str) -> list[TransactionTransition]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT payload_json FROM transaction_transitions
+                WHERE attempt_id = ?
+                ORDER BY created_at, record_id
+                """,
+                (attempt_id,),
+            ).fetchall()
+        records = [
+            TransactionTransition.model_validate_json(row["payload_json"])
+            for row in rows
+        ]
+        return sorted(
+            records,
+            key=lambda item: (
+                _TRANSITION_ORDER[item.stage],
+                item.created_at,
+                item.transition_id,
+            ),
+        )
 
     def query(self, query: ExperienceQuery) -> list[ExperienceRecord]:
         clauses: list[str] = []

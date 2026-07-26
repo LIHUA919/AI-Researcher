@@ -8,6 +8,7 @@ from research_agent.inno.experience.ledger import (
 from research_agent.inno.experience.evaluation import (
     CallableVerifier,
     CommandVerifier,
+    ContainerVerifier,
     EvaluationContract,
     EvaluationError,
     PrimaryMetric,
@@ -27,6 +28,8 @@ from research_agent.inno.experience.models import (
     RecallContext,
     RecallItem,
     RecallRequest,
+    TransactionStage,
+    TransactionTransition,
     VerificationRecord,
 )
 from research_agent.inno.experience.knowledge import KnowledgeGate
@@ -43,6 +46,10 @@ from research_agent.inno.experience.loop import (
     LoopAction,
     LoopOutcome,
     RunCompletion,
+)
+from research_agent.inno.experience.transaction import (
+    ExperimentTransaction,
+    TransactionResult,
 )
 from research_agent.inno.experience.search import (
     BestFirstSearchPolicy,
@@ -73,6 +80,7 @@ __all__ = [
     "ChromaExperienceRetriever",
     "ChromaKnowledgeIndex",
     "CommandVerifier",
+    "ContainerVerifier",
     "EvaluationContract",
     "EvaluationError",
     "ExperienceQuery",
@@ -82,6 +90,7 @@ __all__ = [
     "ExperienceMode",
     "ExperimentAttempt",
     "ExperimentLedger",
+    "ExperimentTransaction",
     "Hypothesis",
     "HypothesisCandidate",
     "ImmutableRecordError",
@@ -106,6 +115,9 @@ __all__ = [
     "RecordNotFoundError",
     "SQLiteExperimentLedger",
     "StaticCandidateGenerator",
+    "TransactionResult",
+    "TransactionStage",
+    "TransactionTransition",
     "ValidityRules",
     "Verifier",
     "VerificationRecord",

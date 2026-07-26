@@ -25,12 +25,23 @@ def test_gate_promotes_verified_positive_experience_with_provenance():
 
 def test_gate_promotes_reproducible_negative_lesson():
     experience = build_records(outcome="negative")[4]
+    verification = experience.verification.model_copy(
+        update={
+            "public_feedback": [
+                "The candidate repeats a globally suboptimal assignment."
+            ]
+        }
+    )
+    experience = experience.model_copy(update={"verification": verification})
 
     decision, knowledge = gate().decide(experience, related=[])
 
     assert decision.accepted is True
     assert knowledge is not None
     assert knowledge.outcome == "negative"
+    assert knowledge.lesson.startswith("Verified evaluator feedback:")
+    assert "Failed candidate rationale (do not repeat):" in knowledge.lesson
+    assert "globally suboptimal assignment" in knowledge.lesson
 
 
 def test_gate_rejects_missing_invalid_or_neutral_verification():

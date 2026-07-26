@@ -1,6 +1,142 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-researcher"
+version = "0.2.0"
+description = "Experience-driven AI research framework with staged evaluation and memory"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [
+  { name = "Lihua (based on HKUDS/AI-Researcher)" },
+]
+dependencies = [
+  "click>=8.1",
+  "httpx>=0.27",
+  "litellm==1.55.0",
+  "loguru>=0.7",
+  "openai>=1.52.0",
+  "pydantic>=2,<3",
+  "prompt_toolkit>=3",
+  "PyYAML>=6",
+  "requests>=2.31",
+  "rich>=13",
+  "tenacity>=8",
+  "tiktoken>=0.7",
+]
+
+[project.optional-dependencies]
+research = [
+  "arxiv>=2",
+  "chromadb>=1",
+  "datasets>=2",
+  "feedparser>=6.0",
+  "filelock>=3",
+  "huggingface_hub>=0.24",
+  "matplotlib>=3.8",
+  "networkx>=3",
+  "numpy>=1.26",
+  "pandas>=2",
+  "sentence_transformers>=3",
+  "tqdm>=4",
+  "tree_sitter==0.23.1",
+]
+browser = [
+  "beautifulsoup4>=4.12",
+  "browsergym==0.13.0",
+  "Flask>=3",
+  "gymnasium>=1",
+  "html2text>=2024.2.26",
+  "markdownify>=0.13",
+  "mammoth>=1.8",
+  "pathvalidate==3.2.1",
+  "Pillow>=10",
+  "playwright==1.39.0",
+  "puremagic>=1.28",
+  "uvicorn>=0.30",
+]
+documents = [
+  "docling>=2",
+  "pdfminer.six>=20231228",
+  "python_pptx>=1",
+]
+media = [
+  "faster_whisper>=1",
+  "moviepy>=2",
+  "pydub>=0.25",
+  "SpeechRecognition>=3",
+  "youtube_transcript_api>=1",
+]
+ui = [
+  "gradio>=5",
+  "inquirer>=3",
+]
+dev = [
+  "pre-commit>=4",
+  "pytest>=8",
+  "ruff==0.11.13",
+]
+full = [
+  "arxiv>=2",
+  "beautifulsoup4>=4.12",
+  "browsergym==0.13.0",
+  "chromadb>=1",
+  "datasets>=2",
+  "docling>=2",
+  "faster_whisper>=1",
+  "feedparser>=6.0",
+  "filelock>=3",
+  "Flask>=3",
+  "gradio>=5",
+  "gymnasium>=1",
+  "html2text>=2024.2.26",
+  "huggingface_hub>=0.24",
+  "inquirer>=3",
+  "mammoth>=1.8",
+  "markdownify>=0.13",
+  "matplotlib>=3.8",
+  "moviepy>=2",
+  "networkx>=3",
+  "numpy>=1.26",
+  "pandas>=2",
+  "pathvalidate==3.2.1",
+  "pdfminer.six>=20231228",
+  "Pillow>=10",
+  "playwright==1.39.0",
+  "prompt_toolkit>=3",
+  "psutil>=6",
+  "puremagic>=1.28",
+  "pydub>=0.25",
+  "python_pptx>=1",
+  "sentence_transformers>=3",
+  "SpeechRecognition>=3",
+  "termcolor>=2",
+  "tqdm>=4",
+  "tree_sitter==0.23.1",
+  "uvicorn>=0.30",
+  "youtube_transcript_api>=1",
+]
+
+[project.scripts]
+ai-researcher = "research_agent.cli:cli"
+paper-agent = "paper_agent.cli:cli"
+benchmark = "benchmark_collection.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["research_agent*", "paper_agent*", "benchmark_collection*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.autopep8]
+max_line_length = 120
+ignore = "E501,W6"
+in-place = true
+recursive = true
+aggressive = 3

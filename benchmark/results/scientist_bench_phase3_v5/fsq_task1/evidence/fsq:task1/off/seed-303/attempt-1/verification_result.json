@@ -1,0 +1,15 @@
+{
+  "failed_repetitions": 0,
+  "metrics": {
+    "implementation_score": 0.2,
+    "index_decoding_rate": 0.2727272727272727,
+    "index_encoding_rate": 0.7272727272727273,
+    "quantization_rate": 0.0
+  },
+  "public_feedback": [
+    "Bounding, rounding, or normalization was incorrect for some level sets.",
+    "The mixed-radix code/index mapping was not a complete round trip.",
+    "Failing behavior categories: custom_epsilon, even_offset, mixed_levels, mixed_radix_indexing, rounding, saturation"
+  ],
+  "repetitions": 6
+}

@@ -1,0 +1,180 @@
+{
+  "knowledge_records": [
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.8,
+      "created_at": "2026-07-25T17:35:22.886714Z",
+      "dataset_id": "ca42bedfae1004247e09168a91daad5b646f93f3ad9f8dd57b3d472070ebce1e",
+      "domain": "sparse-graph-transformer",
+      "knowledge_id": "9166fe39713e53e0b08b9596a8a8acb8a75fed45d1aef424d81c8e16b1e3f0d2",
+      "lesson": "Verified evaluator feedback:\n- Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.\n- Local input edges were not preserved in both directions.\n- The original-node expander component was not simple, symmetric, and d-regular.\nFailed candidate rationale (do not repeat):\nCandidate rationale: No rationale supplied.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "73728e3d08a5fc71072cdb56829faaf23ed7bf9519de79de54b3150635ad1abb",
+        "b8e4c64b3922a864254a737d217dfd570e99148da00b334ae764701660507e8a"
+      ],
+      "supersedes": null,
+      "task_id": "exphormer:task1"
+    },
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.7,
+      "created_at": "2026-07-25T17:35:09.888096Z",
+      "dataset_id": "ca42bedfae1004247e09168a91daad5b646f93f3ad9f8dd57b3d472070ebce1e",
+      "domain": "sparse-graph-transformer",
+      "knowledge_id": "b39fb9bb1c278c54e1abd5da7f589b4ffec14f17ddca37a2341fab0ed3601943",
+      "lesson": "Verified evaluator feedback:\n- Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.\n- The original-node expander component was not simple, symmetric, and d-regular.\n- Seed behavior was not both deterministic and sensitive to a changed seed.\nFailed candidate rationale (do not repeat):\nCandidate rationale: No rationale supplied.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "b8e4c64b3922a864254a737d217dfd570e99148da00b334ae764701660507e8a"
+      ],
+      "supersedes": null,
+      "task_id": "exphormer:task1"
+    }
+  ],
+  "recall_contexts": [],
+  "verification_records": [
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.46666666666666673,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.4333333333333333
+      },
+      "contract_id": "scientist-bench-exphormer-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:35:22.886714Z",
+      "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-2/solution.py",
+          "schema_version": "1",
+          "sha256": "0e8fe1dbf1619d0bfe1c814c21e31552d33dc64ba54395878db88c890537bdec",
+          "size_bytes": 2458
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-2/run.log",
+          "schema_version": "1",
+          "sha256": "730915b7e2964ae9fdffd9e382d021de801503878ea45caf54413df4d1c46a0d",
+          "size_bytes": 335
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-2/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "1999e5a6044e8edd382e2610e012e7076539963ebc72e13eac3188f55d9dbda7",
+          "size_bytes": 1259
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-2/verification_result.json",
+          "schema_version": "1",
+          "sha256": "2e85f44c98d83bce25bbad375922182415b0c74d7deabc3db169d20888980447",
+          "size_bytes": 567
+        }
+      ],
+      "observation_id": "b46feff55f26950550d097a36b38562f268402462dc6b8cf42f7eb0897eacbab",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.",
+        "Local input edges were not preserved in both directions.",
+        "The original-node expander component was not simple, symmetric, and d-regular."
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "17282ecbca79e770501c9a43b41cfbd88dae30c3f29615b27090514bffa52192",
+      "verified_metrics": {
+        "determinism_rate": 1.0,
+        "global_edge_rate": 1.0,
+        "implementation_score": 0.4333333333333333,
+        "local_edge_rate": 0.16666666666666666,
+        "regular_expander_rate": 0.0,
+        "seed_sensitivity": 1.0,
+        "structure_rate": 0.0
+      },
+      "violations": []
+    },
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.35,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.55
+      },
+      "contract_id": "scientist-bench-exphormer-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:35:09.888096Z",
+      "evaluator_digest": "0ba2a0d9f744c8ba93755be436f5a751307f0373aacd29126c5699f4a35690fd",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-1/solution.py",
+          "schema_version": "1",
+          "sha256": "b1905abc21c8d4d8ef6862265336fb81b1addf0989840d413d9ece296228f999",
+          "size_bytes": 2629
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-1/run.log",
+          "schema_version": "1",
+          "sha256": "60f26c0b1b1369c19f2d26fa6ec013d3c18851780c0dc948c36569d471c359d6",
+          "size_bytes": 335
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-1/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "1999e5a6044e8edd382e2610e012e7076539963ebc72e13eac3188f55d9dbda7",
+          "size_bytes": 1259
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/exphormer_task1/evidence/exphormer:task1/off/seed-101/attempt-1/verification_result.json",
+          "schema_version": "1",
+          "sha256": "4e0ec8883d0e5ba104ff538f4e89fe85245167505cc7ea97e7883c7a68ab2154",
+          "size_bytes": 554
+        }
+      ],
+      "observation_id": "5b57c1e5395c9caaef33121bdf66b6f1fac6b3fca499762aaeaa23ad4dbfa97a",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Some outputs had invalid, duplicate, self-loop, or non-linear typed edges.",
+        "The original-node expander component was not simple, symmetric, and d-regular.",
+        "Seed behavior was not both deterministic and sensitive to a changed seed."
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "7865319de881348adebed619f7df8b748f13d50b20f1f5ad6846b52537811440",
+      "verified_metrics": {
+        "determinism_rate": 1.0,
+        "global_edge_rate": 1.0,
+        "implementation_score": 0.55,
+        "local_edge_rate": 1.0,
+        "regular_expander_rate": 0.0,
+        "seed_sensitivity": 0.0,
+        "structure_rate": 0.0
+      },
+      "violations": []
+    }
+  ]
+}

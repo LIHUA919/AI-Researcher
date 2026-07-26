@@ -1,0 +1,174 @@
+{
+  "knowledge_records": [
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.7,
+      "created_at": "2026-07-25T17:36:41.817686Z",
+      "dataset_id": "7574cdba9ca87d2f241fcd5a6fbf71a755abbd711ec97ab8b79f07aa9c85de08",
+      "domain": "finite-scalar-quantization",
+      "knowledge_id": "0ec3bc61032bbcfb5fff6f6a68cfaf19f421d13da349006e8fb1a5e6916e1168",
+      "lesson": "Verified evaluator feedback:\n- Bounding, rounding, or normalization was incorrect for some level sets.\n- The mixed-radix code/index mapping was not a complete round trip.\n- Failing behavior categories: custom_epsilon, mixed_radix_indexing, saturation\nFailed candidate rationale (do not repeat):\nCandidate rationale: I need to implement the FSQ (Finite Scalar Quantization) methods as specified. Let me analyze the requirements:\n\n1. `quantize(values, levels, eps=1e-3)` - Returns normalized FSQ codes\n2. `codes_to_index(codes, levels)` - Maps normalized code vector to mixed-radix index\n3. `index_to_codes(index, levels)` - Maps index back to normalized code vector\n\nKey requirements:\n- Bound inputs with epsilon margin and even-level offset\n- Round bounded values and normalize to [-1, 1]\n- First dimension is least-significant in mixed-radix\n- Support both odd and even level counts\n- Maintain proper code/index round trips\n\nLet me break down the implementation:\n1. For quantize: bound values, round, normalize\n2. For codes_to_index: convert mixed-radix representation\n3. For index_to_codes: convert back from mixed-radix\n\nThe bounding function: f(z) = floor(L/2) * tanh(z) where L is levels\nThe normalization: (rounded_value + floor(L/2)) / floor(L/2) - 1 to get [-1, 1]\n\nFor mixed-radix conversion, I need to process dimensions from least to most significant.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "6c8e4ba2485c7f46dd995957ffec14e48cd8c8206e5087772453ecc1a78ebcff"
+      ],
+      "supersedes": null,
+      "task_id": "fsq:task1"
+    },
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.8,
+      "created_at": "2026-07-25T17:37:08.724903Z",
+      "dataset_id": "7574cdba9ca87d2f241fcd5a6fbf71a755abbd711ec97ab8b79f07aa9c85de08",
+      "domain": "finite-scalar-quantization",
+      "knowledge_id": "1af253c1e0b151e86cf82a92ed7f0e1d34fe4e21be0b2216da2ba907af40dbd9",
+      "lesson": "Verified evaluator feedback:\n- Bounding, rounding, or normalization was incorrect for some level sets.\n- The mixed-radix code/index mapping was not a complete round trip.\n- Failing behavior categories: custom_epsilon, mixed_levels, mixed_radix_indexing, saturation\nFailed candidate rationale (do not repeat):\nCandidate rationale: No rationale supplied.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "6c8e4ba2485c7f46dd995957ffec14e48cd8c8206e5087772453ecc1a78ebcff",
+        "ae5c73bfafeb19c9a3a64e22e30965aef2fb1cb86d9d0e4da9b162deef33bad4"
+      ],
+      "supersedes": null,
+      "task_id": "fsq:task1"
+    }
+  ],
+  "recall_contexts": [],
+  "verification_records": [
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.30000000000000004,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.6
+      },
+      "contract_id": "scientist-bench-fsq-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:36:41.817686Z",
+      "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-1/solution.py",
+          "schema_version": "1",
+          "sha256": "2dc101ddcceb81a68250a3b087a8846c878f191b4644aee6ea7abadd42f5e5ab",
+          "size_bytes": 2948
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-1/run.log",
+          "schema_version": "1",
+          "sha256": "cce78a29dacd96b855b4c7b72a28ae18246af555495fd472581904c960d34e0f",
+          "size_bytes": 334
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-1/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "e0a1b4ef231d1be6ba868ab747fb63a1342d2be7b7a3e0e143a535ebac7efbe6",
+          "size_bytes": 1247
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-1/verification_result.json",
+          "schema_version": "1",
+          "sha256": "a71a8880802227e92b3e2cc6b525e0c7315c40c3acbf44574261c7ab54204379",
+          "size_bytes": 474
+        }
+      ],
+      "observation_id": "98725a69299180d11935721c33068b8209f883b9d35b16c11ca78a2324b0ff77",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Bounding, rounding, or normalization was incorrect for some level sets.",
+        "The mixed-radix code/index mapping was not a complete round trip.",
+        "Failing behavior categories: custom_epsilon, mixed_radix_indexing, saturation"
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "04e16bd97043420bd544ff21d08ec082f9a4e32575b94cb5109f4be04c6fd6e5",
+      "verified_metrics": {
+        "implementation_score": 0.6,
+        "index_decoding_rate": 0.0,
+        "index_encoding_rate": 1.0,
+        "quantization_rate": 0.6666666666666666
+      },
+      "violations": []
+    },
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.7000000000000001,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.19999999999999998
+      },
+      "contract_id": "scientist-bench-fsq-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:37:08.724903Z",
+      "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-2/solution.py",
+          "schema_version": "1",
+          "sha256": "88006c82ce263640ea278d14ccff6cd59d0fa372e2c079891aba374245553c96",
+          "size_bytes": 4603
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-2/run.log",
+          "schema_version": "1",
+          "sha256": "1d6b36e82dc7e136f2f522f70dc1f64f9d51f38e2f8dd49970c05bd5e6848736",
+          "size_bytes": 335
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-2/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "e0a1b4ef231d1be6ba868ab747fb63a1342d2be7b7a3e0e143a535ebac7efbe6",
+          "size_bytes": 1247
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-202/attempt-2/verification_result.json",
+          "schema_version": "1",
+          "sha256": "006d6ce44cbb9caf28a336f30875df308fd3d27de46ec899d4bcc93b9df210cd",
+          "size_bytes": 504
+        }
+      ],
+      "observation_id": "533b6d5cb859925c2db3db259bc4aeb030e2fb00ceb3cc06a61c2f17fcdd5319",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Bounding, rounding, or normalization was incorrect for some level sets.",
+        "The mixed-radix code/index mapping was not a complete round trip.",
+        "Failing behavior categories: custom_epsilon, mixed_levels, mixed_radix_indexing, saturation"
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "db395e965e80d71b4acd620d604a15307d40de1f38a8b112abc4509ddda6e185",
+      "verified_metrics": {
+        "implementation_score": 0.19999999999999998,
+        "index_decoding_rate": 0.0,
+        "index_encoding_rate": 0.0,
+        "quantization_rate": 0.3333333333333333
+      },
+      "violations": []
+    }
+  ]
+}

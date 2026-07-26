@@ -10,7 +10,6 @@ from research_agent.inno.experience.evaluation import EvaluationContract, Verifi
 from research_agent.inno.experience.knowledge import KnowledgeGate
 from research_agent.inno.experience.ledger import ExperimentLedger
 from research_agent.inno.experience.models import (
-    ExperienceQuery,
     ExperienceRecord,
     ExperimentAttempt,
     Hypothesis,
@@ -20,6 +19,7 @@ from research_agent.inno.experience.models import (
     VerificationRecord,
 )
 from research_agent.inno.experience.retrieval import ExperienceRetriever
+from research_agent.inno.experience.transaction import ExperimentTransaction
 
 
 ExperienceMode = Literal["off", "record", "recall", "closed-loop"]
@@ -99,62 +99,17 @@ class ExperienceLoop:
     def after_run(self, completion: RunCompletion) -> LoopOutcome:
         if self.mode not in {"record", "closed-loop"}:
             return LoopOutcome(action="unverified", reason="experience_recording_disabled")
-
-        self.ledger.append_hypothesis(completion.hypothesis)
-        self.ledger.append_attempt(completion.attempt)
-        self._emit("attempt_recorded", {"attempt_id": completion.attempt.attempt_id})
-        self.ledger.append_observation(completion.observation)
-        self._emit(
-            "observation_recorded",
-            {"observation_id": completion.observation.observation_id},
+        transaction = ExperimentTransaction(
+            ledger=self.ledger,
+            verifier=self.verifier,
+            knowledge_gate=self.knowledge_gate,
+            evaluation_contract=self.evaluation_contract,
+            event_sink=self.event_sink,
         )
-        self._emit(
-            "verification_started",
-            {"observation_id": completion.observation.observation_id},
-        )
-        verification = self.verifier.verify(
-            self.evaluation_contract,
-            completion.observation,
-        )
-        self.ledger.append_verification(verification)
-        self._emit(
-            "verification_completed",
-            {
-                "verification_id": verification.verification_id,
-                "valid": verification.valid,
-                "outcome": verification.outcome,
-            },
-        )
-        experience = self._experience(completion, verification)
-        self.ledger.append_experience(experience)
-        self._emit("experience_recorded", {"experience_id": experience.experience_id})
-
-        related = [
-            item
-            for item in self.ledger.query(
-                ExperienceQuery(task_id=experience.task_id, valid_only=True)
-            )
-            if item.experience_id != experience.experience_id
-        ]
-        decision, knowledge = self.knowledge_gate.decide(experience, related)
-        if knowledge is not None:
-            self.ledger.append_knowledge(knowledge)
-            self._emit(
-                "knowledge_promoted",
-                {
-                    "knowledge_id": knowledge.knowledge_id,
-                    "experience_id": experience.experience_id,
-                },
-            )
-        else:
-            self._emit(
-                "knowledge_rejected",
-                {
-                    "experience_id": experience.experience_id,
-                    "reasons": decision.reasons,
-                },
-            )
-        self.ledger.append_promotion_decision(decision)
+        transaction_result = transaction.commit(completion)
+        experience = transaction_result.experience
+        verification = transaction_result.verification
+        knowledge = transaction_result.knowledge
 
         if (
             completion.attempt.status != "completed"
@@ -212,31 +167,6 @@ class ExperienceLoop:
             request=request,
             items=[],
             token_count=0,
-        )
-
-    @staticmethod
-    def _experience(
-        completion: RunCompletion,
-        verification: VerificationRecord,
-    ) -> ExperienceRecord:
-        payload = {
-            "hypothesis_id": completion.hypothesis.hypothesis_id,
-            "attempt_id": completion.attempt.attempt_id,
-            "observation_id": completion.observation.observation_id,
-            "verification_id": verification.verification_id,
-        }
-        experience_id = hashlib.sha256(
-            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        ).hexdigest()
-        return ExperienceRecord(
-            experience_id=experience_id,
-            task_id=completion.attempt.task_id,
-            hypothesis=completion.hypothesis,
-            attempt=completion.attempt,
-            observation=completion.observation,
-            verification=verification,
-            analysis=completion.analysis,
-            created_at=completion.observation.completed_at,
         )
 
     def _emit(self, event_type: str, payload: dict[str, Any]) -> None:

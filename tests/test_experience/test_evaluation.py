@@ -1,14 +1,19 @@
 from datetime import datetime, timezone
 import hashlib
+import json
+import os
 from pathlib import Path
+import subprocess
 import sys
 
 import pytest
+from pydantic import ValidationError
 
 from research_agent.inno.experience import (
     ArtifactRef,
     CallableVerifier,
     CommandVerifier,
+    ContainerVerifier,
     EvaluationContract,
     Observation,
     PrimaryMetric,
@@ -70,6 +75,7 @@ def test_callable_verifier_is_authority_for_verified_metrics(tmp_path):
             "metrics": {"score": 0.75},
             "repetitions": 1,
             "failed_repetitions": 0,
+            "public_feedback": ["The revised configuration remains stable."],
         }
 
     verification = CallableVerifier(evaluator).verify(contract(), raw_observation)
@@ -79,6 +85,41 @@ def test_callable_verifier_is_authority_for_verified_metrics(tmp_path):
     assert verification.outcome == "positive"
     assert verification.verified_metrics == {"score": 0.75}
     assert verification.verified_metrics != raw_observation.metrics
+    assert verification.public_feedback == [
+        "The revised configuration remains stable."
+    ]
+
+
+def test_public_feedback_is_bounded_and_must_be_a_string_list(tmp_path):
+    verification = CallableVerifier(
+        lambda *_: {
+            "metrics": {"score": 0.75},
+            "repetitions": 1,
+            "public_feedback": ["one", "two"],
+        }
+    ).verify(
+        contract(
+            validity={
+                "max_public_feedback_items": 1,
+                "max_public_feedback_chars": 20,
+            }
+        ),
+        observation(tmp_path),
+    )
+
+    assert verification.valid is False
+    assert "too_many_public_feedback_items" in verification.violations
+
+    malformed = CallableVerifier(
+        lambda *_: {
+            "metrics": {"score": 0.75},
+            "repetitions": 1,
+            "public_feedback": "not-a-list",
+        }
+    ).verify(contract(), observation(tmp_path))
+
+    assert malformed.valid is False
+    assert "public_feedback_not_string_list" in malformed.violations
 
 
 def test_callable_verifier_respects_minimize_direction(tmp_path):
@@ -148,6 +189,34 @@ baseline: 0.5
     assert loaded.contract_id == "score"
     assert loaded.version == "2"
     assert loaded.repetitions == 2
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("result_file", "../verification_result.json"),
+        ("result_file", "/tmp/verification_result.json"),
+        ("required_artifacts", ["../metrics.json"]),
+        ("required_artifacts", ["metrics.json", "metrics.json"]),
+    ],
+)
+def test_evaluation_contract_rejects_unsafe_artifact_names(field, value):
+    with pytest.raises(ValidationError):
+        contract(**{field: value})
+
+
+def test_evaluator_digest_covers_all_contract_files(tmp_path):
+    (tmp_path / "evaluate.py").write_text("# entrypoint\n", encoding="utf-8")
+    helper = tmp_path / "hidden_cases.json"
+    helper.write_text('{"expected": 1}\n', encoding="utf-8")
+    verifier = CommandVerifier(contract_dir=tmp_path)
+    evaluation_contract = contract(entrypoint="python evaluate.py {attempt_dir}")
+
+    before = verifier._evaluator_digest(evaluation_contract)
+    helper.write_text('{"expected": 2}\n', encoding="utf-8")
+    after = verifier._evaluator_digest(evaluation_contract)
+
+    assert before != after
 
 
 def test_command_verifier_reads_machine_result_not_stdout(tmp_path):
@@ -220,3 +289,178 @@ def test_command_verifier_timeout_is_invalid(tmp_path):
 
     assert verification.valid is False
     assert "evaluator_timeout" in verification.violations
+
+
+def test_command_verifier_rejects_tampered_observation_artifacts(tmp_path):
+    attempt_dir = tmp_path / "attempt"
+    attempt_dir.mkdir()
+    raw_observation = observation(attempt_dir)
+    (attempt_dir / "metrics.json").write_text('{"score": 999}', encoding="utf-8")
+
+    verification = CommandVerifier(contract_dir=tmp_path).verify(
+        contract(entrypoint="python evaluate.py {attempt_dir}"),
+        raw_observation,
+    )
+
+    assert verification.valid is False
+    assert "artifact_digest_mismatch:metrics.json" in verification.violations
+
+
+def test_container_verifier_uses_isolated_networkless_runtime(tmp_path):
+    attempt_dir = tmp_path / "attempt"
+    attempt_dir.mkdir()
+    raw_observation = observation(attempt_dir)
+    contract_dir = tmp_path / "contract"
+    contract_dir.mkdir()
+    evaluator_path = contract_dir / "evaluate.py"
+    evaluator_path.write_text("# deterministic evaluator\n", encoding="utf-8")
+    captured = {}
+
+    def fake_docker(command, **kwargs):
+        action = command[1]
+        if action == "volume" and command[2] == "create":
+            return subprocess.CompletedProcess(command, 0, "evaluator-volume\n", "")
+        if action == "run" and "dst=/source,readonly" in " ".join(command):
+            source_mount = next(
+                command[index + 1]
+                for index, token in enumerate(command)
+                if token == "--mount" and "dst=/source" in command[index + 1]
+            )
+            host_evaluator = Path(
+                next(
+                    value.removeprefix("src=")
+                    for value in source_mount.split(",")
+                    if value.startswith("src=")
+                )
+            )
+            captured["evaluator_mode"] = host_evaluator.stat().st_mode & 0o777
+            captured["evaluator_file_mode"] = (
+                (host_evaluator / "evaluate.py").stat().st_mode & 0o777
+            )
+            return subprocess.CompletedProcess(command, 0, "", "")
+        if action == "run":
+            captured["command"] = command
+            captured["kwargs"] = kwargs
+            mounts = [
+                command[index + 1]
+                for index, token in enumerate(command)
+                if token == "--mount"
+            ]
+            attempt_mount = next(item for item in mounts if "dst=/attempt" in item)
+            captured["host_attempt"] = Path(
+                next(
+                    value.removeprefix("src=")
+                    for value in attempt_mount.split(",")
+                    if value.startswith("src=")
+                )
+            )
+            (captured["host_attempt"] / "verification_result.json").write_text(
+                json.dumps({"metrics": {"score": 0.7}, "repetitions": 1}),
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(command, 0, "", "")
+        assert action == "volume" and command[2] == "rm"
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    verification = ContainerVerifier(
+        contract_dir=contract_dir,
+        runner=fake_docker,
+    ).verify(
+        contract(
+            entrypoint="python evaluate.py {attempt_dir}",
+            container_image=(
+                "python:3.11-alpine@sha256:"
+                "25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4"
+            ),
+        ),
+        raw_observation,
+    )
+
+    command = captured["command"]
+    assert command[:3] == ["docker", "run", "--rm"]
+    assert command[command.index("--pull") + 1] == "never"
+    assert command[command.index("--network") + 1] == "none"
+    assert "--read-only" in command
+    assert ["--cap-drop", "ALL"] == command[
+        command.index("--cap-drop") : command.index("--cap-drop") + 2
+    ]
+    assert ["--cap-add", "SETUID"] == command[
+        command.index("--cap-add") : command.index("--cap-add") + 2
+    ]
+    second_cap_add = command.index("--cap-add", command.index("--cap-add") + 1)
+    assert command[second_cap_add : second_cap_add + 2] == ["--cap-add", "SETGID"]
+    assert "no-new-privileges" in command
+    assert captured["kwargs"]["timeout"] == 900
+    assert captured["evaluator_mode"] == 0o700
+    assert captured["evaluator_file_mode"] == 0o600
+    assert verification.valid is True
+    assert verification.verified_metrics == {"score": 0.7}
+    assert (attempt_dir / "verification_result.json").is_file()
+
+
+def test_container_verifier_rejects_mutable_image_tag(tmp_path):
+    attempt_dir = tmp_path / "attempt"
+    attempt_dir.mkdir()
+    raw_observation = observation(attempt_dir)
+
+    verification = ContainerVerifier(contract_dir=tmp_path).verify(
+        contract(
+            entrypoint="python evaluate.py {attempt_dir}",
+            container_image="python:3.11-alpine",
+        ),
+        raw_observation,
+    )
+
+    assert verification.valid is False
+    assert "evaluator_container_image_not_pinned" in verification.violations
+
+
+def test_container_verifier_rejects_symlinked_evaluator_contract(tmp_path):
+    attempt_dir = tmp_path / "attempt"
+    attempt_dir.mkdir()
+    raw_observation = observation(attempt_dir)
+    target = tmp_path / "outside.py"
+    target.write_text("# outside contract\n", encoding="utf-8")
+    contract_dir = tmp_path / "contract"
+    contract_dir.mkdir()
+    (contract_dir / "evaluate.py").symlink_to(target)
+
+    verification = ContainerVerifier(contract_dir=contract_dir).verify(
+        contract(
+            entrypoint="python evaluate.py {attempt_dir}",
+            container_image=(
+                "python:3.11-alpine@sha256:"
+                "25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4"
+            ),
+        ),
+        raw_observation,
+    )
+
+    assert verification.valid is False
+    assert "evaluator_contract_contains_symlink" in verification.violations
+
+
+@pytest.mark.skipif(
+    os.getenv("RUN_DOCKER_TESTS") != "1",
+    reason="requires an explicitly enabled Docker daemon",
+)
+def test_checked_in_contract_runs_in_real_container(tmp_path):
+    attempt_dir = tmp_path / "attempt"
+    attempt_dir.mkdir()
+    raw_observation = observation(attempt_dir)
+    contract_dir = (
+        Path(__file__).resolve().parents[2]
+        / "benchmark"
+        / "evaluators"
+        / "deterministic_score"
+    )
+    evaluation_contract = load_evaluation_contract(contract_dir / "contract.yaml")
+
+    verification = ContainerVerifier(contract_dir=contract_dir).verify(
+        evaluation_contract,
+        raw_observation,
+    )
+
+    assert verification.valid is True, verification.violations
+    assert verification.passed is True
+    assert verification.verified_metrics == {"score": 0.8}

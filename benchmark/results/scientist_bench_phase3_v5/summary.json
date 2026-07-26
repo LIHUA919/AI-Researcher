@@ -1,0 +1,176 @@
+{
+  "benchmark": "Scientist-Bench task1 executable subset",
+  "claim_boundary": "These results measure CPU functional implementation conformance on three Scientist-Bench task1 adapters. They do not establish paper-level training speed, FID, model quality, accuracy, or scientific state of the art.",
+  "generator_configuration_digest": "40107209d66baf9c6a20eca40dc9cac1a606e9a7fbe0a279eeef752b14b688f9",
+  "iterations_per_mode": 2,
+  "mean_repeated_failure_rate": {
+    "closed_loop": 0.11111111111100001,
+    "off": 0.22222222222200003
+  },
+  "model": "Qwen3-Coder-30B-A3B-Instruct",
+  "phase_3_exit_criteria": {
+    "invalid_results_not_increased": true,
+    "positive_gain_on_multiple_tasks": true,
+    "repeated_failures_not_increased": true,
+    "reproducible_trial_ids_and_digests": true
+  },
+  "positive_task_count": 2,
+  "positive_tasks": [
+    "fsq:task1",
+    "exphormer:task1"
+  ],
+  "schema_version": "1",
+  "seeds": [
+    101,
+    202,
+    303
+  ],
+  "source_revision_digest": "53cb0350f981a7bec800d361c26eaadbb86601f6a1808aa3e1d31bfaaba7dcf4",
+  "tasks": [
+    {
+      "artifact_count": 46,
+      "artifact_index": "immiscible_diffusion_task1/artifact_index.json",
+      "baseline": {
+        "mean": 0.9,
+        "mode": "off",
+        "repeated_failure_rate": 0.0,
+        "scores": [
+          0.7000000000000001,
+          1.0,
+          1.0
+        ],
+        "total_gpu_hours": 0.0,
+        "total_tokens": 8262,
+        "total_wall_seconds": 62.87586074899809,
+        "valid_rate": 1.0,
+        "variance": 0.02
+      },
+      "claim_scope": "Scientist-Bench task1 CPU implementation conformance for globally optimal batch noise assignment and fp16 assignment inputs; no diffusion training, FID, image-quality, or speed claim.",
+      "closed_loop": {
+        "mean": 0.766666666667,
+        "mode": "closed-loop",
+        "repeated_failure_rate": 0.0,
+        "scores": [
+          0.7000000000000001,
+          1.0,
+          0.6
+        ],
+        "total_gpu_hours": 0.0,
+        "total_tokens": 8980,
+        "total_wall_seconds": 55.38655108200328,
+        "valid_rate": 1.0,
+        "variance": 0.028888888889
+      },
+      "experience_gain": -0.133333333333,
+      "generator_cache_hits": 3,
+      "generator_cache_misses": 7,
+      "generator_configuration_digest": "40107209d66baf9c6a20eca40dc9cac1a606e9a7fbe0a279eeef752b14b688f9",
+      "paired_deltas": [
+        0.0,
+        0.0,
+        -0.4
+      ],
+      "report": "immiscible_diffusion_task1/experience_gain.json",
+      "source_revision_digest": "53cb0350f981a7bec800d361c26eaadbb86601f6a1808aa3e1d31bfaaba7dcf4",
+      "source_url": "https://arxiv.org/abs/2406.12303",
+      "task_id": "immiscible_diffusion:task1"
+    },
+    {
+      "artifact_count": 54,
+      "artifact_index": "fsq_task1/artifact_index.json",
+      "baseline": {
+        "mean": 0.342424242424,
+        "mode": "off",
+        "repeated_failure_rate": 0.333333333333,
+        "scores": [
+          0.22727272727272727,
+          0.6,
+          0.2
+        ],
+        "total_gpu_hours": 0.0,
+        "total_tokens": 12872,
+        "total_wall_seconds": 185.9480912509971,
+        "valid_rate": 1.0,
+        "variance": 0.033296602388
+      },
+      "claim_scope": "Scientist-Bench task1 CPU implementation conformance for FSQ bounding, normalization, and mixed-radix indexing; no autograd, VAE training, codebook-utilization, FID, or quality claim.",
+      "closed_loop": {
+        "mean": 0.50303030303,
+        "mode": "closed-loop",
+        "repeated_failure_rate": 0.0,
+        "scores": [
+          0.5545454545454546,
+          0.6,
+          0.35454545454545455
+        ],
+        "total_gpu_hours": 0.0,
+        "total_tokens": 13053,
+        "total_wall_seconds": 116.84637378999832,
+        "valid_rate": 1.0,
+        "variance": 0.011368227732
+      },
+      "experience_gain": 0.160606060606,
+      "generator_cache_hits": 3,
+      "generator_cache_misses": 9,
+      "generator_configuration_digest": "40107209d66baf9c6a20eca40dc9cac1a606e9a7fbe0a279eeef752b14b688f9",
+      "paired_deltas": [
+        0.327272727273,
+        0.0,
+        0.154545454545
+      ],
+      "report": "fsq_task1/experience_gain.json",
+      "source_revision_digest": "53cb0350f981a7bec800d361c26eaadbb86601f6a1808aa3e1d31bfaaba7dcf4",
+      "source_url": "https://arxiv.org/abs/2309.15505",
+      "task_id": "fsq:task1"
+    },
+    {
+      "artifact_count": 53,
+      "artifact_index": "exphormer_task1/artifact_index.json",
+      "baseline": {
+        "mean": 0.583333333333,
+        "mode": "off",
+        "repeated_failure_rate": 0.333333333333,
+        "scores": [
+          0.55,
+          0.6000000000000001,
+          0.6000000000000001
+        ],
+        "total_gpu_hours": 0.0,
+        "total_tokens": 10745,
+        "total_wall_seconds": 112.97783129200252,
+        "valid_rate": 1.0,
+        "variance": 0.000555555556
+      },
+      "claim_scope": "Scientist-Bench task1 CPU implementation conformance for typed local, regular-expander, and global-node interaction graph construction; no graph-transformer training, accuracy, throughput, or scalability claim.",
+      "closed_loop": {
+        "mean": 0.65,
+        "mode": "closed-loop",
+        "repeated_failure_rate": 0.333333333333,
+        "scores": [
+          0.7500000000000001,
+          0.6000000000000001,
+          0.6000000000000001
+        ],
+        "total_gpu_hours": 0.0,
+        "total_tokens": 11527,
+        "total_wall_seconds": 124.8805131669942,
+        "valid_rate": 1.0,
+        "variance": 0.005
+      },
+      "experience_gain": 0.066666666667,
+      "generator_cache_hits": 3,
+      "generator_cache_misses": 9,
+      "generator_configuration_digest": "40107209d66baf9c6a20eca40dc9cac1a606e9a7fbe0a279eeef752b14b688f9",
+      "paired_deltas": [
+        0.2,
+        0.0,
+        0.0
+      ],
+      "report": "exphormer_task1/experience_gain.json",
+      "source_revision_digest": "53cb0350f981a7bec800d361c26eaadbb86601f6a1808aa3e1d31bfaaba7dcf4",
+      "source_url": "https://arxiv.org/abs/2303.06147",
+      "task_id": "exphormer:task1"
+    }
+  ],
+  "valid_rate_not_reduced": true
+}

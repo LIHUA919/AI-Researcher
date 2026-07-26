@@ -1,0 +1,174 @@
+{
+  "knowledge_records": [
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.7,
+      "created_at": "2026-07-25T17:37:38.394967Z",
+      "dataset_id": "7574cdba9ca87d2f241fcd5a6fbf71a755abbd711ec97ab8b79f07aa9c85de08",
+      "domain": "finite-scalar-quantization",
+      "knowledge_id": "afca606562d8f9acddc8fe1ce7c5f7ac872f69457a30c11f63500205e25e9fa6",
+      "lesson": "Verified evaluator feedback:\n- Bounding, rounding, or normalization was incorrect for some level sets.\n- The mixed-radix code/index mapping was not a complete round trip.\n- Failing behavior categories: custom_epsilon, even_offset, mixed_levels, mixed_radix_indexing, rounding, saturation\nFailed candidate rationale (do not repeat):\nCandidate rationale: I need to implement the finite scalar quantization (FSQ) methodology as specified. Looking at the requirements:\n\n1. `quantize(values, levels, eps=1e-3)` - This should bound values, round them, and normalize to [-1, 1]\n2. `codes_to_index(codes, levels)` - Convert normalized codes to mixed-radix index\n3. `index_to_codes(index, levels)` - Convert mixed-radix index back to normalized codes\n\nThe key points:\n- Bound each input with epsilon margin and even-level offset\n- Round bounded values and normalize to [-1, 1] \n- First dimension is least-significant digit\n- Support odd and even level counts\n- Maintain proper round-trip behavior\n\nLet me break this down:\n1. For quantize: clamp values to [-1+eps, 1-eps], apply tanh, scale to [0, L-1], round, then normalize to [-1, 1]\n2. For codes_to_index: convert each code to its integer representation using mixed-radix system\n3. For index_to_codes: convert integer back to mixed-radix codes\n\nI need to be careful with the bounds handling, especially with even/odd levels and ensuring proper offset for even levels.",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "273ef1abe4726b034300ae8581099824ca8cbefaba62e3385ddaff63da09d1c6"
+      ],
+      "supersedes": null,
+      "task_id": "fsq:task1"
+    },
+    {
+      "conditions": [
+        "fixed evaluator digest",
+        "fixed paired seed and budget",
+        "CPU functional-conformance scope"
+      ],
+      "confidence": 0.8,
+      "created_at": "2026-07-25T17:39:01.512452Z",
+      "dataset_id": "7574cdba9ca87d2f241fcd5a6fbf71a755abbd711ec97ab8b79f07aa9c85de08",
+      "domain": "finite-scalar-quantization",
+      "knowledge_id": "ea6c063a50c97974123fb667f201d98ef9a55b371c9bd0a931849394bdf60203",
+      "lesson": "Verified evaluator feedback:\n- Bounding, rounding, or normalization was incorrect for some level sets.\n- The mixed-radix code/index mapping was not a complete round trip.\n- Failing behavior categories: custom_epsilon, mixed_levels, mixed_radix_indexing, rounding, saturation\nFailed candidate rationale (do not repeat):\nCandidate rationale: I need to implement the core FSQ (Factorized Scalar Quantization) functionality as specified. Let me break down the requirements:\n\n1. `quantize(values, levels, eps=1e-3)` - This should bound values, round them, and normalize to [-1, 1]\n2. `codes_to_index(codes, levels)` - Convert normalized codes to mixed-radix index\n3. `index_to_codes(index, levels)` - Convert mixed-radix index back to normalized codes\n\nKey requirements:\n- Bound each input with epsilon margin and even-level offset\n- Round bounded values and normalize to [-1, 1]\n- First dimension is least-significant digit in mixed-radix\n- Handle both odd and even level counts\n\nLet me trace through the logic:\n- For quantization: take values, bound them, round to nearest integer, then normalize\n- For indexing: convert codes to a single integer using mixed-radix representation\n- For reverse indexing: convert integer back to codes using mixed-radix decomposition\n\nThe key insight is that we need to:\n1. Scale values to fit within the quantization levels with margins\n2. Apply rounding/quantization\n3. Normalize back to [-1, 1] range\n4. Properly handle mixed-radix indexing where first dimension is LSB",
+      "model_family": "Qwen3-Coder-30B-A3B-Instruct",
+      "outcome": "negative",
+      "promotion_policy_version": "1",
+      "schema_version": "1",
+      "source_experience_ids": [
+        "273ef1abe4726b034300ae8581099824ca8cbefaba62e3385ddaff63da09d1c6",
+        "efcce881e458d5cd9bc33035f5eba8d01782bb2b2d98b74bbbe8f2c315eca2c5"
+      ],
+      "supersedes": null,
+      "task_id": "fsq:task1"
+    }
+  ],
+  "recall_contexts": [],
+  "verification_records": [
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.7,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.2
+      },
+      "contract_id": "scientist-bench-fsq-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:37:38.394967Z",
+      "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-1/solution.py",
+          "schema_version": "1",
+          "sha256": "1a5586cbf4d1ff0223bcfb835417321227f936267be4e6e41ca054666ddc4a80",
+          "size_bytes": 3361
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-1/run.log",
+          "schema_version": "1",
+          "sha256": "2b5db1be93c99bc3e690e99b13f31f287f8e5a09bc0d516f3bc280bf88d334aa",
+          "size_bytes": 335
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-1/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "e734f7f97160c608a8611035aaa6d72bd31c4787b6fbeaa05adeb292ed3494fd",
+          "size_bytes": 1247
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-1/verification_result.json",
+          "schema_version": "1",
+          "sha256": "c9959cb31bff08fe0be5a898e8ab933366937216fcc6930cd10f29b489a134c1",
+          "size_bytes": 526
+        }
+      ],
+      "observation_id": "78990d37775e652945a762d4618585db22b6e8dc26d042108fc53984b9ed6298",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Bounding, rounding, or normalization was incorrect for some level sets.",
+        "The mixed-radix code/index mapping was not a complete round trip.",
+        "Failing behavior categories: custom_epsilon, even_offset, mixed_levels, mixed_radix_indexing, rounding, saturation"
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "8a6318b0b3726a31a6d2d9f8649fe515f7baef4a6fc1fd04e66102cc83138df1",
+      "verified_metrics": {
+        "implementation_score": 0.2,
+        "index_decoding_rate": 0.2727272727272727,
+        "index_encoding_rate": 0.7272727272727273,
+        "quantization_rate": 0.0
+      },
+      "violations": []
+    },
+    {
+      "baseline_comparison": {
+        "baseline": 0.9,
+        "delta": -0.8,
+        "direction": "maximize",
+        "metric": "implementation_score",
+        "value": 0.09999999999999999
+      },
+      "contract_id": "scientist-bench-fsq-task1",
+      "contract_version": "1",
+      "created_at": "2026-07-25T17:39:01.512452Z",
+      "evaluator_digest": "d89150d8a376919842c7f7b80d9b5fee60a6212f7b58aa44474078de89bc9b51",
+      "evidence_refs": [
+        {
+          "media_type": "text/x-python",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-2/solution.py",
+          "schema_version": "1",
+          "sha256": "64c42eebcb7552498848371882f7b18a3677733a77304cc86d9fb86f33df0381",
+          "size_bytes": 5153
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-2/run.log",
+          "schema_version": "1",
+          "sha256": "5ee67defe1547ef53d65846a7fb652e4b1aad56dcb2350e675d62f93888ffc81",
+          "size_bytes": 335
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-2/trial_manifest.json",
+          "schema_version": "1",
+          "sha256": "e734f7f97160c608a8611035aaa6d72bd31c4787b6fbeaa05adeb292ed3494fd",
+          "size_bytes": 1247
+        },
+        {
+          "media_type": "application/json",
+          "path": "benchmark/results/scientist_bench_phase3_v5/fsq_task1/evidence/fsq:task1/off/seed-303/attempt-2/verification_result.json",
+          "schema_version": "1",
+          "sha256": "c81461ed351d07f3a6503a070bd17572e9c58a1d545fb762a5cdf716f9dbcb2a",
+          "size_bytes": 515
+        }
+      ],
+      "observation_id": "f1834c85d9cfebfd0004ce6a636a5efcd1c4225539cca1a375ec26fd77d33d85",
+      "outcome": "negative",
+      "passed": false,
+      "public_feedback": [
+        "Bounding, rounding, or normalization was incorrect for some level sets.",
+        "The mixed-radix code/index mapping was not a complete round trip.",
+        "Failing behavior categories: custom_epsilon, mixed_levels, mixed_radix_indexing, rounding, saturation"
+      ],
+      "schema_version": "1",
+      "valid": true,
+      "verification_id": "a3ab46b20039a5773f165b0efe0b28ed5c7fc28d9c8c875877f88a7733ed0112",
+      "verified_metrics": {
+        "implementation_score": 0.09999999999999999,
+        "index_decoding_rate": 0.0,
+        "index_encoding_rate": 0.0,
+        "quantization_rate": 0.16666666666666666
+      },
+      "violations": []
+    }
+  ]
+}

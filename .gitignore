@@ -30,6 +30,8 @@ research_agent/.env
 research_agent/*_tmp/*
 
 .env
+.venv*/
+.ai_researcher/
 
 # Large binary files
 *.gif
@@ -53,6 +55,8 @@ docs/*
 !docs/design/
 docs/design/*
 !docs/design/experience-driven-research-loop.md
+!docs/adr/
+!docs/adr/*.md
 paper_db/
 PHASE_2C_COMPLETION_REPORT.md
 PLUGIN_FRAMEWORK_COMPARISON.md
