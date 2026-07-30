@@ -1,0 +1,35 @@
+# This is an execution/evidence smoke contract, not a paper-comparable baseline.
+# A positive result proves only that non-empty code use was independently observed.
+schema_version: 1
+contract_id: one-layer-vq-cifar10-smoke-evidence
+version: "1"
+task_id: one_layer_vq:task1
+entrypoint: python evaluate.py "{attempt_dir}"
+result_file: verification_result.json
+timeout_seconds: 30
+repetitions: 1
+required_artifacts:
+  - evaluation_manifest.json
+  - evaluation_arrays.npz
+  - run.log
+primary_metric:
+  name: codebook_utilization
+  direction: maximize
+baseline: 0.0
+evidence_instructions: |
+  Write these files in the project root after exactly two training epochs:
+  1. evaluation_manifest.json with schema_version=1, dataset_id="cifar10",
+     split="test", epochs_completed=2, seed, codebook_size, and sample_count.
+  2. evaluation_arrays.npz with uint8 original_images and reconstructed_images
+     of identical rank-4 shape, plus integer codebook_indices whose first
+     dimension is sample_count. Use at least 1024 held-out CIFAR-10 test images.
+     The first 1024 entries must be the first 1024 official test-split images
+     in canonical order so the evaluator can verify their pixel digest.
+     Indices must be the actual nearest-code assignments for those reconstructions.
+  3. run.log containing the training and evaluation execution log.
+  Do not substitute self-reported aggregate metrics for these raw arrays. The
+  external evaluator independently computes codebook utilization, perplexity,
+  reconstruction MSE, and PSNR.
+validity:
+  require_finite_metrics: true
+  max_failed_repetitions: 0

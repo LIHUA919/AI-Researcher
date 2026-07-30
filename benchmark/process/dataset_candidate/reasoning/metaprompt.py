@@ -27,14 +27,14 @@ pass@1 means the success rate of the first choice of the output of the model. yo
 """
 
 REF = r"""
-The exmaple of math reasoning on MATH-500 dataset is in the directory `/workplace/dataset_candidate/math_reasoning`: 
+The exmaple of math reasoning on MATH-500 dataset is in the directory `/workplace/dataset_candidate/math_reasoning`:
 # Reasoning on MATH-500
 
 Reasoning on MATH-500 dataset with DeepSeek Chat.
 
 ```bash
 cd /path/to/math_reasoning
-python run_infer.py 
+python run_infer.py
 ```
 
 Args:
@@ -58,7 +58,9 @@ Args:
 
 - `--save_dir`: The directory to save the results.
 
-The API key of DeepSeek Chat is in the directory `/workplace/dataset_candidate/math_reasoning/.env`, that is `sk-d4656d7459264eb8acf55848081cf6bc`. Other models are not supported.
+Load the DeepSeek Chat API key from
+`/workplace/dataset_candidate/math_reasoning/.env`; never embed credentials in
+source files. Other models are not supported.
 
 [IMPORTANT]
 1. Note that for reasoning tasks, DO NOT follow the directory structure with `training`, `testing`, etc. Construct the directory structure similar to `math_reasoning`. Focus on the reasoning techniques, and refer to the exmaple of `math_reasoning` for more details.

@@ -268,7 +268,7 @@ pytest -q
 
 Current local baseline:
 
-- 290 tests passing
+- 490 tests passing
 - 46 dynamically registered tools
 - 5 dynamically registered agents
 
@@ -301,11 +301,30 @@ The checked-in deterministic contract under
 `benchmark/evaluators/deterministic_score/` is a local integration fixture, not
 evidence of improvement on Scientist-Bench.
 
+The task-aligned `one_layer_vq` evidence contract under
+`benchmark/evaluators/one_layer_vq_smoke/` independently recomputes codebook
+utilization, perplexity, reconstruction MSE, and PSNR from raw arrays, and
+verifies the canonical CIFAR-10 test-image prefix by pixel digest. The local
+real-data runner is under `benchmark/real_smoke/one_layer_vq/`. It is an
+execution/evidence smoke contract with a zero baseline, not a scientific
+improvement threshold. The checked three-seed method-smoke report found no mean
+utilization improvement for the SimVQ-style variant. See
+[`benchmark/ONE_LAYER_VQ_REAL_TEST.md`](benchmark/ONE_LAYER_VQ_REAL_TEST.md) for
+the calibration and paired no-recall/recall protocol.
+
+In `closed-loop` mode, each Experiment Attempt receives an isolated stage and
+agent cache under `<cache>/attempts/iteration-NNN`. Verified Recall Context is
+rendered as cited decision guidance for the next attempt, so a retry cannot
+silently reuse the previous attempt's completed implementation and submission
+stages. Evaluator inputs are copied into immutable per-attempt evidence
+snapshots before verification, preventing a later attempt from overwriting an
+earlier Observation's artifacts.
+
 ## Remaining Validation Roadmap
 
-1. Add task-specific Evaluation Contracts for a representative
-   Scientist-Bench subset.
-2. Run paired memory-off and closed-loop trials on more than one real task.
+1. Calibrate versioned task-specific Evaluation Contracts on independent real
+   runs for a representative Scientist-Bench subset.
+2. Run paired no-recall and closed-loop trials on more than one real task.
 3. Add scheduled Docker/GPU benchmark execution outside normal pull-request CI.
 4. Add a ResearchClawBench Adapter after the internal subset is stable.
 5. Validate memory gain separately from the implemented candidate-search gain.

@@ -207,7 +207,23 @@ def case_resolved(context_variables: dict):
     """
     After you have taken enough notes for the innovation, you should use this function to merge the notes for the further innovation.
     """
-    merge_notes = "\n".join([f"## {note['definition']}\n* The math formula is:\n{note['math_formula']}\n* * The code implementation is:\n{note['code_implementation']}\n* Reference papers are:\n{note['reference_papers']}\n* Reference codebases are:\n{note['reference_codebases']}" for note in context_variables["notes"]])
+    notes = context_variables.get("notes") or []
+    if len(notes) < 3:
+        raise ValueError(
+            "At least 3 atomic definitions must be surveyed before case_resolved."
+        )
+    missing = "Not provided by the survey sub-agent."
+    merge_notes = "\n".join(
+        (
+            f"## {note.get('definition', 'Unspecified definition')}\n"
+            f"* The math formula is:\n{note.get('math_formula', missing)}\n"
+            f"* The code implementation is:\n"
+            f"{note.get('code_implementation', missing)}\n"
+            f"* Reference papers are:\n{note.get('reference_papers', [])}\n"
+            f"* Reference codebases are:\n{note.get('reference_codebases', [])}"
+        )
+        for note in notes
+    )
     ret_val = f"""\
 I have merged the notes for the innovation.
 The notes are as follows:
@@ -248,8 +264,13 @@ def get_survey_agent(model: str = "gpt-4o", **kwargs):
   f. `Survey Agent` will collect and organize the notes for each definition
 
 4. ITERATIVE PROCESS
-- Continue this process until ALL atomic definitions have been covered
-- Do not conclude until you have thoroughly examined all concepts necessary for the innovation
+- Process at least 3 and at most 6 of the most implementation-critical atomic
+  definitions
+- Do not conclude until the essential concepts necessary for the innovation
+  have been examined
+- Select at most 6 of the most implementation-critical atomic definitions
+- As soon as 6 definitions have been processed, call `case_resolved`; do not
+  start another definition
 
 5. FINAL COMPILATION
 - Use the `case_resolved` function to merge all collected notes
@@ -272,6 +293,7 @@ Your goal is to create a complete knowledge base that bridges theoretical concep
         instructions=instructions,
         tool_choice="required",
         parallel_tool_calls=False,
+        max_turns=50,
     )
 
     def transfer_back_to_survey_agent(academic_definition: str, code_implementation: str, reference_codebases: List[str], context_variables: dict):
@@ -321,7 +343,15 @@ Your goal is to create a complete knowledge base that bridges theoretical concep
         ret_val = f"""\
 You should explore the papers and extract the math formula for the academic definition: {academic_definition}.
 """
-        context_variables["notes"].append({"definition": academic_definition})
+        context_variables["notes"].append(
+            {
+                "definition": academic_definition,
+                "math_formula": "Not provided by the paper survey sub-agent.",
+                "code_implementation": "Not provided by the code survey sub-agent.",
+                "reference_papers": [],
+                "reference_codebases": [],
+            }
+        )
         return Result(
             value=ret_val,
             agent=paper_survey_agent,

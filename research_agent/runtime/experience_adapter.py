@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import mimetypes
+import os
 from pathlib import Path
 import platform
 from typing import Any, Literal
@@ -22,11 +23,25 @@ from research_agent.inno.experience import (
     Observation,
     RecallContext,
     RecallRequest,
+    RecordNotFoundError,
     RunCompletion,
     SQLiteExperimentLedger,
+    evaluator_identity,
     load_evaluation_contract,
+    semantic_digest,
 )
 from research_agent.runtime.master import MasterRuntime
+from research_agent.runtime.adaptive_experiment import (
+    AdaptiveExperimentResult,
+    PreviousAttemptFeedback,
+)
+from research_agent.runtime.trial_provenance import (
+    bind_trial_provenance,
+    build_v3_attempt_id,
+    build_v3_observation_id,
+    content_digest,
+    evidence_bundle_digest,
+)
 
 
 def _digest(value: Any) -> str:
@@ -144,6 +159,12 @@ class ExperienceRunAdapter:
     def runs_closed_loop(self) -> bool:
         return self.mode == "closed-loop"
 
+    @property
+    def evaluation_evidence_guidance(self) -> str | None:
+        if self.contract is None:
+            return None
+        return self.contract.evidence_instructions
+
     def before_run(
         self,
         *,
@@ -182,6 +203,62 @@ class ExperienceRunAdapter:
             return None
         return lambda: False
 
+    def build_previous_feedback(
+        self,
+        flow_result: dict[str, Any],
+        outcome: LoopOutcome | None,
+    ) -> PreviousAttemptFeedback | None:
+        """Carry only externally verified V3 state into the next decision."""
+
+        if (
+            outcome is None
+            or outcome.experience is None
+            or outcome.verification is None
+        ):
+            return None
+        adaptive_payload = (flow_result.get("metadata") or {}).get(
+            "adaptive_experiment"
+        )
+        if adaptive_payload is None:
+            return None
+        try:
+            adaptive = AdaptiveExperimentResult.model_validate(adaptive_payload)
+        except Exception as exc:
+            raise ExperienceConfigurationError(
+                "adaptive experiment metadata is not a valid typed result"
+            ) from exc
+        intervention = adaptive.intervention
+        if (
+            adaptive.receipt is None
+            or intervention.resolved_config is None
+            or intervention.config_digest is None
+        ):
+            return None
+        assert self.ledger is not None
+        provenance = self.ledger.find_trial_provenance(
+            outcome.experience.observation.observation_id
+        )
+        if (
+            provenance is None
+            or provenance.intervention_id != intervention.intervention_id
+            or provenance.config_digest != intervention.config_digest
+        ):
+            raise ExperienceConfigurationError(
+                "verified adaptive result is missing matching Trial Provenance"
+            )
+        verification = outcome.verification
+        return PreviousAttemptFeedback(
+            attempt_id=outcome.experience.attempt.attempt_id,
+            intervention_id=intervention.intervention_id,
+            config_digest=intervention.config_digest,
+            effective_config=intervention.resolved_config,
+            verified_metrics=(
+                verification.verified_metrics if verification.valid else {}
+            ),
+            outcome=verification.outcome,
+            guardrail_violations=list(verification.violations),
+        )
+
     def after_flow(
         self,
         flow_result: dict[str, Any],
@@ -194,6 +271,7 @@ class ExperienceRunAdapter:
         model_family: str,
         recall_context: RecallContext | None,
         iteration_number: int,
+        seed: int = 0,
     ) -> LoopOutcome | None:
         return self._record_result(
             flow_result,
@@ -205,6 +283,7 @@ class ExperienceRunAdapter:
             model_family=model_family,
             recall_context=recall_context,
             iteration_number=iteration_number,
+            seed=seed,
             attempt_status="completed",
             exit_code=0,
             error=None,
@@ -224,7 +303,16 @@ class ExperienceRunAdapter:
         recall_context: RecallContext | None,
         iteration_number: int,
         error: Exception,
+        seed: int = 0,
     ) -> LoopOutcome | None:
+        if (
+            self.contract is not None
+            and self.contract.adaptive_experiment is not None
+        ):
+            # The Facade may already have persisted an Intervention or immutable
+            # envelope. Without a successful typed receipt there is no truthful
+            # Experiment Attempt/Observation to synthesize.
+            return None
         failure = {
             "type": type(error).__name__,
             "message": str(error),
@@ -250,6 +338,7 @@ class ExperienceRunAdapter:
             model_family=model_family,
             recall_context=recall_context,
             iteration_number=iteration_number,
+            seed=seed,
             attempt_status="failed",
             exit_code=1,
             error=failure,
@@ -267,6 +356,7 @@ class ExperienceRunAdapter:
         model_family: str,
         recall_context: RecallContext | None,
         iteration_number: int,
+        seed: int,
         attempt_status: Literal["completed", "failed"],
         exit_code: int,
         error: dict[str, Any] | None,
@@ -276,11 +366,59 @@ class ExperienceRunAdapter:
         assert self.loop is not None
         assert self.contract is not None
 
+        metadata = flow_result.get("metadata") or {}
+        if self.contract.adaptive_experiment is not None:
+            adaptive_payload = metadata.get("adaptive_experiment")
+            if adaptive_payload is None:
+                raise ExperienceConfigurationError(
+                    "schema 2 adaptive runs require typed adaptive experiment metadata"
+                )
+            try:
+                adaptive = AdaptiveExperimentResult.model_validate(
+                    adaptive_payload
+                )
+            except Exception as exc:
+                raise ExperienceConfigurationError(
+                    "adaptive experiment metadata is invalid"
+                ) from exc
+            if adaptive.status == "rejected_no_effect":
+                self._validate_rejected_adaptive_result(
+                    adaptive=adaptive,
+                    run_id=run_id,
+                    dataset_id=dataset_id,
+                    recall_context=recall_context,
+                    iteration_number=iteration_number,
+                )
+                outcome = self.loop.after_intervention_rejection(
+                    intervention=adaptive.intervention,
+                    reason="manipulation_no_effect",
+                )
+                self._write_json(
+                    self.cache_path / "experience_outcome.json",
+                    outcome.model_dump(mode="json"),
+                )
+                return outcome
+            if attempt_status != "completed" or exit_code != 0:
+                raise ExperienceConfigurationError(
+                    "adaptive execution failures cannot be converted into fake trials"
+                )
+            return self._record_adaptive_result(
+                flow_result=flow_result,
+                adaptive=adaptive,
+                run_id=run_id,
+                model=model,
+                domain=domain,
+                dataset_id=dataset_id,
+                model_family=model_family,
+                recall_context=recall_context,
+                iteration_number=iteration_number,
+                seed=seed,
+            )
+
         project = Path(project_dir).resolve()
         project.mkdir(parents=True, exist_ok=True)
-        refs = self._artifact_refs(project)
-        artifact_time = self._artifact_time(refs)
-        metadata = flow_result.get("metadata") or {}
+        source_refs = self._artifact_refs(project)
+        artifact_time = self._artifact_time(source_refs)
         if "hypothesis" in metadata:
             hypothesis = Hypothesis.model_validate(metadata["hypothesis"])
         else:
@@ -313,6 +451,31 @@ class ExperienceRunAdapter:
                 created_at=artifact_time,
                 **hypothesis_payload,
             )
+        assert self.ledger is not None
+        try:
+            existing_hypothesis = self.ledger.get_hypothesis(
+                hypothesis.hypothesis_id
+            )
+        except RecordNotFoundError:
+            pass
+        else:
+            semantic_fields = {"created_at"}
+            existing_payload = existing_hypothesis.model_dump(
+                mode="json",
+                exclude=semantic_fields,
+            )
+            candidate_payload = hypothesis.model_dump(
+                mode="json",
+                exclude=semantic_fields,
+            )
+            if existing_payload != candidate_payload:
+                raise ExperienceConfigurationError(
+                    "hypothesis ID collision with different semantic content"
+                )
+            # Hypothesis IDs are semantic hashes. Reuse the first immutable
+            # record so repeated control iterations do not differ only by the
+            # non-semantic creation timestamp.
+            hypothesis = existing_hypothesis
         code_revision = _tree_digest(
             project,
             ignored_names={self.contract.result_file, "experience_observation.json"},
@@ -325,6 +488,7 @@ class ExperienceRunAdapter:
                 "code_revision": code_revision,
                 "contract": f"{self.contract.contract_id}@{self.contract.version}",
                 "recall": recall_context.snapshot_id if recall_context else "off",
+                "seed": seed,
                 "status": attempt_status,
             }
         )
@@ -338,7 +502,7 @@ class ExperienceRunAdapter:
             dataset_id=dataset_id,
             dataset_digest=_digest(dataset_id),
             model_config_digest=_digest(model),
-            seed=0,
+            seed=seed,
             budget={"iterations": self.max_iterations},
             evaluation_contract_id=(
                 f"{self.contract.contract_id}@{self.contract.version}"
@@ -349,6 +513,7 @@ class ExperienceRunAdapter:
             status=attempt_status,
             created_at=artifact_time,
         )
+        refs = self._snapshot_artifact_refs(source_refs, attempt_id)
         observation_id = _digest(
             {
                 "attempt_id": attempt_id,
@@ -395,6 +560,333 @@ class ExperienceRunAdapter:
         )
         return outcome
 
+    def _validate_rejected_adaptive_result(
+        self,
+        *,
+        adaptive: AdaptiveExperimentResult,
+        run_id: str,
+        dataset_id: str,
+        recall_context: RecallContext | None,
+        iteration_number: int,
+    ) -> None:
+        assert self.contract is not None
+        assert self.contract_path is not None
+        assert self.ledger is not None
+        intervention = adaptive.intervention
+        preflight = adaptive.preflight
+        recall_snapshot_id = (
+            recall_context.snapshot_id if recall_context is not None else "off"
+        )
+        if (
+            adaptive.receipt is not None
+            or preflight.manipulation_status != "no_effect"
+            or intervention.manipulation_status != "no_effect"
+            or intervention.previous_intervention_id is None
+            or intervention.run_id != run_id
+            or intervention.iteration_id
+            != f"iteration-{iteration_number:03d}"
+            or intervention.task_id != self.contract.task_id
+            or intervention.recall_snapshot_id != recall_snapshot_id
+            or dataset_id != "cifar10"
+            or preflight.proposal_digest != intervention.proposal_digest
+            or preflight.intervention_digest
+            != intervention.intervention_digest
+            or preflight.config_digest != intervention.config_digest
+            or preflight.effective_config != intervention.resolved_config
+        ):
+            raise ExperienceConfigurationError(
+                "rejected no-effect result has inconsistent adaptive lineage"
+            )
+        if (
+            preflight.source_digest
+            != self.contract.adaptive_experiment.expected_source_digest
+            or preflight.contract_digest
+            != content_digest(
+                "ai-researcher/contract/v1",
+                self.contract_path.read_bytes(),
+            )
+            or preflight.evaluator_digest
+            != evaluator_identity(self.contract, self.contract_path.parent)
+        ):
+            raise ExperienceConfigurationError(
+                "rejected no-effect preflight does not match the contract"
+            )
+        persisted = self.ledger.get_intervention(
+            intervention.intervention_id
+        )
+        previous = self.ledger.get_intervention(
+            intervention.previous_intervention_id
+        )
+        if (
+            persisted != intervention
+            or previous.intervention_digest
+            != intervention.intervention_digest
+            or previous.config_digest != intervention.config_digest
+        ):
+            raise ExperienceConfigurationError(
+                "no-effect result does not match persisted prior assignment"
+            )
+
+    def _record_adaptive_result(
+        self,
+        *,
+        flow_result: dict[str, Any],
+        adaptive: AdaptiveExperimentResult,
+        run_id: str,
+        model: str,
+        domain: str,
+        dataset_id: str,
+        model_family: str,
+        recall_context: RecallContext | None,
+        iteration_number: int,
+        seed: int,
+    ) -> LoopOutcome:
+        assert self.contract is not None
+        assert self.contract_path is not None
+        assert self.loop is not None
+        assert self.ledger is not None
+        receipt = adaptive.receipt
+        if receipt is None:
+            raise ExperienceConfigurationError(
+                "executed adaptive result is missing its Trial Receipt"
+            )
+        metadata = flow_result.get("metadata") or {}
+        if "hypothesis" not in metadata:
+            raise ExperienceConfigurationError(
+                "adaptive result is missing its typed Hypothesis"
+            )
+        hypothesis = Hypothesis.model_validate(metadata["hypothesis"])
+        intervention = adaptive.intervention
+        preflight = adaptive.preflight
+        recall_snapshot_id = (
+            recall_context.snapshot_id if recall_context is not None else "off"
+        )
+        if (
+            run_id != intervention.run_id
+            or intervention.iteration_id
+            != f"iteration-{iteration_number:03d}"
+            or hypothesis.hypothesis_id != intervention.hypothesis_id
+            or hypothesis.task_id != self.contract.task_id
+            or intervention.task_id != self.contract.task_id
+            or intervention.recall_snapshot_id != recall_snapshot_id
+        ):
+            raise ExperienceConfigurationError(
+                "adaptive result does not match run, iteration, task, or recall lineage"
+            )
+        if dataset_id != "cifar10":
+            raise ExperienceConfigurationError(
+                "adaptive VQ Evaluation Contract requires dataset_id='cifar10'"
+            )
+        expected_source_digest = (
+            self.contract.adaptive_experiment.expected_source_digest
+        )
+        expected_contract_digest = content_digest(
+            "ai-researcher/contract/v1",
+            self.contract_path.read_bytes(),
+        )
+        expected_evaluator_digest = evaluator_identity(
+            self.contract,
+            self.contract_path.parent,
+        )
+        shared_digests = (
+            "proposal_digest",
+            "intervention_digest",
+            "config_digest",
+            "source_digest",
+            "dataset_digest",
+            "environment_digest",
+            "contract_digest",
+            "evaluator_digest",
+        )
+        if any(
+            getattr(preflight, field) != getattr(receipt, field)
+            for field in shared_digests
+        ):
+            raise ExperienceConfigurationError(
+                "Trial Receipt digests do not match preflight"
+            )
+        if (
+            preflight.proposal_digest != intervention.proposal_digest
+            or preflight.intervention_digest
+            != intervention.intervention_digest
+            or preflight.config_digest != intervention.config_digest
+            or preflight.source_digest != expected_source_digest
+            or preflight.contract_digest != expected_contract_digest
+            or preflight.evaluator_digest != expected_evaluator_digest
+            or preflight.effective_config != receipt.actual_config
+            or preflight.effective_config != intervention.resolved_config
+            or preflight.manipulation_status
+            != intervention.manipulation_status
+            or preflight.effective_config.get("seed") != seed
+            or preflight.effective_config.get("dataset_id") != "cifar10"
+            or receipt.completed_at < receipt.started_at
+        ):
+            raise ExperienceConfigurationError(
+                "adaptive Intervention, preflight, receipt, and contract disagree"
+            )
+        actual_intervention = self.ledger.get_intervention(
+            intervention.intervention_id
+        )
+        if actual_intervention != intervention:
+            raise ExperienceConfigurationError(
+                "adaptive result differs from persisted Intervention"
+            )
+
+        refs = list(receipt.artifact_refs)
+        names = [Path(ref.path).name for ref in refs]
+        if (
+            len(names) != len(set(names))
+            or set(names) != set(self.contract.required_artifacts)
+        ):
+            raise ExperienceConfigurationError(
+                "Trial Receipt must exactly cover required contract artifacts"
+            )
+        parent_dirs = {Path(ref.path).resolve().parent for ref in refs}
+        if len(parent_dirs) != 1:
+            raise ExperienceConfigurationError(
+                "Trial Receipt artifacts must share one raw-evidence directory"
+            )
+        for ref in refs:
+            path = Path(ref.path).resolve()
+            if not path.is_file() or _file_ref(path) != ref:
+                raise ExperienceConfigurationError(
+                    f"Trial Receipt artifact changed: {path.name}"
+                )
+        ref_by_name = {Path(ref.path).name: ref for ref in refs}
+        if (
+            ref_by_name.get("attempt_spec.json") != receipt.attempt_spec_ref
+            or ref_by_name.get("evaluation_manifest.json")
+            != receipt.manifest_ref
+        ):
+            raise ExperienceConfigurationError(
+                "Trial Receipt envelope or manifest is not in its artifact set"
+            )
+        try:
+            attempt_spec = json.loads(
+                Path(receipt.attempt_spec_ref.path).read_text(encoding="utf-8")
+            )
+            actual_attempt_spec_digest = semantic_digest(
+                "ai-researcher/attempt-spec/v1",
+                attempt_spec,
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            raise ExperienceConfigurationError(
+                "Attempt Spec is not finite canonical JSON"
+            ) from exc
+        if actual_attempt_spec_digest != preflight.attempt_spec_digest:
+            raise ExperienceConfigurationError(
+                "Attempt Spec semantic digest does not match preflight"
+            )
+
+        try:
+            existing_hypothesis = self.ledger.get_hypothesis(
+                hypothesis.hypothesis_id
+            )
+        except RecordNotFoundError:
+            pass
+        else:
+            if existing_hypothesis.model_dump(
+                mode="json",
+                exclude={"created_at"},
+            ) != hypothesis.model_dump(mode="json", exclude={"created_at"}):
+                raise ExperienceConfigurationError(
+                    "hypothesis ID collision with different semantic content"
+                )
+            hypothesis = existing_hypothesis
+
+        attempt_id = build_v3_attempt_id(
+            run_id=run_id,
+            iteration_id=intervention.iteration_id,
+            task_id=self.contract.task_id,
+            hypothesis_id=hypothesis.hypothesis_id,
+            intervention_id=intervention.intervention_id,
+            seed=seed,
+            recall_snapshot_id=recall_snapshot_id,
+            intervention_digest=preflight.intervention_digest,
+            source_digest=preflight.source_digest,
+            config_digest=preflight.config_digest,
+            dataset_digest=preflight.dataset_digest,
+            environment_digest=preflight.environment_digest,
+            contract_digest=preflight.contract_digest,
+            evaluator_digest=preflight.evaluator_digest,
+        )
+        attempt = ExperimentAttempt(
+            attempt_id=attempt_id,
+            run_id=run_id,
+            iteration_id=intervention.iteration_id,
+            task_id=self.contract.task_id,
+            hypothesis_id=hypothesis.hypothesis_id,
+            code_revision=preflight.source_digest,
+            dataset_id="cifar10",
+            dataset_digest=preflight.dataset_digest,
+            model_config_digest=semantic_digest(
+                "ai-researcher/research-model/v1",
+                {"model": model},
+            ),
+            seed=seed,
+            budget={"iterations": self.max_iterations},
+            evaluation_contract_id=(
+                f"{self.contract.contract_id}@{self.contract.version}"
+            ),
+            recall_snapshot_id=recall_snapshot_id,
+            status="completed",
+            created_at=receipt.started_at,
+        )
+        snapshot_refs = self._snapshot_artifact_refs(refs, attempt_id)
+        observation_id = build_v3_observation_id(
+            attempt_id=attempt_id,
+            artifact_refs=snapshot_refs,
+            exit_code=receipt.exit_code,
+            error=None,
+        )
+        observation = Observation(
+            observation_id=observation_id,
+            attempt_id=attempt_id,
+            exit_code=receipt.exit_code,
+            metrics={},
+            artifact_refs=snapshot_refs,
+            started_at=receipt.started_at,
+            completed_at=receipt.completed_at,
+            environment_fingerprint=(
+                f"environment_digest={preflight.environment_digest}"
+            ),
+            error=None,
+        )
+        snapshot_by_name = {
+            Path(ref.path).name: ref for ref in snapshot_refs
+        }
+        provenance = bind_trial_provenance(
+            attempt_id=attempt_id,
+            observation_id=observation_id,
+            intervention=intervention,
+            preflight=preflight,
+            evidence_digest=evidence_bundle_digest(snapshot_refs),
+            execution_envelope_ref=snapshot_by_name["attempt_spec.json"],
+            created_at=receipt.completed_at,
+        )
+        self.loop.knowledge_gate = KnowledgeGate(
+            domain=domain,
+            model_family=model_family,
+        )
+        outcome = self.loop.after_run(
+            RunCompletion(
+                hypothesis=hypothesis,
+                attempt=attempt,
+                observation=observation,
+                analysis=self._analysis(flow_result),
+                iteration_number=iteration_number,
+                max_iterations=self.max_iterations,
+                intervention=intervention,
+                trial_provenance=provenance,
+                manipulation_status=preflight.manipulation_status,
+            )
+        )
+        self._write_json(
+            self.cache_path / "experience_outcome.json",
+            outcome.model_dump(mode="json"),
+        )
+        return outcome
+
     def finalize_runtime(
         self,
         *,
@@ -417,6 +909,7 @@ class ExperienceRunAdapter:
                 "failed_budget": "failed",
                 "invalid": "failed",
                 "unverified": "failed",
+                "manipulation_failed": "failed",
             }[outcome.action]
         else:
             status = "completed" if verified else "running"
@@ -445,6 +938,57 @@ class ExperienceRunAdapter:
             {"reason": "no required evaluator artifacts were produced"},
         )
         return [_file_ref(fallback)]
+
+    def _snapshot_artifact_refs(
+        self,
+        refs: list[ArtifactRef],
+        attempt_id: str,
+    ) -> list[ArtifactRef]:
+        evidence_dir = self.cache_path / "attempt_evidence" / attempt_id
+        names = [Path(ref.path).name for ref in refs]
+        if len(names) != len(set(names)):
+            raise ExperienceConfigurationError(
+                "evaluation contract artifacts must have unique file names"
+            )
+        evidence_dir.mkdir(parents=True, exist_ok=True)
+        snapshots = []
+        for ref in refs:
+            source = Path(ref.path).resolve()
+            target = evidence_dir / source.name
+            content = source.read_bytes()
+            if _file_ref(source) != ref:
+                raise ExperienceConfigurationError(
+                    f"source evidence changed before snapshot: {source.name}"
+                )
+            if target.is_symlink():
+                raise ExperienceConfigurationError(
+                    f"immutable attempt evidence cannot be a symlink: "
+                    f"{source.name}"
+                )
+            if target.exists() and (
+                not target.is_file() or target.read_bytes() != content
+            ):
+                raise ExperienceConfigurationError(
+                    f"attempt evidence changed for immutable attempt {attempt_id}"
+                )
+            if not target.exists():
+                try:
+                    with target.open("xb") as stream:
+                        stream.write(content)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                except FileExistsError:
+                    if (
+                        not target.is_file()
+                        or target.read_bytes() != content
+                    ):
+                        raise ExperienceConfigurationError(
+                            "attempt evidence was concurrently changed for "
+                            f"immutable attempt {attempt_id}"
+                        ) from None
+            target.chmod(0o444)
+            snapshots.append(_file_ref(target))
+        return snapshots
 
     @staticmethod
     def _artifact_time(refs: list[ArtifactRef]) -> datetime:

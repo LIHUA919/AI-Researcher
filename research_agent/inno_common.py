@@ -322,6 +322,16 @@ def _build_vq_prepare_fallback(local_root: str, workplace_name: str) -> Dict:
     workplace_root = os.path.join(local_root, workplace_name)
     candidates = [
         (
+            "local/frozen-vq-protocol",
+            os.path.join(workplace_root, "project"),
+            "Neural discrete representation learning",
+        ),
+        (
+            "local/vq-dataset-candidate",
+            os.path.join(workplace_root, "dataset_candidate"),
+            "Finite scalar quantization: VQ-VAE made simple.",
+        ),
+        (
             "CompVis/taming-transformers",
             os.path.join(workplace_root, "CompVis", "taming-transformers"),
             "Taming transformers for high-resolution image synthesis",
@@ -571,6 +581,7 @@ def get_args():
     parser.add_argument("--cache_path", type=str, default="cache")
     parser.add_argument("--port", type=int, default=12345)
     parser.add_argument("--max_iter_times", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--category", type=str, default="recommendation")
     parser.add_argument(
         "--experience-mode",
@@ -589,6 +600,11 @@ def get_args():
         "--cache-policy",
         choices=("reuse", "refresh", "disabled"),
         default="reuse",
+    )
+    parser.add_argument(
+        "--adaptive-execution-timeout-seconds",
+        type=float,
+        default=7200.0,
     )
     args = parser.parse_args()
     return args

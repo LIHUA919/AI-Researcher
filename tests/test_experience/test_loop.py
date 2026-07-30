@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from research_agent.inno.experience import (
     CallableVerifier,
     CommandVerifier,
@@ -7,12 +9,16 @@ from research_agent.inno.experience import (
     ExperienceLoop,
     ExperienceQuery,
     InMemoryExperimentLedger,
+    InterventionProposal,
+    InterventionRecord,
     KeywordExperienceRetriever,
     KnowledgeGate,
     PrimaryMetric,
     RecallRequest,
     RunCompletion,
+    TrialProvenanceRecord,
     load_evaluation_contract,
+    semantic_digest,
 )
 from tests.test_experience.test_evaluation import observation
 from tests.test_experience.test_ledger import build_records
@@ -183,13 +189,218 @@ def test_failed_attempt_is_retained_but_never_promoted():
 
     outcome = loop.after_run(run)
 
-    assert outcome.action == "invalid"
+    assert outcome.action == "continue"
     assert outcome.reason == "attempt_failed"
     assert outcome.experience is not None
     assert ledger.query(ExperienceQuery(task_id="task-vq")) == [
         outcome.experience
     ]
     assert ledger.list_knowledge() == []
+
+
+def test_baseline_binds_trial_provenance_but_never_promotes_knowledge():
+    ledger = InMemoryExperimentLedger()
+    loop = make_loop(ledger, [])
+    run = completion(suffix="7", score=0.8, iteration_number=1)
+    run = run.model_copy(
+        update={
+            "attempt": run.attempt.model_copy(
+                update={
+                    "code_revision": "a" * 64,
+                    "dataset_digest": "c" * 64,
+                    "evaluation_contract_id": "deterministic-score@1",
+                }
+            )
+        }
+    )
+    proposal = InterventionProposal(
+        domain="vq",
+        schema_id="one-layer-vq-phase-a@1",
+        decision_point="vq.quantizer_optimization",
+        knob=None,
+        target=None,
+        cited_knowledge_ids=[],
+        expected_primary_metric_direction="unchanged",
+        guardrail_risks=[],
+        rationale="System-owned first-iteration baseline.",
+    )
+    proposal_digest = semantic_digest(
+        "ai-researcher/proposal/v1",
+        proposal.model_dump(mode="json"),
+    )
+    resolved_config = {
+        "dataset_id": "cifar10",
+        "epochs": 2,
+        "commitment_weight": 0.25,
+    }
+    config_digest = semantic_digest(
+        "ai-researcher/run-config/v1",
+        resolved_config,
+    )
+    intervention = InterventionRecord(
+        intervention_id="intervention-baseline",
+        run_id=run.attempt.run_id,
+        iteration_id=run.attempt.iteration_id,
+        task_id=run.attempt.task_id,
+        hypothesis_id=run.hypothesis.hypothesis_id,
+        recall_snapshot_id=run.attempt.recall_snapshot_id,
+        previous_intervention_id=None,
+        proposal=proposal,
+        proposal_digest=proposal_digest,
+        resolved_config=resolved_config,
+        config_digest=config_digest,
+        intervention_digest=semantic_digest(
+            "ai-researcher/intervention/v1",
+            {"commitment_weight": 0.25},
+        ),
+        manipulation_status="baseline",
+        violations=[],
+        created_at=run.attempt.created_at,
+    )
+    envelope = run.observation.artifact_refs[0]
+    provenance = TrialProvenanceRecord(
+        provenance_id="provenance-baseline",
+        attempt_id=run.attempt.attempt_id,
+        observation_id=run.observation.observation_id,
+        intervention_id=intervention.intervention_id,
+        proposal_digest=proposal_digest,
+        intervention_digest=intervention.intervention_digest,
+        source_digest="a" * 64,
+        config_digest=config_digest,
+        environment_digest="b" * 64,
+        dataset_digest="c" * 64,
+        contract_digest="d" * 64,
+        evaluator_digest="e" * 64,
+        attempt_spec_digest="f" * 64,
+        evidence_digest=semantic_digest(
+            "ai-researcher/evidence-bundle/v1",
+            [
+                {
+                    "path": Path(envelope.path).name,
+                    "sha256": envelope.sha256,
+                    "size_bytes": envelope.size_bytes,
+                }
+            ],
+        ),
+        execution_envelope_ref=envelope,
+        created_at=run.observation.completed_at,
+    )
+    ledger.append_intervention(intervention)
+
+    with pytest.raises(
+        ValueError,
+        match="does not match Attempt or Observation evidence",
+    ):
+        loop.after_run(
+            run.model_copy(
+                update={
+                    "intervention": intervention,
+                    "trial_provenance": provenance.model_copy(
+                        update={"evidence_digest": "2" * 64}
+                    ),
+                    "manipulation_status": "baseline",
+                }
+            )
+        )
+    assert ledger.query(ExperienceQuery(task_id="task-vq")) == []
+
+    outcome = loop.after_run(
+        run.model_copy(
+            update={
+                "intervention": intervention,
+                "trial_provenance": provenance,
+                "manipulation_status": "baseline",
+            }
+        )
+    )
+
+    assert outcome.action == "continue"
+    assert outcome.reason == "baseline_requires_intervention_attempt"
+    assert outcome.experience is not None
+    assert outcome.verification is not None
+    assert ledger.find_trial_provenance(
+        run.observation.observation_id
+    ) == provenance
+    assert ledger.list_knowledge() == []
+    assert ledger.list_promotion_decisions()[0].reasons == [
+        "baseline_has_no_intervention_effect"
+    ]
+
+
+def test_rejected_intervention_returns_manipulation_failure_without_fake_trial():
+    ledger = InMemoryExperimentLedger()
+    events = []
+    loop = make_loop(ledger, events)
+    proposal = InterventionProposal(
+        domain="vq",
+        schema_id="one-layer-vq-phase-a@1",
+        decision_point="vq.quantizer_optimization",
+        knob="commitment_weight",
+        target=0.25,
+        cited_knowledge_ids=[],
+        expected_primary_metric_direction="increase",
+        guardrail_risks=[],
+        rationale="The requested value does not change the previous configuration.",
+    )
+    intervention = InterventionRecord(
+        intervention_id="intervention-rejected",
+        run_id="run-rejected",
+        iteration_id="iteration-2",
+        task_id="task-vq",
+        hypothesis_id="hypothesis-rejected",
+        recall_snapshot_id="recall-rejected",
+        previous_intervention_id=None,
+        proposal=proposal,
+        proposal_digest=semantic_digest(
+            "ai-researcher/proposal/v1",
+            proposal.model_dump(mode="json"),
+        ),
+        resolved_config=None,
+        config_digest=None,
+        intervention_digest=None,
+        manipulation_status="rejected",
+        violations=["no_effect"],
+        created_at=build_records(suffix="9")[1].created_at,
+    )
+    ledger.append_intervention(intervention)
+
+    outcome = loop.after_intervention_rejection(
+        intervention=intervention,
+        reason="proposal_did_not_change_one_allowed_knob",
+    )
+
+    assert outcome.action == "manipulation_failed"
+    assert ledger.list_interventions("run-rejected") == [intervention]
+    assert ledger.query(ExperienceQuery(task_id="task-vq")) == []
+    assert ledger.list_knowledge() == []
+    assert ledger.list_promotion_decisions() == []
+    assert events == [
+        (
+            "manipulation_failed",
+            {
+                "intervention_id": "intervention-rejected",
+                "reason": "proposal_did_not_change_one_allowed_knob",
+            },
+        )
+    ]
+
+
+def test_adaptive_completion_missing_provenance_fails_before_ledger_writes():
+    ledger = InMemoryExperimentLedger()
+    loop = make_loop(ledger, [])
+    snapshot_before = ledger.snapshot_id()
+    run = completion(suffix="8", score=0.8, iteration_number=1)
+
+    with pytest.raises(
+        ValueError,
+        match="requires Intervention and Trial Provenance",
+    ):
+        loop.after_run(
+            run.model_copy(update={"manipulation_status": "baseline"})
+        )
+
+    assert ledger.snapshot_id() == snapshot_before
+    assert ledger.query(ExperienceQuery(task_id="task-vq")) == []
 
 
 class FailingRetriever:

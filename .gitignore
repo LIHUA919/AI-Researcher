@@ -25,6 +25,17 @@ research_agent/evaluation/**/data/
 research_agent/cache/*
 research_agent/cache_*/*
 
+benchmark/data/
+benchmark/results/one_layer_vq_real_smoke/*/
+
+# Generated experiment state
+/benchmark/runs/
+/workplace_paper/
+/cache_soak*/
+/terminal_tmp/
+/soak_*.log
+/soak_*.pid
+
 research_agent/.env
 
 research_agent/*_tmp/*

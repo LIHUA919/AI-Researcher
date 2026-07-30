@@ -38,6 +38,30 @@ class ResearchIntentStrategy(Protocol):
     ) -> Hypothesis: ...
 
 
+def render_recall_guidance(recall: RecallContext | None) -> str:
+    """Render bounded verified experience as cited instructions for a decision."""
+
+    if recall is None or not recall.items:
+        return (
+            "No verified prior experience was recalled. Evaluate the current "
+            "Hypothesis from first principles."
+        )
+    lessons = "\n".join(
+        (
+            f"- [{item.citation_id}] outcome={item.outcome}: "
+            f"{item.lesson.strip()}"
+        )
+        for item in recall.items
+    )
+    return (
+        "Verified Recall Context:\n"
+        f"{lessons}\n"
+        "Use these cited results to revise the current Hypothesis and execution "
+        "plan. Do not repeat a verified negative configuration without new "
+        "evidence, and preserve the citation IDs in the reasoning."
+    )
+
+
 def _hypothesis(
     request: RunRequest,
     statement: str,

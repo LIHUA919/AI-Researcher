@@ -44,6 +44,28 @@ def get_prepare_agent(model: str, **kwargs):
     code_env: DockerEnv = kwargs.get("code_env", None)
     def instructions(context_variables):
       working_dir = context_variables.get("working_dir", None)
+      evidence_guidance = context_variables.get(
+          "evaluation_evidence_guidance", ""
+      )
+      frozen_contract_enabled = bool(
+          evidence_guidance
+          and not evidence_guidance.startswith(
+              "No external Evaluation Contract is enabled."
+          )
+      )
+      frozen_contract_rules = (
+          f"""
+FROZEN EVALUATION CONTRACT:
+- Do not clone any repository. The trusted execution reference is already in
+  `/{working_dir}/project`, and dataset support is in
+  `/{working_dir}/dataset_candidate`.
+- Inspect only those two local directories, select the five strongest
+  repository names from the supplied search results, and call `case_resolved`
+  immediately. Include only local paths that already exist.
+"""
+          if frozen_contract_enabled
+          else ""
+      )
       return f"""
 You are given a list of papers, searching results of the papers on GitHub, and innovative ideas according to the papers. Your working directory is `/{working_dir}`, you can only access files in this directory.
 
@@ -69,6 +91,8 @@ STRICT BOUNDARIES:
    - at least one anti-collapse or alternative quantization reference
    - runnable PyTorch-oriented training code
 6. Your final answer MUST be produced via `case_resolved`, with exactly 5 reference repositories unless the search results make 5 impossible.
+
+{frozen_contract_rules}
 
 During the decision process, you can use the following tools:
 1. You can use `execute_command` to git clone the repository to the working directory `/{working_dir}`. Choose 5-8 repositories you really need. And you should reserve the names of the repositories.

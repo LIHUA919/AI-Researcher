@@ -28,13 +28,42 @@ def case_not_resolved(failure_reason):
 @register_agent("get_ml_agent")
 def get_ml_agent(model: str, **kwargs):
     code_env: DockerEnv = kwargs.get("code_env", None)
+    frozen_protocol = bool(kwargs.get("frozen_protocol", False))
     def instructions(context_variables):
       working_dir = context_variables.get("working_dir", None)
       prepare_result = context_variables.get("prepare_result", {}) or {}
       reference_paths = prepare_result.get("reference_paths", [])
       reference_paths_text = "\n".join(f"   - {path}" for path in reference_paths) if reference_paths else f"   - /{working_dir}"
       plan_artifacts = context_variables.get("plan_artifacts", {}) or {}
-      plan_artifacts_text = "\n".join(f"   - {name}: {path}" for name, path in plan_artifacts.items()) if plan_artifacts else "   - No structured plan artifacts were provided."
+      plan_artifacts_text = "\n".join(
+         f"   - {name}: content is included in the task prompt"
+         for name in plan_artifacts
+      ) if plan_artifacts else "   - No structured plan artifacts were provided."
+      evidence_guidance = context_variables.get(
+         "evaluation_evidence_guidance", ""
+      )
+      frozen_contract_enabled = bool(
+         evidence_guidance
+         and not evidence_guidance.startswith(
+            "No external Evaluation Contract is enabled."
+         )
+      )
+      frozen_contract_rules = (
+         f"""
+FROZEN EVALUATION CONTRACT:
+1. `/{working_dir}/project/protocol.py` and
+   `/{working_dir}/project/run_training_testing.py` are trusted,
+   orchestrator-managed files. Do not create, modify, replace, or delete them.
+2. Do not execute either frozen file inside the container. The orchestrator
+   runs the entrypoint later with the verified host Python environment.
+3. Do not install packages or change the container environment.
+4. Inspect the frozen implementation and relevant references, then call
+   `case_resolved` with a concise implementation review. Additional project
+   files are optional and must not alter the frozen execution path.
+"""
+         if frozen_contract_enabled
+         else ""
+      )
       return f"""\
 You are a machine learning engineer tasked with implementing innovative ML projects. Your workspace is: `/{working_dir}`.
 
@@ -87,6 +116,18 @@ EFFICIENCY RULES:
 3. Once you understand the needed reference implementation, immediately create the project structure and start writing files.
 4. Avoid re-reading the same repository tree after the relevant files have already been identified.
 5. Treat `/{working_dir}/project` as the main build target and keep subsequent work focused there.
+6. Never try to access host paths such as `/Users/...`; they do not exist
+   inside the container. Use only paths rooted at `/{working_dir}`.
+7. Unless a frozen contract is enabled below, within your first 6 tool calls,
+   create the required project directories and an initial
+   `/{working_dir}/project/run_training_testing.py`. Refine that scaffold after
+   inspecting targeted reference files.
+8. Do not call `case_resolved` until
+   `test -f /{working_dir}/project/run_training_testing.py` succeeds and the
+   script has been executed or syntax-checked, unless the frozen contract below
+   explicitly forbids container execution.
+
+{frozen_contract_rules}
 
 IMPORTANT NOTES:
 1. Code Integration
@@ -113,7 +154,22 @@ Remember: Your goal is to create a well-organized, self-contained project that:
 4. Maintains its own coherent structure
 5. You should intergrate ALL acacdemic definition and their code implementation into the project.
 """
-    tools = [gen_code_tree_structure, execute_command, read_file, create_file, write_file, list_files, create_directory, run_python, case_resolved, case_not_resolved, terminal_page_down, terminal_page_up, terminal_page_to]
+    if frozen_protocol:
+       # Prompt-only protection is insufficient: tool-calling models can still
+       # hallucinate destructive writes. Frozen runs expose only read/navigation
+       # tools plus the two explicit completion signals.
+       tools = [
+          gen_code_tree_structure,
+          read_file,
+          list_files,
+          case_resolved,
+          case_not_resolved,
+          terminal_page_down,
+          terminal_page_up,
+          terminal_page_to,
+       ]
+    else:
+       tools = [gen_code_tree_structure, execute_command, read_file, create_file, write_file, list_files, create_directory, run_python, case_resolved, case_not_resolved, terminal_page_down, terminal_page_up, terminal_page_to]
     tools = [with_env(code_env)(tool) if 'env' in signature(tool).parameters else tool for tool in tools]
     
     return Agent(

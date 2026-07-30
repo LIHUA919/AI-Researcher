@@ -1,38 +1,71 @@
-import json
-from pathlib import Path
+from types import SimpleNamespace
 
-from research_agent.inno.agents.inno_agent.survey_agent import _resolve_reference_paths
+import pytest
+
+from research_agent.inno.agents.inno_agent.idea_agent import (
+    case_resolved as idea_case_resolved,
+    get_survey_agent as get_idea_survey_agent,
+)
+from research_agent.inno.agents.inno_agent.survey_agent import (
+    case_resolved as survey_case_resolved,
+    get_survey_agent,
+)
 
 
-def test_resolve_reference_paths_uses_prepare_result_from_context():
-    context_variables = {
-        "prepare_result": {
-            "reference_paths": ["/workplace/VQ-VAE", "/workplace/FSQ"],
-        }
+def test_survey_case_resolved_preserves_incomplete_note_without_crashing():
+    context = {
+        "notes": [
+            {"definition": "Incomplete concept 1"},
+            {"definition": "Incomplete concept 2"},
+            {"definition": "Incomplete concept 3"},
+        ]
     }
 
-    reference_paths = _resolve_reference_paths(context_variables, "workplace")
+    result = survey_case_resolved(context)
 
-    assert reference_paths == ["/workplace/VQ-VAE", "/workplace/FSQ"]
+    assert "## Incomplete concept 1" in result.value
+    assert "Not provided by the survey sub-agent." in result.value
+    assert result.context_variables == context
 
 
-def test_resolve_reference_paths_falls_back_to_cached_prepare_result(tmp_dir):
-    prepare_stage = Path(tmp_dir) / "prepare_stage"
-    prepare_stage.mkdir()
-    prepare_result_path = prepare_stage / "prepare_result.json"
-    prepare_result_path.write_text(
-        json.dumps({"reference_paths": ["/workplace/pytorch-vqgan"]}),
-        encoding="utf-8",
+def test_idea_case_resolved_preserves_incomplete_note_without_crashing():
+    context = {
+        "notes": [
+            {"definition": "Incomplete idea 1"},
+            {"definition": "Incomplete idea 2"},
+            {"definition": "Incomplete idea 3"},
+        ]
+    }
+
+    result = idea_case_resolved(context)
+
+    assert "## Incomplete idea 1" in result.value
+    assert "Not provided by the survey sub-agent." in result.value
+    assert result.context_variables == context
+
+
+def test_survey_agents_have_bounded_definition_budget():
+    file_env = SimpleNamespace(docker_workplace="/workplace")
+    code_env = SimpleNamespace(workplace_name="workplace")
+
+    agents = (
+        get_survey_agent("test-model", file_env=file_env, code_env=code_env),
+        get_idea_survey_agent(
+            "test-model",
+            file_env=file_env,
+            code_env=code_env,
+        ),
     )
-    context_variables = {"prepare_artifact_dir": str(prepare_stage)}
 
-    reference_paths = _resolve_reference_paths(context_variables, "workplace")
-
-    assert reference_paths == ["/workplace/pytorch-vqgan"]
-    assert context_variables["prepare_result"]["reference_paths"] == ["/workplace/pytorch-vqgan"]
+    for agent in agents:
+        assert agent.max_turns == 50
+        assert "at most 6" in agent.instructions({})
 
 
-def test_resolve_reference_paths_falls_back_to_workplace_root():
-    reference_paths = _resolve_reference_paths({}, "workplace")
-
-    assert reference_paths == ["/workplace"]
+@pytest.mark.parametrize(
+    "resolver",
+    [survey_case_resolved, idea_case_resolved],
+)
+def test_survey_case_resolved_rejects_empty_notes(resolver):
+    with pytest.raises(ValueError, match="At least 3"):
+        resolver({"notes": []})

@@ -58,6 +58,7 @@ def get_code_review_agent(model: str, **kwargs):
         instructions=instructions,
         functions=tools,
         tool_choice="required",
+        max_turns=16,
     )
 
 
@@ -97,6 +98,7 @@ def get_judge_agent(model: str, **kwargs):
             transfer_to_code_review_agent,
         ],
         tool_choice="required",
+        max_turns=16,
     )
 
     def transfer_to_judge_agent(task_report):

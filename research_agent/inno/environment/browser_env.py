@@ -421,6 +421,21 @@ def _local_to_docker(local_path: str):
             
             # print(action_set.python_includes)
             action_mapping = action_set.to_python_code
+            browser_channel = os.getenv("PLAYWRIGHT_BROWSER_CHANNEL")
+            if browser_channel:
+                import browsergym.core as browsergym_core
+
+                chromium = browsergym_core._get_global_playwright().chromium
+                original_launch = chromium.launch
+
+                def launch_with_configured_channel(*args, **kwargs):
+                    kwargs.setdefault("channel", browser_channel)
+                    return original_launch(*args, **kwargs)
+
+                chromium.launch = launch_with_configured_channel
+            pw_chromium_kwargs = (
+                {"channel": browser_channel} if browser_channel else {}
+            )
             env = gym.make(
                 'browsergym/openended',
                 task_kwargs={'start_url': 'about:blank', 'goal': 'PLACEHOLDER_GOAL'},
@@ -428,7 +443,8 @@ def _local_to_docker(local_path: str):
                 headless=True,
                 disable_env_checker=True,
                 tags_to_mark='all',
-                action_mapping = action_mapping
+                action_mapping=action_mapping,
+                pw_chromium_kwargs=pw_chromium_kwargs,
             )
         
         

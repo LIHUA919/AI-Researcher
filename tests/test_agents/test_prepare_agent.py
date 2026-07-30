@@ -20,3 +20,20 @@ def test_case_resolved_persists_prepare_result(tmp_path):
 def test_prepare_agent_has_bounded_turns():
     agent = get_prepare_agent(model="test-model", code_env=None)
     assert agent.max_turns == 14
+
+
+def test_prepare_agent_forbids_clones_for_frozen_contract():
+    agent = get_prepare_agent(model="test-model", code_env=None)
+
+    instructions = agent.instructions(
+        {
+            "working_dir": "workplace",
+            "evaluation_evidence_guidance": (
+                "This frozen second-round protocol is mandatory."
+            ),
+        }
+    )
+
+    assert "Do not clone any repository" in instructions
+    assert "/workplace/project" in instructions
+    assert "/workplace/dataset_candidate" in instructions

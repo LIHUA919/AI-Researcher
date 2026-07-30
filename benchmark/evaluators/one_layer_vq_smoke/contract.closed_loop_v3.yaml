@@ -1,0 +1,71 @@
+# Development-only Phase A contract. Not a confirmatory preregistration.
+schema_version: 2
+contract_id: one-layer-vq-cifar10-adaptive
+version: "3-phase-a"
+task_id: one_layer_vq:task1
+entrypoint: >-
+  python evaluate_v3.py "{attempt_dir}"
+  --contract contract.closed_loop_v3.yaml
+result_file: verification_result.json
+timeout_seconds: 30
+repetitions: 1
+required_artifacts:
+  - attempt_spec.json
+  - evaluation_manifest.json
+  - evaluation_arrays.npz
+  - run.log
+evaluator_files:
+  - evaluate_v3.py
+  - evaluate.py
+  - provenance_schema.py
+primary_metric:
+  name: codebook_utilization
+  direction: maximize
+baseline: 0.95
+evidence_instructions: |
+  Execute the frozen SimVQ protocol from a SHA-verified Attempt Spec. Preserve
+  the immutable spec, schema-2 manifest, raw evaluation arrays, and run log in
+  one per-Attempt evidence directory. Aggregate metrics are never evidence.
+validity:
+  require_finite_metrics: true
+  max_failed_repetitions: 0
+  metric_bounds:
+    reconstruction_mse:
+      maximum: 0.1
+    reconstruction_psnr_db:
+      minimum: 10.0
+adaptive_experiment:
+  policy_id: one-layer-vq-phase-a
+  version: "1"
+  decision_point: vq.quantizer_optimization
+  no_op_policy: reject_before_execution
+  max_changes_per_attempt: 1
+  source_files:
+    - protocol.py
+    - run_training_testing.py
+    - attempt_spec.py
+  expected_source_digest: "e80a53681ee206407de6f295101a8a08709fecbb87bd895db5f40881c44a81b9"
+  defaults:
+    projection_lr_multiplier: 1.0
+    commitment_weight: 0.25
+  knobs:
+    projection_lr_multiplier:
+      value_type: number
+      allowed_values: [0.25, 0.5, 1.0, 2.0, 4.0]
+    commitment_weight:
+      value_type: number
+      allowed_values: [0.1, 0.25, 0.5, 1.0]
+  fixed_config:
+    dataset_id: cifar10
+    data_source: torchvision
+    train_split: train
+    test_split: test
+    epochs: 2
+    train_samples: 8192
+    test_samples: 1024
+    batch_size: 128
+    codebook_size: 128
+    latent_dim: 16
+    quantizer_variant: simvq
+    base_learning_rate: 0.0003
+    device_policy: auto

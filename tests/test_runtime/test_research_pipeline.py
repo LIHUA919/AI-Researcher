@@ -7,6 +7,7 @@ from research_agent.runtime import (
     ResearchPipeline,
     RunRequest,
     implementation_ready,
+    render_recall_guidance,
     write_stage_artifact,
 )
 
@@ -140,3 +141,38 @@ def test_implementation_readiness_uses_typed_judge_state_not_prose():
     assert not implementation_ready(
         {"final_output": '{"fully_correct": true}'}
     )
+
+
+def test_recall_context_becomes_cited_decision_guidance(tmp_path):
+    request = run_request(tmp_path)
+    recall = RecallContext(
+        snapshot_id="snapshot-1",
+        memory_snapshot_id="memory-1",
+        request=RecallRequest(
+            query="q",
+            task_id=request.task_id,
+            domain="vision",
+            dataset_id="cifar10",
+            model_family="vq",
+        ),
+        items=[
+            RecallItem(
+                citation_id="knowledge:k1",
+                knowledge_id="k1",
+                lesson="Do not reuse the unstable optimizer.",
+                outcome="negative",
+                source_experience_ids=["experience-1"],
+                score=1.0,
+                score_breakdown={"relevance": 1.0},
+                token_count=7,
+            )
+        ],
+        token_count=7,
+    )
+
+    guidance = render_recall_guidance(recall)
+
+    assert "knowledge:k1" in guidance
+    assert "negative" in guidance
+    assert "Do not reuse the unstable optimizer." in guidance
+    assert "revise the current Hypothesis" in guidance

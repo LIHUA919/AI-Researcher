@@ -4,16 +4,29 @@ from research_agent.inno.experience.ledger import (
     InMemoryExperimentLedger,
     RecordNotFoundError,
     SQLiteExperimentLedger,
+    UnsupportedLedgerSchemaError,
 )
 from research_agent.inno.experience.evaluation import (
+    AdaptiveExperimentPolicy,
     CallableVerifier,
     CommandVerifier,
     EvaluationContract,
     EvaluationError,
+    InterventionKnob,
+    MetricBounds,
     PrimaryMetric,
     ValidityRules,
     Verifier,
+    evaluator_identity,
     load_evaluation_contract,
+)
+from research_agent.inno.experience.intervention import (
+    InterventionProposal,
+    InterventionRecord,
+    JsonScalar,
+    KnobChange,
+    TrialProvenanceRecord,
+    semantic_digest,
 )
 from research_agent.inno.experience.models import (
     ArtifactRef,
@@ -61,6 +74,7 @@ from research_agent.inno.experience.search import (
 )
 
 __all__ = [
+    "AdaptiveExperimentPolicy",
     "ArtifactRef",
     "CallableVerifier",
     "BestFirstSearchPolicy",
@@ -86,11 +100,17 @@ __all__ = [
     "HypothesisCandidate",
     "ImmutableRecordError",
     "InMemoryExperimentLedger",
+    "InterventionProposal",
+    "InterventionRecord",
+    "InterventionKnob",
+    "JsonScalar",
+    "KnobChange",
     "KnowledgeRecord",
     "KnowledgeGate",
     "KeywordExperienceRetriever",
     "LoopAction",
     "LoopOutcome",
+    "MetricBounds",
     "Observation",
     "PrimaryMetric",
     "PromotionDecision",
@@ -106,8 +126,12 @@ __all__ = [
     "RecordNotFoundError",
     "SQLiteExperimentLedger",
     "StaticCandidateGenerator",
+    "TrialProvenanceRecord",
+    "UnsupportedLedgerSchemaError",
     "ValidityRules",
     "Verifier",
     "VerificationRecord",
+    "evaluator_identity",
     "load_evaluation_contract",
+    "semantic_digest",
 ]

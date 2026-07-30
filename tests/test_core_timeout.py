@@ -60,3 +60,20 @@ def test_acompletion_normalizes_bare_fallback_model_names(monkeypatch):
     assert response.choices[0].message.content == "ok"
     assert calls[0] == "openai/deepseek-ai/DeepSeek-V3.2"
     assert "openai/deepseek-chat" in calls
+
+
+def test_model_fallbacks_do_not_invent_provider_specific_alias(monkeypatch):
+    monkeypatch.delenv("MODEL_FALLBACKS", raising=False)
+    monkeypatch.delenv("LLM_FALLBACK_MODELS", raising=False)
+    monkeypatch.setattr(
+        "research_agent.inno.core.CHEEP_MODEL",
+        "openai/DeepSeek-V4-Pro",
+    )
+    monkeypatch.setattr(
+        "research_agent.inno.core.COMPLETION_MODEL",
+        "openai/DeepSeek-V4-Pro",
+    )
+
+    models = MetaChain()._get_model_fallbacks("openai/DeepSeek-V4-Pro")
+
+    assert models == ["openai/DeepSeek-V4-Pro"]

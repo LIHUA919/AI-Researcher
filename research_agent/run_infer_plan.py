@@ -6,6 +6,10 @@ from research_agent.inno.agents.inno_agent.ml_agent import get_ml_agent
 from research_agent.inno.agents.inno_agent.judge_agent import get_judge_agent
 from research_agent.inno.agents.inno_agent.survey_agent import get_survey_agent
 from research_agent.inno.agents.inno_agent.exp_analyser import get_exp_analyser_agent
+from research_agent.inno.agents.inno_agent.intervention_agent import (
+    StructuredLLMInterventionPlanner,
+    get_intervention_agent,
+)
 from research_agent.inno.tools.arxiv_source import download_arxiv_source_by_title
 from research_agent.constant import COMPLETION_MODEL, CHEEP_MODEL
 from research_agent.inno.environment.docker_env import DockerEnv, DockerConfig
@@ -13,21 +17,33 @@ from research_agent.inno.environment.browser_env import BrowserEnv
 from research_agent.inno.environment.markdown_browser import RequestsMarkdownBrowser
 import asyncio
 import os
+from pathlib import Path
+import subprocess
+import sys
 from typing import Dict, Any, Union
 from research_agent.inno.logger import MetaChainLogger
 import importlib
 from research_agent.inno.environment.utils import (
     setup_dataset,
+    setup_project_scaffold,
     ensure_legacy_workspace_aliases,
     normalize_workplace_layout,
 )
 from research_agent.runtime import (
+    AdaptiveExperimentBuildConfig,
+    AdaptiveExperimentRequest,
     ExperienceRunAdapter,
+    ImprovementCycleRequest,
+    ImprovementCycleRunner,
     MasterRuntime,
     ProvidedIdeaStrategy,
     ResearchPipeline,
     RunRequest,
+    build_adaptive_experiment_runner,
     implementation_ready,
+    isolated_container_name,
+    isolated_workspace_root,
+    render_recall_guidance,
     refresh_runtime_context_variables,
 )
 from research_agent.runtime.artifacts import write_stage_artifact
@@ -53,6 +69,41 @@ from research_agent.inno_common import (
     github_search,
 )
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+FROZEN_VQ_TEMPLATES = {
+    "protocol.py": _REPO_ROOT / "benchmark/real_smoke/one_layer_vq/train.py",
+    "run_training_testing.py": (
+        _REPO_ROOT
+        / "benchmark"
+        / "process"
+        / "dataset_candidate"
+        / "vq"
+        / "run_training_testing.py"
+    ),
+    "attempt_spec.py": (
+        _REPO_ROOT
+        / "benchmark"
+        / "process"
+        / "dataset_candidate"
+        / "vq"
+        / "attempt_spec.py"
+    ),
+}
+
+
+def restore_frozen_vq_files(project_dir: Path) -> None:
+    """Atomically restore orchestrator-owned files from trusted templates."""
+    for name, source in FROZEN_VQ_TEMPLATES.items():
+        if not source.is_file():
+            raise RuntimeError(f"missing frozen VQ template: {source}")
+        content = source.read_bytes()
+        temporary = project_dir / f".{name}.frozen-restore"
+        temporary.write_bytes(content)
+        temporary.replace(project_dir / name)
+        if (project_dir / name).read_bytes() != content:
+            raise RuntimeError(f"failed to restore frozen VQ file: {name}")
+
+
 def _persist_stage_output(cache_path: str, stage_name: str, payload: Dict[str, Any]) -> str:
     stage_dir = os.path.join(cache_path, "plan_stages")
     os.makedirs(stage_dir, exist_ok=True)
@@ -60,24 +111,137 @@ def _persist_stage_output(cache_path: str, stage_name: str, payload: Dict[str, A
     return write_stage_artifact(stage_path, stage="plan", payload=payload)
 
 
+def run_frozen_vq_protocol(code_env: DockerEnv, workplace_name: str) -> str:
+    """Execute the mounted project with the repository's verified Python env."""
+    project_dir = Path(code_env.local_workplace) / "project"
+    restore_frozen_vq_files(project_dir)
+    interpreter = Path(sys.prefix) / "bin" / "python"
+    execution = subprocess.run(
+        [str(interpreter), "run_training_testing.py"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "PYTHONUNBUFFERED": "1",
+        },
+    )
+    output = "\n".join(
+        part for part in (execution.stdout, execution.stderr) if part
+    )
+    if execution.returncode != 0:
+        raise RuntimeError(
+            "Frozen VQ training protocol failed: "
+            f"{output}"
+        )
+    return output
+
+
+def build_frozen_submission_report(execution_output: str) -> str:
+    """Return a deterministic handoff for independent evidence verification."""
+    completion_line = next(
+        (
+            line
+            for line in reversed(execution_output.splitlines())
+            if '"event": "run_completed"' in line
+        ),
+        "run_completed event emitted by the frozen protocol",
+    )
+    return (
+        "The frozen VQ protocol completed exactly once. Raw evidence is ready "
+        "for the independent evaluator; no scientific improvement is claimed "
+        f"by this submission. Completion record: {completion_line}"
+    )
+
+
+def build_adaptive_submission_report(execution) -> str:
+    """Return a deterministic handoff without claiming a scientific result."""
+
+    if execution.status == "rejected_no_effect":
+        return (
+            "The governed intervention was rejected before training because it "
+            "did not change the previous effective assignment. No Experiment "
+            "Attempt, Observation, or scientific improvement is claimed."
+        )
+    return (
+        "The frozen adaptive VQ protocol completed exactly once from an "
+        "immutable Attempt Spec. Its isolated raw evidence is ready for the "
+        "independent evaluator; no scientific improvement is claimed by this "
+        f"submission. Manipulation status: "
+        f"{execution.preflight.manipulation_status}."
+    )
+
+
+def _merge_usage_summary(total: dict, delta: dict) -> None:
+    for field in ("calls", "prompt_tokens", "completion_tokens", "total_tokens"):
+        total[field] = int(total.get(field, 0) or 0) + int(
+            delta.get(field, 0) or 0
+        )
+    total_models = total.setdefault("by_model", {})
+    for model_name, usage in (delta.get("by_model") or {}).items():
+        target = total_models.setdefault(model_name, {})
+        for field in (
+            "calls",
+            "prompt_tokens",
+            "completion_tokens",
+            "total_tokens",
+        ):
+            target[field] = int(target.get(field, 0) or 0) + int(
+                usage.get(field, 0) or 0
+            )
+
+
 class InnoFlow(FlowModule):
-    def __init__(self, cache_path: str, log_path: Union[str, None, MetaChainLogger] = None, model: str = "gpt-4o-2024-08-06", code_env: DockerEnv = None, web_env: BrowserEnv = None, file_env: RequestsMarkdownBrowser = None, cache_policy: str = "reuse"):
+    def __init__(
+        self,
+        cache_path: str,
+        log_path: Union[str, None, MetaChainLogger] = None,
+        model: str = "gpt-4o-2024-08-06",
+        code_env: DockerEnv = None,
+        web_env: BrowserEnv = None,
+        file_env: RequestsMarkdownBrowser = None,
+        cache_policy: str = "reuse",
+        frozen_protocol: bool = False,
+        adaptive_experiment_config: AdaptiveExperimentBuildConfig | None = None,
+    ):
         super().__init__(cache_path, log_path, model)
+        self.code_env = code_env
         self.load_ins = ToolModule(load_instance, cache_path, trace_recorder=self.record_tool_call, cache_policy=cache_policy)
         self.git_search = ToolModule(github_search, cache_path, trace_recorder=self.record_tool_call, cache_policy=cache_policy)
         self.prepare_agent = AgentModule(get_prepare_agent(model=CHEEP_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
         self.download_papaer = ToolModule(download_arxiv_source_by_title, cache_path, trace_recorder=self.record_tool_call, cache_policy=cache_policy)
         self.coding_plan_agent = AgentModule(get_coding_plan_agent(model=CHEEP_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
-        self.ml_agent = AgentModule(get_ml_agent(model=COMPLETION_MODEL, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
+        self.ml_agent = AgentModule(get_ml_agent(model=COMPLETION_MODEL, code_env=code_env, frozen_protocol=frozen_protocol), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
         self.judge_agent = AgentModule(get_judge_agent(model=CHEEP_MODEL, code_env=code_env, web_env=web_env, file_env=file_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
         self.survey_agent = AgentModule(get_survey_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
         self.exp_analyser = AgentModule(get_exp_analyser_agent(model=CHEEP_MODEL, file_env=file_env, code_env=code_env), self.client, cache_path, trace_recorder=self.record_agent_step, cache_policy=cache_policy)
+        self.intervention_planner = None
+        self.adaptive_experiment = None
+        if adaptive_experiment_config is not None:
+            self.intervention_planner = StructuredLLMInterventionPlanner(
+                agent_module=AgentModule(
+                    get_intervention_agent(model=self.model),
+                    self.client,
+                    cache_path,
+                    trace_recorder=self.record_agent_step,
+                    cache_policy="disabled",
+                ),
+                domain="vq",
+                schema_id="vq.intervention/v1",
+            )
+            self.adaptive_experiment = build_adaptive_experiment_runner(
+                adaptive_experiment_config,
+                planner=self.intervention_planner,
+            )
     async def forward(self, instance_path: str, task_level: str, local_root: str, workplace_name: str, max_iter_times: int, category: str, ideas: str, references: str, *args, **kwargs):
         metadata = self.load_ins({"instance_path": instance_path, "task_level": task_level})
         run_id = kwargs.get("run_id") or metadata.get("instance_id", task_level)
+        evaluation_task_id = kwargs.get("evaluation_task_id") or run_id
         pipeline_request = RunRequest(
             run_id=run_id,
-            task_id=run_id,
+            task_id=evaluation_task_id,
             cache_path=self.cache_path,
             entrypoint="run_infer_plan",
             task_level=task_level,
@@ -106,6 +270,27 @@ class InnoFlow(FlowModule):
         if recall_context is not None:
             context_variables["recall_context"] = recall_context.model_dump(mode="json")
             context_variables["recall_snapshot_id"] = recall_context.snapshot_id
+        experience_guidance = render_recall_guidance(recall_context)
+        context_variables["experience_guidance"] = experience_guidance
+        evaluation_contract_enabled = (
+            kwargs.get("evaluation_evidence_guidance") is not None
+        )
+        if evaluation_contract_enabled:
+            self.ml_agent.agent.max_turns = min(
+                int(self.ml_agent.agent.max_turns or 12),
+                12,
+            )
+        evaluation_evidence_guidance = kwargs.get(
+            "evaluation_evidence_guidance"
+        ) or (
+            "No external Evaluation Contract is enabled. Still emit reproducible "
+            "raw evaluation evidence and logs appropriate to the task."
+        )
+        context_variables["evaluation_evidence_guidance"] = (
+            evaluation_evidence_guidance
+        )
+        experiment_seed = int(kwargs.get("experiment_seed", 0))
+        context_variables["experiment_seed"] = experiment_seed
         hypothesis = ProvidedIdeaStrategy().build_hypothesis(
             pipeline_request,
             recall_context,
@@ -124,6 +309,9 @@ Searching results of the papers on GitHub:
 
 innovative ideas:
 {ideas}
+
+Verified experience that must inform this attempt:
+{experience_guidance}
 
 Your task is to choose at least 5 repositories as the reference codebases.
 """
@@ -163,6 +351,9 @@ I have an innovative ideas related to machine learning:
 {ideas}
 And a list of papers for your reference:
 {references}
+
+Verified experience that must inform this attempt:
+{experience_guidance}
 
 I have carefully gone through these papers' github repositories and found download some of them in my local machine, with the following information:
 {prepare_res}
@@ -224,6 +415,9 @@ I have an innovative ideas related to machine learning:
 And a list of papers for your reference:
 {references}
 
+Verified experience that must inform this attempt:
+{experience_guidance}
+
 I have carefully gone through these papers' github repositories and found download some of them in my local machine, with the following information:
 {prepare_res}
 I have also explored the innovative ideas and the papers, with the following notes:
@@ -259,7 +453,7 @@ Your task is to carefully review the existing resources and understand the task,
                 self.cache_path,
                 "plan_report",
                 {
-                    "task_id": metadata.get("instance_id", task_level),
+                    "task_id": pipeline_request.task_id,
                     "query": plan_query,
                     "plan_report": plan_res,
                     "plan_artifacts": context_variables.get("plan_artifacts", {}),
@@ -282,6 +476,13 @@ You are given an innovative idea:
 {ideas}. 
 and the reference codebases chosen by the `Prepare Agent`:
 {prepare_res}
+Verified experience that must inform this attempt:
+{experience_guidance}
+Evaluation Contract evidence requirements:
+{evaluation_evidence_guidance}
+Experiment seed:
+{experiment_seed}. Use this seed consistently for Python, NumPy, the ML
+framework, data-loader shuffling, and the evidence manifest.
 And I have conducted the comprehensive survey on the innovative idea and the papers, and give you the model survey notes:
 {survey_res}
 You should carefully go through the math formula and the code implementation, and implement the innovative idea according to the plan and existing resources.
@@ -391,6 +592,7 @@ Remember:
 - ALL components MUST be fully implemented
 - Project MUST run end-to-end without placeholders
 - MUST complete 2 epochs of training and testing
+- MUST emit every raw evidence artifact required by the Evaluation Contract
 """
         messages = [{"role": "user", "content": ml_dev_query}]
         cached_implement = load_cached_stage_result(self.cache_path, "implement", "project_manifest.json")
@@ -405,7 +607,7 @@ Remember:
                 "implement",
                 "project_manifest.json",
                 {
-                    "task_id": metadata.get("instance_id", task_level),
+                    "task_id": pipeline_request.task_id,
                     "implementation_report": ml_dev_res,
                     "project_manifest": project_manifest,
                 },
@@ -457,7 +659,7 @@ Your task is to evaluate the implementation, and give a suggestion about the imp
                 "judge",
                 "judge_report.json",
                 {
-                    "task_id": metadata.get("instance_id", task_level),
+                    "task_id": pipeline_request.task_id,
                     "judge_query": query,
                     "judge_report": judge_res,
                 },
@@ -537,10 +739,13 @@ And your last implementation of the project:
 {ml_dev_res}
 The suggestion about your last implementation:
 {judge_res}
-You have run out the maximum iteration times to implement the idea by running the script `run_training_testing.py` with TWO epochs of training and testing on ONE ACTUAL dataset.
-Your task is to submit the code to the environment by running the script `run_training_testing.py` with APPROPRIATE epochs of training and testing on THIS ACTUAL dataset in order to get some stastical results. You must MODIFY the epochs in the script `run_training_testing.py` rather than use the 2 epochs.
+The frozen Evaluation Contract has already fixed the training budget and raw
+evidence requirements. Your task is to inspect the results produced by
+`/{workplace_name}/project/run_training_testing.py`, verify that the manifest
+reports exactly TWO epochs on the actual dataset, and submit a concise analysis.
 
-[IMPORTANT] In this stage, you are NOT allowed to modify the existing code in the script `run_training_testing.py` except for the epochs!
+[IMPORTANT] You are NOT allowed to modify the project, epochs, seed, dataset,
+sample counts, architecture, or evidence files during submission.
 
 Note that if your last implementation is not runable, you should finalize the submission with `case_not_resolved` function. But you can temporarily ignore the judgement of the `Judge Agent` which contains the suggestions about the implementation.
 After you get the result, you should return the result with your analysis and suggestions about the implementation with `case_resolved` function.
@@ -548,18 +753,64 @@ After you get the result, you should return the result with your analysis and su
         cached_submit = load_cached_stage_result(self.cache_path, "submit", "submit_result.json")
         if not runtime.should_run_stage("submit") and cached_submit:
             submit_res = cached_submit.get("submit_result", "")
+            if self.adaptive_experiment is not None:
+                cached_adaptive = cached_submit.get("adaptive_experiment")
+                if cached_adaptive is None:
+                    raise RuntimeError(
+                        "cached adaptive submit stage is missing its typed receipt"
+                    )
+                context_variables["adaptive_experiment"] = cached_adaptive
         else:
-            judge_messages.append({"role": "user", "content": ml_submit_query})
-            judge_messages, context_variables = await self.ml_agent(judge_messages, context_variables, iter_times="submit")
-            submit_res = judge_messages[-1]["content"]
+            adaptive_payload = None
+            if self.adaptive_experiment is not None:
+                execution = await self.adaptive_experiment.run(
+                    AdaptiveExperimentRequest(
+                        run_id=run_id,
+                        iteration_number=int(
+                            kwargs.get("iteration_number", 1)
+                        ),
+                        hypothesis=hypothesis,
+                        seed=experiment_seed,
+                        attempt_cache_path=Path(self.cache_path),
+                        evidence_dir=Path(self.cache_path) / "raw-evidence",
+                        recall_context=recall_context,
+                        previous=kwargs.get("previous_feedback"),
+                    )
+                )
+                adaptive_payload = execution.model_dump(mode="json")
+                context_variables["adaptive_experiment"] = adaptive_payload
+                if (
+                    self.intervention_planner is not None
+                    and self.intervention_planner.last_llm_usage
+                ):
+                    _merge_usage_summary(
+                        context_variables.setdefault("llm_usage", {}),
+                        self.intervention_planner.last_llm_usage,
+                    )
+                submit_res = build_adaptive_submission_report(execution)
+            elif category == "vq" and evaluation_contract_enabled:
+                execution_output = run_frozen_vq_protocol(
+                    self.code_env,
+                    workplace_name,
+                )
+                submit_res = build_frozen_submission_report(execution_output)
+            else:
+                judge_messages.append({"role": "user", "content": ml_submit_query})
+                judge_messages, context_variables = await self.ml_agent(
+                    judge_messages,
+                    context_variables,
+                    iter_times="submit",
+                )
+                submit_res = judge_messages[-1]["content"]
             submit_path = persist_stage_result(
                 self.cache_path,
                 "submit",
                 "submit_result.json",
                 {
-                    "task_id": metadata.get("instance_id", task_level),
+                    "task_id": pipeline_request.task_id,
                     "submission_query": ml_submit_query,
                     "submit_result": submit_res,
+                    "adaptive_experiment": adaptive_payload,
                 },
             )
             pipeline.complete_stage(
@@ -569,8 +820,23 @@ After you get the result, you should return the result with your analysis and su
         refresh_runtime_context_variables(context_variables, run_context, runtime.load_state())
         pipeline.progress()
 
-        EXP_ITER_TIMES = 2
-        analysis_report = ""
+        # Once a frozen external contract has produced raw evidence, subsequent
+        # open-ended refinement must not mutate that evidence before verification.
+        EXP_ITER_TIMES = 0 if evaluation_contract_enabled else 2
+        adaptive_metadata = context_variables.get("adaptive_experiment") or {}
+        if adaptive_metadata.get("status") == "rejected_no_effect":
+            analysis_report = (
+                "The proposed intervention was rejected as a no-op before "
+                "execution; no Observation or scientific result was produced."
+            )
+        elif evaluation_contract_enabled:
+            analysis_report = (
+                "Frozen evaluation contract executed. Scientific interpretation "
+                "is deferred to the independent evaluator over the preserved raw "
+                "evidence."
+            )
+        else:
+            analysis_report = ""
         for i in range(EXP_ITER_TIMES):
             exp_planner_query = f"""\
 You are given an innovative idea:
@@ -622,7 +888,7 @@ Note that you should fully utilize the existing code in the directory `/{workpla
             "analyze",
             "analysis_report.json",
             {
-                "task_id": metadata.get("instance_id", task_level),
+                "task_id": pipeline_request.task_id,
                 "analysis_report": analysis_report,
                 "further_plan": further_plan if "further_plan" in locals() else {},
                 "latest_refine_report": refine_res if "refine_res" in locals() else "",
@@ -636,7 +902,7 @@ Note that you should fully utilize the existing code in the directory `/{workpla
 
         goal_evaluation = pipeline.finalize()
         return {
-            "task_id": metadata.get("instance_id", task_level),
+            "task_id": pipeline_request.task_id,
             "query": plan_query,
             "goal": "deliver an executable research plan",
             "claims": [hypothesis.statement] if hypothesis.statement else [],
@@ -660,6 +926,7 @@ Note that you should fully utilize the existing code in the directory `/{workpla
                 "workplace_name": workplace_name,
                 "stage_state": runtime.load_state(),
                 "runtime_context": run_context.to_payload(),
+                "llm_usage": context_variables.get("llm_usage", {}),
                 "hypothesis": hypothesis.model_dump(mode="json"),
                 "goal_evaluation": {
                     "current_stage": goal_evaluation.current_stage,
@@ -668,6 +935,9 @@ Note that you should fully utilize the existing code in the directory `/{workpla
                     "all_criteria_met": goal_evaluation.all_criteria_met,
                     "next_stage": runtime.next_stage(),
                 },
+                "adaptive_experiment": context_variables.get(
+                    "adaptive_experiment"
+                ),
             },
             "tool_calls": self.export_runtime_trace()["tool_calls"],
             "agent_steps": self.export_runtime_trace()["agent_steps"],
@@ -706,12 +976,19 @@ def main(args, ideas, references):
     instance_id = eval_instance["instance_id"]
     model_suffix = args.model.replace("/", "__")
     cache_path = args.cache_path + "_" + instance_id + "_" + model_suffix
-    local_root = os.path.join(
-        os.getcwd(),
-        "workplace_paper",
-        f"task_{instance_id}" + "_" + model_suffix,
+    local_root = str(
+        isolated_workspace_root(
+            os.getcwd(),
+            instance_id=instance_id,
+            model=args.model,
+            cache_path=cache_path,
+        )
     )
-    container_name = args.container_name + "_" + instance_id + "_" + model_suffix
+    container_name = isolated_container_name(
+        args.container_name,
+        instance_id,
+        cache_path,
+    )
     os.makedirs(local_root, exist_ok=True)
     experience = ExperienceRunAdapter.from_args(args, cache_path=cache_path)
     env_config = DockerConfig(container_name = container_name, 
@@ -724,100 +1001,120 @@ def main(args, ideas, references):
     normalize_workplace_layout(code_env.local_workplace)
     code_env.init_container()
     setup_dataset(args.category, code_env.local_workplace)
+    setup_project_scaffold(
+        args.category,
+        code_env.local_workplace,
+        seed=args.seed,
+    )
     ensure_legacy_workspace_aliases(code_env.local_workplace)
     web_env = BrowserEnv(browsergym_eval_env = None, local_root=env_config.local_root, workplace_name=env_config.workplace_name)
     file_env = RequestsMarkdownBrowser(viewport_size=1024 * 4, local_root=env_config.local_root, workplace_name=env_config.workplace_name, downloads_folder=os.path.join(env_config.local_root, env_config.workplace_name, "downloads"))
-    flow = InnoFlow(cache_path=cache_path, log_path="log_" + instance_id, code_env=code_env, web_env=web_env, file_env=file_env, model=args.model, cache_policy=getattr(args, "cache_policy", "reuse"))
     runtime = MasterRuntime(cache_path)
     project_dir = os.path.join(local_root, args.workplace_name, "project")
-    recall_context = None
-    iteration_number = 1
-    attempt_recorded = False
-    try:
-        recall_context = experience.before_run(
-            task_id=instance_id,
-            query=ideas,
-            domain=args.category,
-            dataset_id=args.category,
-            model_family=args.model,
-        )
-        outcome = None
-        iteration_limit = (
-            experience.max_iterations if experience.runs_closed_loop else 1
-        )
-        for iteration_number in range(1, iteration_limit + 1):
-            attempt_recorded = False
-            result = asyncio.run(
-                flow(
-                    instance_path=args.instance_path,
-                    task_level=args.task_level,
-                    local_root=local_root,
-                    workplace_name=args.workplace_name,
-                    max_iter_times=args.max_iter_times,
-                    category=args.category,
-                    ideas=ideas,
-                    references=references,
-                    run_id=instance_id,
-                    recall_context=recall_context,
-                    verification_check=experience.pending_verification_check(),
-                )
+    adaptive_enabled = bool(
+        experience.contract is not None
+        and experience.contract.adaptive_experiment is not None
+    )
+    normalized_task_id = (
+        experience.contract.task_id
+        if adaptive_enabled and experience.contract is not None
+        else instance_id
+    )
+    normalized_dataset_id = (
+        "cifar10" if adaptive_enabled and args.category == "vq" else args.category
+    )
+    adaptive_config = None
+    if adaptive_enabled:
+        if experience.contract_path is None or experience.ledger is None:
+            raise RuntimeError(
+                "adaptive execution requires a contract path and durable Ledger"
             )
-            outcome = experience.after_flow(
-                result,
-                project_dir=project_dir,
+        adaptive_config = AdaptiveExperimentBuildConfig(
+            project_dir=Path(project_dir),
+            contract_path=experience.contract_path,
+            ledger=experience.ledger,
+            execution_timeout_seconds=getattr(
+                args,
+                "adaptive_execution_timeout_seconds",
+                7200.0,
+            ),
+        )
+
+    def run_attempt(attempt_context):
+        flow = InnoFlow(
+            cache_path=str(attempt_context.attempt_cache_path),
+            log_path=f"log_{instance_id}_iteration_{attempt_context.iteration_number}",
+            code_env=code_env,
+            web_env=web_env,
+            file_env=file_env,
+            model=args.model,
+            cache_policy=(
+                "disabled"
+                if adaptive_enabled
+                else getattr(args, "cache_policy", "reuse")
+            ),
+            frozen_protocol=(
+                args.category == "vq"
+                and experience.evaluation_evidence_guidance is not None
+            ),
+            adaptive_experiment_config=adaptive_config,
+        )
+        return asyncio.run(
+            flow(
+                instance_path=args.instance_path,
+                task_level=args.task_level,
+                local_root=local_root,
+                workplace_name=args.workplace_name,
+                max_iter_times=args.max_iter_times,
+                category=args.category,
+                ideas=ideas,
+                references=references,
                 run_id=instance_id,
+                evaluation_task_id=normalized_task_id,
+                iteration_number=attempt_context.iteration_number,
+                recall_context=attempt_context.recall_context,
+                previous_feedback=attempt_context.previous_feedback,
+                evaluation_evidence_guidance=(
+                    experience.evaluation_evidence_guidance
+                ),
+                experiment_seed=args.seed,
+                verification_check=attempt_context.verification_check,
+            )
+        )
+
+    try:
+        cycle_result = ImprovementCycleRunner(experience).run(
+            ImprovementCycleRequest(
+                run_id=instance_id,
+                task_id=normalized_task_id,
+                query=ideas,
                 model=args.model,
                 domain=args.category,
-                dataset_id=args.category,
+                dataset_id=normalized_dataset_id,
                 model_family=args.model,
-                recall_context=recall_context,
-                iteration_number=iteration_number,
-            )
-            attempt_recorded = experience.records_experience
-            experience.finalize_runtime(run_id=instance_id, outcome=outcome)
-            if (
-                not experience.runs_closed_loop
-                or outcome is None
-                or outcome.action != "continue"
-            ):
-                break
-            recall_context = experience.before_run(
-                task_id=instance_id,
-                query=ideas,
-                domain=args.category,
-                dataset_id=args.category,
-                model_family=args.model,
-            )
+                project_dir=project_dir,
+                run_cache_path=cache_path,
+                seed=args.seed,
+            ),
+            run_attempt,
+        )
+        result = cycle_result.flow_result
+        outcome = cycle_result.outcome
         bundle = build_and_save_eval_result(result, cache_path)
         bundle["experience_outcome"] = (
             outcome.model_dump(mode="json") if outcome is not None else None
         )
+        bundle["improvement_cycle"] = {
+            "iteration_number": cycle_result.iteration_number,
+            "attempt_cache_path": str(cycle_result.attempt_cache_path),
+            "recall_snapshot_id": (
+                cycle_result.recall_context.snapshot_id
+                if cycle_result.recall_context is not None
+                else None
+            ),
+        }
         return bundle
     except Exception as exc:
-        experience_recording_error = None
-        if experience.records_experience and not attempt_recorded:
-            try:
-                failed_outcome = experience.after_failure(
-                    project_dir=project_dir,
-                    run_id=instance_id,
-                    task_id=instance_id,
-                    query=ideas,
-                    model=args.model,
-                    domain=args.category,
-                    dataset_id=args.category,
-                    model_family=args.model,
-                    recall_context=recall_context,
-                    iteration_number=iteration_number,
-                    error=exc,
-                )
-                experience.finalize_runtime(
-                    run_id=instance_id,
-                    outcome=failed_outcome,
-                )
-            except Exception as record_exc:
-                experience_recording_error = (
-                    f"{type(record_exc).__name__}: {record_exc}"
-                )
         runtime.write_failure_status(
             run_id=instance_id,
             error_message=str(exc),
@@ -825,7 +1122,6 @@ def main(args, ideas, references):
             metadata={
                 "entrypoint": "run_infer_plan",
                 "task_level": args.task_level,
-                "experience_recording_error": experience_recording_error,
             },
         )
         raise

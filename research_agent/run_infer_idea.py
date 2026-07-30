@@ -23,11 +23,16 @@ from research_agent.inno.environment.utils import (
 )
 from research_agent.runtime import (
     ExperienceRunAdapter,
+    ImprovementCycleRequest,
+    ImprovementCycleRunner,
     MasterRuntime,
     ReferenceIdeationStrategy,
     ResearchPipeline,
     RunRequest,
     implementation_ready,
+    isolated_container_name,
+    isolated_workspace_root,
+    render_recall_guidance,
     refresh_runtime_context_variables,
 )
 from research_agent.runtime.artifacts import write_stage_artifact
@@ -108,6 +113,19 @@ class InnoFlow(FlowModule):
         if recall_context is not None:
             context_variables["recall_context"] = recall_context.model_dump(mode="json")
             context_variables["recall_snapshot_id"] = recall_context.snapshot_id
+        experience_guidance = render_recall_guidance(recall_context)
+        context_variables["experience_guidance"] = experience_guidance
+        evaluation_evidence_guidance = kwargs.get(
+            "evaluation_evidence_guidance"
+        ) or (
+            "No external Evaluation Contract is enabled. Still emit reproducible "
+            "raw evaluation evidence and logs appropriate to the task."
+        )
+        context_variables["evaluation_evidence_guidance"] = (
+            evaluation_evidence_guidance
+        )
+        experiment_seed = int(kwargs.get("experiment_seed", 0))
+        context_variables["experiment_seed"] = experiment_seed
 
         github_result = self.git_search({"metadata": metadata})
         data_module = importlib.import_module(f"benchmark.process.dataset_candidate.{category}.metaprompt")
@@ -135,6 +153,9 @@ List of papers:
 
 Searching results of the papers on GitHub:
 {github_result}
+
+Verified experience that must inform this attempt:
+{experience_guidance}
 
 Your task is to choose at least 5 repositories as the reference codebases. Note that this time there is no innovative ideas, you should choose the most valuable repositories as the reference codebases.
 """
@@ -177,6 +198,9 @@ I have a task related to machine learning:
 And a list of papers for your reference:
 {references}
 
+Verified experience that must inform this attempt:
+{experience_guidance}
+
 I have carefully gone through these papers' github repositories and found download some of them in my local machine, with the following information:
 {prepare_res}
 And I have also downloaded the corresponding paper in the Tex format, with the following information:
@@ -218,6 +242,9 @@ Your task is to analyze multiple existing ideas, select the most novel one, enha
 I have an innovative idea related to machine learning:
 {survey_res}
 
+Verified experience that must inform this attempt:
+{experience_guidance}
+
 I have carefully gone through these papers' github repositories and found download some of them in my local machine, in the directory `/workplace`, use the `list_files` tool to navigate the directory.
 And I have also downloaded the corresponding paper in the Tex format, with the following information:
 {download_res}
@@ -257,6 +284,9 @@ I have an innovative ideas related to machine learning:
 {survey_res}
 And a list of papers for your reference:
 {references}
+
+Verified experience that must inform this attempt:
+{experience_guidance}
 
 I have carefully gone through these papers' github repositories and found download some of them in my local machine, with the following information:
 {prepare_res}
@@ -317,6 +347,13 @@ You are given an innovative idea:
 {survey_res}. 
 and the reference codebases chosen by the `Prepare Agent`:
 {prepare_res}
+Verified experience that must inform this attempt:
+{experience_guidance}
+Evaluation Contract evidence requirements:
+{evaluation_evidence_guidance}
+Experiment seed:
+{experiment_seed}. Use this seed consistently for Python, NumPy, the ML
+framework, data-loader shuffling, and the evidence manifest.
 And I have conducted the comprehensive survey on the innovative idea and the papers, and give you the model survey notes:
 {survey_res}
 You should carefully go through the math formula and the code implementation, and implement the innovative idea according to the plan and existing resources.
@@ -426,6 +463,7 @@ Remember:
 - ALL components MUST be fully implemented
 - Project MUST run end-to-end without placeholders
 - MUST complete 2 epochs of training and testing
+- MUST emit every raw evidence artifact required by the Evaluation Contract
 """
         messages = [{"role": "user", "content": ml_dev_query}]
         cached_implement = load_cached_stage_result(self.cache_path, "implement", "project_manifest.json")
@@ -693,6 +731,7 @@ Note that you should fully utilize the existing code in the directory `/{workpla
                 "workplace_name": workplace_name,
                 "stage_state": runtime.load_state(),
                 "runtime_context": run_context.to_payload(),
+                "llm_usage": context_variables.get("llm_usage", {}),
                 "hypothesis": hypothesis.model_dump(mode="json"),
                 "goal_evaluation": {
                     "current_stage": goal_evaluation.current_stage,
@@ -737,12 +776,19 @@ def main(args, references):
     instance_id = eval_instance["instance_id"] + "_idea"
     model_suffix = args.model.replace("/", "__")
     cache_path = args.cache_path + "_" + instance_id + "_" + model_suffix
-    local_root = os.path.join(
-        os.getcwd(),
-        "workplace_paper",
-        f"task_{instance_id}" + "_" + model_suffix,
+    local_root = str(
+        isolated_workspace_root(
+            os.getcwd(),
+            instance_id=instance_id,
+            model=args.model,
+            cache_path=cache_path,
+        )
     )
-    container_name = args.container_name + "_" + instance_id + "_" + model_suffix
+    container_name = isolated_container_name(
+        args.container_name,
+        instance_id,
+        cache_path,
+    )
     os.makedirs(local_root, exist_ok=True)
     experience = ExperienceRunAdapter.from_args(args, cache_path=cache_path)
     env_config = DockerConfig(container_name = container_name, 
@@ -758,96 +804,71 @@ def main(args, references):
     ensure_legacy_workspace_aliases(code_env.local_workplace)
     web_env = BrowserEnv(browsergym_eval_env = None, local_root=env_config.local_root, workplace_name=env_config.workplace_name)
     file_env = RequestsMarkdownBrowser(viewport_size=1024 * 4, local_root=env_config.local_root, workplace_name=env_config.workplace_name, downloads_folder=os.path.join(env_config.local_root, env_config.workplace_name, "downloads"))
-    flow = InnoFlow(cache_path=cache_path, log_path="log_" + instance_id, code_env=code_env, web_env=web_env, file_env=file_env, model=args.model, cache_policy=getattr(args, "cache_policy", "reuse"))
     runtime = MasterRuntime(cache_path)
     project_dir = os.path.join(local_root, args.workplace_name, "project")
-    recall_context = None
-    iteration_number = 1
-    attempt_recorded = False
-    try:
-        recall_context = experience.before_run(
-            task_id=instance_id,
-            query=references,
-            domain=args.category,
-            dataset_id=args.category,
-            model_family=args.model,
+
+    def run_attempt(attempt_context):
+        flow = InnoFlow(
+            cache_path=str(attempt_context.attempt_cache_path),
+            log_path=f"log_{instance_id}_iteration_{attempt_context.iteration_number}",
+            code_env=code_env,
+            web_env=web_env,
+            file_env=file_env,
+            model=args.model,
+            cache_policy=getattr(args, "cache_policy", "reuse"),
         )
-        outcome = None
-        iteration_limit = (
-            experience.max_iterations if experience.runs_closed_loop else 1
-        )
-        for iteration_number in range(1, iteration_limit + 1):
-            attempt_recorded = False
-            result = asyncio.run(
-                flow(
-                    instance_path=args.instance_path,
-                    task_level=args.task_level,
-                    local_root=local_root,
-                    workplace_name=args.workplace_name,
-                    max_iter_times=args.max_iter_times,
-                    category=args.category,
-                    references=references,
-                    run_id=instance_id,
-                    recall_context=recall_context,
-                    verification_check=experience.pending_verification_check(),
-                )
-            )
-            outcome = experience.after_flow(
-                result,
-                project_dir=project_dir,
+        return asyncio.run(
+            flow(
+                instance_path=args.instance_path,
+                task_level=args.task_level,
+                local_root=local_root,
+                workplace_name=args.workplace_name,
+                max_iter_times=args.max_iter_times,
+                category=args.category,
+                references=references,
                 run_id=instance_id,
+                recall_context=attempt_context.recall_context,
+                evaluation_evidence_guidance=(
+                    experience.evaluation_evidence_guidance
+                ),
+                experiment_seed=args.seed,
+                verification_check=attempt_context.verification_check,
+            )
+        )
+
+    try:
+        cycle_result = ImprovementCycleRunner(experience).run(
+            ImprovementCycleRequest(
+                run_id=instance_id,
+                task_id=instance_id,
+                query=references,
                 model=args.model,
                 domain=args.category,
                 dataset_id=args.category,
                 model_family=args.model,
-                recall_context=recall_context,
-                iteration_number=iteration_number,
-            )
-            attempt_recorded = experience.records_experience
-            experience.finalize_runtime(run_id=instance_id, outcome=outcome)
-            if (
-                not experience.runs_closed_loop
-                or outcome is None
-                or outcome.action != "continue"
-            ):
-                break
-            recall_context = experience.before_run(
-                task_id=instance_id,
-                query=references,
-                domain=args.category,
-                dataset_id=args.category,
-                model_family=args.model,
-            )
+                project_dir=project_dir,
+                run_cache_path=cache_path,
+                seed=args.seed,
+            ),
+            run_attempt,
+        )
+        result = cycle_result.flow_result
+        outcome = cycle_result.outcome
         bundle = build_and_save_eval_result(result, cache_path)
         bundle["experience_outcome"] = (
             outcome.model_dump(mode="json") if outcome is not None else None
         )
+        bundle["improvement_cycle"] = {
+            "iteration_number": cycle_result.iteration_number,
+            "attempt_cache_path": str(cycle_result.attempt_cache_path),
+            "recall_snapshot_id": (
+                cycle_result.recall_context.snapshot_id
+                if cycle_result.recall_context is not None
+                else None
+            ),
+        }
         return bundle
     except Exception as exc:
-        experience_recording_error = None
-        if experience.records_experience and not attempt_recorded:
-            try:
-                failed_outcome = experience.after_failure(
-                    project_dir=project_dir,
-                    run_id=instance_id,
-                    task_id=instance_id,
-                    query=references,
-                    model=args.model,
-                    domain=args.category,
-                    dataset_id=args.category,
-                    model_family=args.model,
-                    recall_context=recall_context,
-                    iteration_number=iteration_number,
-                    error=exc,
-                )
-                experience.finalize_runtime(
-                    run_id=instance_id,
-                    outcome=failed_outcome,
-                )
-            except Exception as record_exc:
-                experience_recording_error = (
-                    f"{type(record_exc).__name__}: {record_exc}"
-                )
         runtime.write_failure_status(
             run_id=instance_id,
             error_message=str(exc),
@@ -855,7 +876,6 @@ def main(args, references):
             metadata={
                 "entrypoint": "run_infer_idea",
                 "task_level": args.task_level,
-                "experience_recording_error": experience_recording_error,
             },
         )
         raise

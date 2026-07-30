@@ -1,0 +1,50 @@
+# Frozen second-round contract for paired no-recall versus recall trials.
+# The 0.95 utilization target drives equal-budget iteration; it is not a
+# paper-comparable calibrated baseline or an expected two-epoch result.
+schema_version: 1
+contract_id: one-layer-vq-cifar10-closed-loop
+version: "2"
+task_id: one_layer_vq:task1
+entrypoint: >-
+  python evaluate.py "{attempt_dir}"
+  --expected-codebook-size 128
+  --expected-train-sample-count 8192
+  --expected-latent-dim 16
+result_file: verification_result.json
+timeout_seconds: 30
+repetitions: 1
+required_artifacts:
+  - evaluation_manifest.json
+  - evaluation_arrays.npz
+  - run.log
+primary_metric:
+  name: codebook_utilization
+  direction: maximize
+baseline: 0.95
+evidence_instructions: |
+  This frozen second-round protocol is mandatory for every attempt:
+  - Train on exactly 8192 actual CIFAR-10 training examples for exactly 2 epochs.
+  - Use seed from the Experiment Attempt, codebook_size=128, latent_dim=16,
+    batch_size=128, and the official CIFAR-10 train/test splits.
+  - Implement the proposed frozen code basis plus one trainable linear
+    projection; keep the encoder/decoder and all other settings stable across
+    retries unless verified Recall Context justifies a documented change.
+  - Write evaluation_manifest.json in the project root with schema_version=1,
+    dataset_id="cifar10", split="test", epochs_completed=2, seed,
+    codebook_size=128, latent_dim=16, train_sample_count=8192, and
+    sample_count=1024.
+  - Write evaluation_arrays.npz with uint8 original_images and
+    reconstructed_images of identical NHWC shape plus integer
+    codebook_indices whose first dimension is 1024.
+  - The original_images must be the first 1024 official CIFAR-10 test images
+    in canonical order. Indices must be actual nearest-code assignments.
+  - Write run.log with the complete training and evaluation execution log.
+  Self-reported aggregate metrics are not accepted in place of raw evidence.
+validity:
+  require_finite_metrics: true
+  max_failed_repetitions: 0
+  metric_bounds:
+    reconstruction_mse:
+      maximum: 0.1
+    reconstruction_psnr_db:
+      minimum: 10.0

@@ -4,7 +4,7 @@ import json
 import os
 import asyncio
 from collections import defaultdict
-from typing import List, Callable, Union
+from typing import Any, List, Callable, Union
 # Local imports
 from litellm import ContextWindowExceededError, BadRequestError
 from litellm.types.utils import Message as litellmMessage
@@ -73,6 +73,67 @@ def should_retry_error(retry_state: RetryCallState):
     ])
 __CTX_VARS_NAME__ = "context_variables"
 logger = LoggerManager.get_logger()
+
+
+def _usage_value(usage: Any, field: str) -> int:
+    if usage is None:
+        return 0
+    if isinstance(usage, dict):
+        value = usage.get(field, 0)
+    else:
+        value = getattr(usage, field, 0)
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def accumulate_llm_usage(
+    context_variables: dict,
+    completion_response: Any,
+    *,
+    requested_model: str,
+) -> dict:
+    """Aggregate non-sensitive provider usage metadata into the run context."""
+    usage = getattr(completion_response, "usage", None)
+    model = str(getattr(completion_response, "model", "") or requested_model or "unknown")
+    delta = {
+        "calls": 1,
+        "prompt_tokens": _usage_value(usage, "prompt_tokens"),
+        "completion_tokens": _usage_value(usage, "completion_tokens"),
+        "total_tokens": _usage_value(usage, "total_tokens"),
+    }
+    if not delta["total_tokens"]:
+        delta["total_tokens"] = delta["prompt_tokens"] + delta["completion_tokens"]
+
+    aggregate = context_variables.setdefault(
+        "llm_usage",
+        {
+            "calls": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "by_model": {},
+        },
+    )
+    for field, value in delta.items():
+        aggregate[field] = int(aggregate.get(field, 0) or 0) + value
+
+    by_model = aggregate.setdefault("by_model", {})
+    model_usage = by_model.setdefault(
+        model,
+        {
+            "calls": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        },
+    )
+    for field, value in delta.items():
+        model_usage[field] = int(model_usage.get(field, 0) or 0) + value
+    return aggregate
+
+
 def truncate_message(message: str) -> str:
     """按比例截断消息"""
     if not message:
@@ -131,7 +192,11 @@ class MetaChain:
             fallback_candidates.extend(
                 [model.strip() for model in env_fallbacks.split(",") if model.strip()]
             )
-        fallback_candidates.extend([CHEEP_MODEL, COMPLETION_MODEL, "deepseek-chat"])
+        # Only fall back to models that were explicitly configured for this
+        # deployment.  Provider-specific aliases such as ``deepseek-chat`` may
+        # not exist on an OpenAI-compatible gateway (AI Ping, for example),
+        # and can hide the primary provider error behind a misleading 404.
+        fallback_candidates.extend([CHEEP_MODEL, COMPLETION_MODEL])
 
         deduped_models: List[str] = []
         for index, model_name in enumerate(fallback_candidates):
@@ -411,6 +476,11 @@ class MetaChain:
                 stream=stream,
                 debug=debug,
             )
+            accumulate_llm_usage(
+                context_variables,
+                completion,
+                requested_model=model_override or active_agent.model,
+            )
             message: Message = completion.choices[0].message
             message.sender = active_agent.name
             # debug_print(debug, "Received completion:", message.model_dump_json(indent=4), log_path=log_path, title="Received Completion", color="blue")
@@ -624,6 +694,11 @@ class MetaChain:
                 self.logger.info(f"Error: {e}", title="Error", color="red")
                 history.append({"role": "error", "content": f"Error: {e}"})
                 break
+            accumulate_llm_usage(
+                context_variables,
+                completion_response,
+                requested_model=model_override or active_agent.model,
+            )
             message: Message = completion_response.choices[0].message
             message.sender = active_agent.name
             # debug_print(debug, "Received completion:", message.model_dump_json(indent=4), log_path=log_path, title="Received Completion", color="blue")

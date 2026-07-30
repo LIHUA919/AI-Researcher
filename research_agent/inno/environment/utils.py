@@ -3,7 +3,15 @@ from research_agent.constant import DOCKER_WORKPLACE_NAME
 import os
 import shutil
 from pathlib import Path
+import hashlib
+import tarfile
 import urllib.request
+
+
+CIFAR10_ARCHIVE_MD5 = "c58f30108f718f92721af3b95e74349a"
+CIFAR10_ARCHIVE_SHA256 = (
+    "6d958be074577803d12ecdefd02955f39262c83c16fe9348329d7fe0b5c001ce"
+)
 
 
 def dataset_source_path(category: str) -> Path:
@@ -47,6 +55,62 @@ def setup_dataset(category: str, local_workplace: str):
     except Exception as e:
         raise Exception(f"copy {source_path} to {dataset_candidate_path} failed: {str(e)}")
     ensure_dataset_candidate_compat(category, local_workplace)
+
+
+def setup_project_scaffold(
+    category: str,
+    local_workplace: str,
+    *,
+    seed: int,
+) -> None:
+    """Install the frozen real-data scaffold before an implementation agent runs."""
+    if category != "vq":
+        return
+
+    workplace = Path(local_workplace)
+    dataset_candidate = workplace / "dataset_candidate"
+    archive = dataset_candidate / "cifar-10-python.tar.gz"
+    if not archive.is_file():
+        raise FileNotFoundError(f"missing official CIFAR-10 archive: {archive}")
+    md5_digest = hashlib.md5()
+    sha256_digest = hashlib.sha256()
+    with archive.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            md5_digest.update(chunk)
+            sha256_digest.update(chunk)
+    if md5_digest.hexdigest() != CIFAR10_ARCHIVE_MD5:
+        raise ValueError("CIFAR-10 archive checksum does not match the official file")
+    if sha256_digest.hexdigest() != CIFAR10_ARCHIVE_SHA256:
+        raise ValueError("CIFAR-10 archive SHA-256 does not match the official file")
+
+    project = workplace / "project"
+    project.mkdir(parents=True, exist_ok=True)
+    data_dir = project / "data"
+    extracted = data_dir / "cifar-10-batches-py"
+    if not extracted.is_dir():
+        data_dir.mkdir(parents=True, exist_ok=True)
+        with tarfile.open(archive, "r:gz") as bundle:
+            destination = data_dir.resolve()
+            for member in bundle.getmembers():
+                member_path = (destination / member.name).resolve()
+                if destination not in member_path.parents and member_path != destination:
+                    raise ValueError(f"unsafe CIFAR-10 archive member: {member.name}")
+            bundle.extractall(data_dir)
+
+    repo_root = Path(__file__).resolve().parents[3]
+    protocol_source = repo_root / "benchmark/real_smoke/one_layer_vq/train.py"
+    entrypoint_source = dataset_source_path(category) / "run_training_testing.py"
+    spec_loader_source = dataset_source_path(category) / "attempt_spec.py"
+    protocol_target = project / "protocol.py"
+    entrypoint_target = project / "run_training_testing.py"
+    spec_loader_target = project / "attempt_spec.py"
+    if not protocol_target.exists():
+        shutil.copy2(protocol_source, protocol_target)
+    if not entrypoint_target.exists():
+        shutil.copy2(entrypoint_source, entrypoint_target)
+    if not spec_loader_target.exists():
+        shutil.copy2(spec_loader_source, spec_loader_target)
+    (project / ".experiment_seed").write_text(str(seed), encoding="utf-8")
 
 
 def ensure_dataset_candidate_compat(category: str, local_workplace: str):

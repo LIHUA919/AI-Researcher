@@ -1,0 +1,123 @@
+{
+  "canonical_test_prefix_sha256": "184c368bb18c9a218c5d893d5153c76fb680f9546a5e054cf182233b19864089",
+  "configuration": {
+    "batch_size": 128,
+    "codebook_size": 128,
+    "commitment_weight": 0.25,
+    "dataset_id": "cifar10",
+    "dataset_source": "huggingface",
+    "device": "mps",
+    "epochs_completed": 2,
+    "latent_dim": 16,
+    "learning_rate": 0.0003,
+    "sample_count": 1024,
+    "source_sha256": "33c707aee7fc0051690f104a8499478b70743faa652f9a53125b474231d6976a",
+    "train_sample_count": 8192,
+    "training_protocol": "deterministic_subset_without_replacement"
+  },
+  "disclaimer": "Real CIFAR-10 method smoke only. This is not an Experience Gain or paper-reproduction claim.",
+  "generated_at": "2026-07-27T04:50:11.848885+00:00",
+  "report_type": "real_data_method_smoke",
+  "schema_version": "1",
+  "seeds": [
+    101,
+    202,
+    303
+  ],
+  "summary": {
+    "mean_paired_delta": {
+      "codebook_perplexity": -0.202943110888,
+      "codebook_utilization": 0.0,
+      "reconstruction_mse": -0.000275890097,
+      "reconstruction_psnr_db": -0.04258373935
+    },
+    "paired_deltas": [
+      {
+        "codebook_perplexity": -0.459710043743,
+        "codebook_utilization": 0.0078125,
+        "reconstruction_mse": 0.000439222185,
+        "reconstruction_psnr_db": 0.064831803066,
+        "seed": 101
+      },
+      {
+        "codebook_perplexity": 0.25590966557,
+        "codebook_utilization": -0.0078125,
+        "reconstruction_mse": -0.000194309073,
+        "reconstruction_psnr_db": -0.030291392495,
+        "seed": 202
+      },
+      {
+        "codebook_perplexity": -0.40502895449,
+        "codebook_utilization": 0.0,
+        "reconstruction_mse": -0.001072583402,
+        "reconstruction_psnr_db": -0.162291628622,
+        "seed": 303
+      }
+    ],
+    "variant_means": {
+      "simvq": {
+        "codebook_perplexity": 3.0011621264897825,
+        "codebook_utilization": 0.052083333333333336,
+        "reconstruction_mse": 0.028800464247011343,
+        "reconstruction_psnr_db": 15.406949082001598
+      },
+      "vanilla": {
+        "codebook_perplexity": 3.2041052373775822,
+        "codebook_utilization": 0.052083333333333336,
+        "reconstruction_mse": 0.028524574150396043,
+        "reconstruction_psnr_db": 15.449532821352284
+      }
+    }
+  },
+  "task_id": "one_layer_vq:task1",
+  "verified_metrics": {
+    "101": {
+      "simvq": {
+        "active_codes": 5,
+        "codebook_perplexity": 2.4064498412484183,
+        "codebook_utilization": 0.0390625,
+        "reconstruction_mse": 0.029203496798787015,
+        "reconstruction_psnr_db": 15.345651434319372
+      },
+      "vanilla": {
+        "active_codes": 4,
+        "codebook_perplexity": 2.8661598849910996,
+        "codebook_utilization": 0.03125,
+        "reconstruction_mse": 0.029642718983784278,
+        "reconstruction_psnr_db": 15.28081963125372
+      }
+    },
+    "202": {
+      "simvq": {
+        "active_codes": 9,
+        "codebook_perplexity": 3.503616494895608,
+        "codebook_utilization": 0.0703125,
+        "reconstruction_mse": 0.02795579465156975,
+        "reconstruction_psnr_db": 15.535281582832635
+      },
+      "vanilla": {
+        "active_codes": 10,
+        "codebook_perplexity": 3.2477068293260603,
+        "codebook_utilization": 0.078125,
+        "reconstruction_mse": 0.027761485578768466,
+        "reconstruction_psnr_db": 15.565572975327878
+      }
+    },
+    "303": {
+      "simvq": {
+        "active_codes": 6,
+        "codebook_perplexity": 3.09342004332532,
+        "codebook_utilization": 0.046875,
+        "reconstruction_mse": 0.029242101290677277,
+        "reconstruction_psnr_db": 15.339914228852784
+      },
+      "vanilla": {
+        "active_codes": 6,
+        "codebook_perplexity": 3.4984489978155864,
+        "codebook_utilization": 0.046875,
+        "reconstruction_mse": 0.028169517888635393,
+        "reconstruction_psnr_db": 15.50220585747525
+      }
+    }
+  }
+}
