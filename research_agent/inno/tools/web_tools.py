@@ -38,20 +38,6 @@ def with_env(env: BrowserEnv):
         return wrapped
     return decorator
 
-def with_two_envs(env: BrowserEnv, code_env: DockerEnv):
-    """将env注入到工具函数中的装饰器"""
-    def decorator(func):
-        def wrapped(*args, **kwargs):
-            return func(env=env, code_env=code_env, *args, **kwargs)
-        
-        # 保留原始函数的所有属性
-        update_wrapper(wrapped, func)
-        # 修改signature，移除env参数
-        wrapped.__signature__ = signature(func).replace(
-            parameters=[p for p in signature(func).parameters.values() if p.name not in ['env', 'code_env']]
-        )
-        return wrapped
-    return decorator
 @dataclass
 class WebObservation:
     content: str  # text content of the page

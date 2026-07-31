@@ -76,74 +76,6 @@ def return_paper_file():
     PAPER_FILE = f'{category}/target_sections/{instance_id}/iclr2025_conference.pdf'
     return PAPER_FILE
 
-def return_paper_log_file():
-    return PAPER_LOG
-
-def return_paper_log():
-    logs_dir = os.path.join(os.path.dirname(__file__), "paper_agent", "paper_logs")
-    os.makedirs(logs_dir, exist_ok=True)
-
-    # logs_dir = os.path.join("casestudy_results", f'agent_{container_name}', 'logs')
-    # os.makedirs(logs_dir, exist_ok=True)
-
-    # 生成日志文件名（使用当前日期）
-    # current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
-    log_file = os.path.join(logs_dir, f"rotated_vq_{current_date}.log")
-
-    global_state.LOG_PATH = log_file
-
-    # 配置根日志记录器（捕获所有日志）
-    root_logger = logging.getLogger()
-
-    # 清除现有的处理器，避免重复日志
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-
-    root_logger.setLevel(logging.INFO)
-
-    # 创建文件处理器
-    file_handler = logging.FileHandler(log_file, encoding="utf-8", mode="a")
-    file_handler.setLevel(logging.INFO)
-
-    # 创建控制台处理器
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-
-    # 创建格式化器
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
-
-    # 添加处理器到根日志记录器
-    root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
-
-    logging.info("Logging system initialized, log file: %s", log_file)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
-    return log_file
-
-
-def get_latest_log():
-    path2save = os.path.splitext(os.path.basename(LOG_FILE))[0]
-    # Read the current content of the log file
-    try:
-        with open(LOG_FILE, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        # Create a temporary file with timestamp to ensure uniqueness
-        temp_file = f"{path2save}_copy.log"
-        with open(temp_file, "w", encoding="utf-8") as f:
-            f.write(content)
-        return temp_file
-    except Exception as e:
-        print(f"Error reading log file: {e}")
-        return None
-
-
 def get_base64_image(image_path):
     with open(image_path, "rb") as image_file:
         encoded = base64.b64encode(image_file.read()).decode("utf-8")
@@ -153,7 +85,6 @@ def get_base64_image(image_path):
 # 全局变量
 LOG_FILE = None
 LOG_READ_FILE = None
-PAPER_LOG = None
 category = os.getenv("CATEGORY")
 instance_id = os.getenv("INSTANCE_ID")
 
@@ -634,37 +565,6 @@ def load_env_vars():
     return env_vars
 
 
-def save_env_vars(env_vars):
-    """保存环境变量到.env文件
-
-    Args:
-        env_vars: 字典，键为环境变量名，值可以是字符串或(值,来源)元组
-    """
-    try:
-        dotenv_path = init_env_file()
-
-        # 保存每个环境变量
-        for key, value_data in env_vars.items():
-            if key and key.strip():  # 确保键不为空
-                # 处理值可能是元组的情况
-                if isinstance(value_data, tuple):
-                    value = value_data[0]
-                else:
-                    value = value_data
-
-                set_key(dotenv_path, key.strip(), value.strip())
-
-        # 重新加载环境变量以确保生效
-        load_dotenv(dotenv_path, override=True)
-        global_state.START_FLAG = False
-        global_state.FIRST_MAIN = False
-        # autoagent_init(container_name, port, test_pull_name, git_clone, local_env, LOG_FILE)
-
-        return True, "Environment variables have been successfully saved!"
-    except Exception as e:
-        return False, f"Error saving environment variables: {str(e)}"
-
-
 def add_env_var(key, value, from_frontend=True):
     """添加或更新单个环境变量
 
@@ -899,19 +799,6 @@ def save_env_table_changes(data):
         error_details = traceback.format_exc()
         logging.error(f"Error saving environment variables: {str(e)}\n{error_details}")
         return f"❌ Save failed: {str(e)}"
-
-
-def get_env_var_value(key):
-    """获取环境变量的实际值
-
-    优先级：前端配置 > .env文件 > 系统环境变量
-    """
-    # 检查前端配置的环境变量
-    if key in WEB_FRONTEND_ENV_VARS:
-        return WEB_FRONTEND_ENV_VARS[key]
-
-    # 检查系统环境变量（包括从.env加载的）
-    return os.environ.get(key, "")
 
 
 def create_ui():
@@ -1633,9 +1520,7 @@ def main():
     try:
         global LOG_FILE
         global LOG_READ_FILE
-        # global PAPER_LOG
         LOG_FILE = setup_logging()
-        # PAPER_LOG = return_paper_log()
         LOG_READ_FILE = setup_path()
         # logging.info("AutoAgent Web application is running")
 

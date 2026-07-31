@@ -5,16 +5,6 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
-def run_and_print(args):
-    result = subprocess.run(args, capture_output=True, text=True)
-    logger.info("[CMD] %s", " ".join(args))
-    if result.stdout:
-        logger.debug(result.stdout)
-    if result.stderr:
-        logger.debug(result.stderr)
-    return result
-
-
 def compile_latex_project(project_dir, main_tex_file):
     """Compile a LaTeX project with bibtex support.
 

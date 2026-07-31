@@ -302,21 +302,3 @@ def check_container_ports(container_name: str):
             container_port = container_part.split('/')[0]  # get '12345' from '12345/tcp'
             return (int(host_port), int(container_port))  # convert to integers
     return None
-
-def check_container_exist(container_name: str):
-    container_check_command = [
-        "docker", "ps", "-a",
-        "--filter", f"name={container_name}",
-        "--format", "{{.Names}}"
-    ]
-    result = subprocess.run(container_check_command, capture_output=True, text=True)
-    return container_name in result.stdout.strip()
-
-def check_container_running(container_name: str):
-    container_check_command = [
-        "docker", "ps",
-        "--filter", f"name={container_name}",
-        "--format", "{{.Names}}"
-    ]
-    result = subprocess.run(container_check_command, capture_output=True, text=True)
-    return container_name in result.stdout.strip()

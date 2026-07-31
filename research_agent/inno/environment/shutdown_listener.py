@@ -2,10 +2,8 @@
 This module monitors the app for shutdown signals
 """
 
-import asyncio
 import signal
 import threading
-import time
 from types import FrameType
 
 from uvicorn.server import HANDLED_SIGNALS
@@ -45,21 +43,3 @@ def should_exit() -> bool:
 def should_continue() -> bool:
     _register_signal_handlers()
     return not _should_exit
-
-
-def sleep_if_should_continue(timeout: float):
-    if timeout <= 1:
-        time.sleep(timeout)
-        return
-    start_time = time.time()
-    while (time.time() - start_time) < timeout and should_continue():
-        time.sleep(1)
-
-
-async def async_sleep_if_should_continue(timeout: float):
-    if timeout <= 1:
-        await asyncio.sleep(timeout)
-        return
-    start_time = time.time()
-    while time.time() - start_time < timeout and should_continue():
-        await asyncio.sleep(1)

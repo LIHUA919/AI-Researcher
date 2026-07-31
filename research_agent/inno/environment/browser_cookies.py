@@ -45,16 +45,5 @@ def convert_cookies_to_python():
         f.write(output_str)
     return output_str
 
-def get_all_cookies():
-    all_cookies = []
-    json_dir = wd / "cookie_json"
-    cookie_files = glob.glob(str(json_dir / "*.json"))
-    
-    for cookie_file in cookie_files:
-        json_path = wd / "cookie_json" / cookie_file
-        cookies = load_cookies_from_json(json_path)
-        all_cookies.extend(cookies)
-    return all_cookies
-
 if __name__ == "__main__":
     print(convert_cookies_to_python())

@@ -1,13 +1,9 @@
 from pathlib import Path
 from tqdm import tqdm
-import multiprocessing
-from copy import deepcopy
 import re
 from lm_eval.tasks.minerva_math.utils import (
-    last_boxed_only_string,
     normalize_final_answer,
     get_unnormalized_answer,
-    remove_boxed,
     is_equiv,
 )
 
@@ -90,22 +86,6 @@ def is_correct(sample: str, gt_answer: str, dset: str):
         raise ValueError(f"Dataset {dset} not supported")
 
 
-
-
-def get_tasks(config):
-    sample_paths = Path(config.samples_dir).glob("*.yaml")
-
-    tasks = []
-    for sample_path in tqdm(sample_paths, desc="Loading generations"):
-        save_path = config.save_dir / sample_path.name
-
-        task_config = deepcopy(config)
-        task_config.sample_path = sample_path
-        task_config.save_path = save_path
-
-        tasks.append(task_config)
-
-    return tasks
 
 
 def main(args):

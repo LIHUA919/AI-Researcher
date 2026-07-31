@@ -233,20 +233,6 @@ class ResearchPipeline:
         return goal
 
 
-def complete_stage_or_raise(
-    pipeline: ResearchPipeline,
-    stage_name: str,
-    *,
-    artifacts: dict[str, str] | None = None,
-    metadata: dict[str, Any] | None = None,
-) -> dict:
-    return pipeline.complete_stage(
-        stage_name,
-        artifacts=artifacts,
-        metadata=metadata,
-    )
-
-
 def implementation_ready(context_variables: dict[str, Any]) -> bool:
     """Return the typed judge decision; prose output is never authoritative."""
 

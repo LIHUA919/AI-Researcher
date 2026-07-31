@@ -28,7 +28,6 @@ from research_agent.inno.environment.mdconvert import _get_page_markdown
 from research_agent.inno.environment.browser_cookies import convert_cookies_to_python
 from research_agent.inno.environment.cookies_data import COOKIES_LIST
 # from constant import DOCKER_WORKPLACE_NAME, LOCAL_ROOT
-import tempfile
 
 VIEWPORT = {"width": 1280, "height": 720}
 local_workplace = ""
@@ -592,24 +591,3 @@ def _local_to_docker(local_path: str):
             if add_data_prefix
             else f'{image_base64}'
         )
-def source_to_function(source_code: str, func_name: str):
-    """将源代码字符串转换为函数，支持 inspect.getsource"""
-    # 创建临时文件
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-        f.write(source_code)
-        temp_path = f.name
-
-    try:
-        # 导入临时模块
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("temp_module", temp_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        
-        # 获取函数
-        func = getattr(module, func_name)
-        return func
-        
-    finally:
-        # 清理临时文件
-        os.unlink(temp_path)

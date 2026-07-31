@@ -281,12 +281,6 @@ def execute_command(command: str, env: DockerEnv) -> str:
         return f"Error running command: {str(e)}"
 
 
-def set_doc(doc_template):
-    def decorator(func):
-        func.__doc__ = doc_template
-        return func
-    return decorator
-
 @register_tool("run_python")
 @process_terminal_response
 def run_python(

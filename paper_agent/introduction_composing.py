@@ -32,9 +32,6 @@ class IntroductionComposer(SectionComposer):
             #     if paper['target'].lower() == target_paper_lower:
             #         return paper.get('task1', '')
             return benchmark_data['task1']
-            
-            logging.warning(f"No matching paper found for: {target_paper}")
-            return ""
         except Exception as e:
             logging.error(f"Error reading benchmark file: {str(e)}")
             return ""

@@ -72,14 +72,6 @@ def get_args_research():
     return args
 
 
-def get_args_paper():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--research_field", type=str, default="vq")
-    parser.add_argument("--instance_id", type=str, default="rotation_vq")
-    args = parser.parse_args()
-    return args
-
-
 def _prepare_research_args(config):
     """Build a research args namespace from the validated config dict.
 

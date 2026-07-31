@@ -21,7 +21,6 @@ from litellm import completion, acompletion
 from .logger import MetaChainLogger, LoggerManager
 from httpx import RemoteProtocolError, ConnectError, TimeoutException
 from litellm.exceptions import APIError
-from tenacity import RetryCallState
 from research_agent.constant import  API_BASE_URL, CHEEP_MODEL, COMPLETION_MODEL, NOT_SUPPORT_SENDER, MUST_ADD_USER, NOT_SUPPORT_FN_CALL, NOT_USE_FN_CALL
 from research_agent.inno.fn_call_converter import convert_tools_to_description, convert_non_fncall_messages_to_fncall_messages, SYSTEM_PROMPT_SUFFIX_TEMPLATE, convert_fn_messages_to_non_fn_messages, interleave_user_into_messages
 from research_agent.inno.memory.utils import encode_string_by_tiktoken, decode_tokens_by_tiktoken
@@ -33,44 +32,6 @@ LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "180"))
 LLM_RETRY_ATTEMPTS = int(os.getenv("LLM_RETRY_ATTEMPTS", "3"))
 LLM_RETRY_BACKOFF_SECONDS = int(os.getenv("LLM_RETRY_BACKOFF_SECONDS", "5"))
 
-def should_retry_error(retry_state: RetryCallState):
-    """检查是否应该重试错误
-    
-    Args:
-        retry_state: RetryCallState对象，包含重试状态信息
-        
-    Returns:
-        bool: 是否应该重试
-    """
-    if retry_state.outcome is None:
-        return False
-        
-    exception = retry_state.outcome.exception()
-    if exception is None:
-        return False
-        
-    print(f"Caught exception: {type(exception).__name__} - {str(exception)}")
-    
-    # 匹配更多错误类型
-    if isinstance(exception, (APIError, RemoteProtocolError, ConnectError, TimeoutException, TimeoutError)):
-        return True
-    
-    # 通过错误消息匹配
-    error_msg = str(exception).lower()
-    return any([
-        "connection error" in error_msg,
-        "server disconnected" in error_msg,
-        "eof occurred" in error_msg,
-        "timeout" in error_msg,
-        "rate limit" in error_msg,  # 添加 rate limit 错误检查
-        "rate_limit_error" in error_msg,  # Anthropic 的错误类型
-        "too many requests" in error_msg,  # HTTP 429 错误
-        "overloaded" in error_msg,  # 添加 Anthropic overloaded 错误
-        "overloaded_error" in error_msg,  # 添加 Anthropic overloaded 错误的另一种形式
-        "负载已饱和" in error_msg,  # 添加中文错误消息匹配
-        "error code: 429" in error_msg,  # 添加 HTTP 429 状态码匹配
-        "context_length_exceeded" in error_msg  # 添加上下文长度超限错误匹配
-    ])
 __CTX_VARS_NAME__ = "context_variables"
 logger = LoggerManager.get_logger()
 

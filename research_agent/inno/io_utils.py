@@ -1,16 +1,9 @@
-import yaml
 import hashlib
 import zipfile
 import os
-import json
 def read_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         content = file.read()
-    return content
-
-def read_yaml_file(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        content = yaml.safe_load(file)
     return content
 
 def get_file_md5(file_path):
@@ -36,11 +29,3 @@ def compress_folder(source_folder, destination_folder, archive_name):
                 zipf.write(file_path, arcname)
     
     print(f"Folder '{source_folder}' has been compressed to '{archive_path}'")
-
-def get_md5_hash_bytext(text):
-    return hashlib.md5(text.encode('utf-8')).hexdigest()
-
-def read_json_file(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        content = json.load(file)
-    return content

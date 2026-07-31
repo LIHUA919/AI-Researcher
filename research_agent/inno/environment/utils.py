@@ -1,5 +1,3 @@
-from research_agent.inno.util import run_command_in_container
-from research_agent.constant import DOCKER_WORKPLACE_NAME
 import os
 import shutil
 from pathlib import Path
@@ -17,21 +15,6 @@ CIFAR10_ARCHIVE_SHA256 = (
 def dataset_source_path(category: str) -> Path:
     repo_root = Path(__file__).resolve().parents[3]
     return repo_root / "benchmark" / "process" / "dataset_candidate" / category
-
-def setup_metachain():
-    cmd = "pip list | grep metachain"
-    response = run_command_in_container(cmd)
-    if response['status'] == 0:
-        print("Metachain is already installed.")
-        return
-    cmd = f"cd /{DOCKER_WORKPLACE_NAME}/metachain && pip install -e ."
-    response = run_command_in_container(cmd)
-    if response['status'] == 0:
-        print("Metachain is installed.")
-        return
-    else:
-        raise Exception(f"Failed to install metachain. {response['result']}")
-
 
 def setup_dataset(category: str, local_workplace: str):
     # 构建目标路径

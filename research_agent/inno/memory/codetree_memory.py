@@ -1,6 +1,6 @@
 import os
 from typing import List, Dict
-from research_agent.inno.memory.rag_memory import Memory, Reranker
+from research_agent.inno.memory.rag_memory import Memory
 from research_agent.inno.memory.code_tree.code_parser import CodeParser, to_dataframe_row
 from tree_sitter import Language
 from loguru import logger
@@ -84,22 +84,6 @@ class CodeTreeMemory(Memory):
             }
             for doc, metadata in zip(results['documents'][0], results['metadatas'][0])
         ]
-class DummyReranker(Reranker):
-    def __init__(self, model: str = None) -> None:
-        super().__init__(model)
-    def rerank(self, query_results: List[Dict]) -> List[Dict]:
-        wrapped_reranked_results = "[Referenced code files]:"
-        result_path = []
-        for result in query_results:
-            if result['file'] in result_path:
-                continue
-            else:
-                result_path.append(result['file'])
-            wrapped_reranked_results = f"Code path: {result['file']}\n"
-            wrapped_reranked_results += f"Code content:\n{result['content']}...\n"
-            wrapped_reranked_results += "---\n"
-        return wrapped_reranked_results
-
 # 使用示例
 if __name__ == "__main__":
     code_memory = CodeTreeMemory(project_path = './code_db', db_name='code_tree', platform='OpenAI', api_key=os.environ.get('OPENAI_API_KEY', ''))

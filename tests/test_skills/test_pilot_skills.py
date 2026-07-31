@@ -69,6 +69,9 @@ class TestPilotSkillLoading:
         skill = loader.load("code_search")
         names = skill.tool_names
         assert "search_github_repos" in names
+        assert {
+            function.__module__ for function in skill.functions
+        } == {"research_agent.inno.tools.inno_tools.code_search"}
 
     def test_file_operations_loads_without_env(self):
         loader = SkillLoader()

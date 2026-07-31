@@ -1,20 +1,17 @@
-import torch
 from datasets import load_dataset
 from tqdm import tqdm
-import multiprocessing
 import random
-import requests
-from functools import partial
 import argparse
 from pathlib import Path    
 import yaml
-import importlib
 import os
 import asyncio
+from dotenv import load_dotenv
 from prompts import MATH_COT_PROMPT
-from constant import *
 
 import openai
+
+load_dotenv()
 
 def save_yaml(path: Path, data, sort_keys=True):
     with open(path, "w") as f:
@@ -92,9 +89,8 @@ async def main(args):
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    predictions = []
     for item in tqdm(test_dataset):
-        predictions.append(await run_inference(item, save_dir, args.model, args.base_url))
+        await run_inference(item, save_dir, args.model, args.base_url)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

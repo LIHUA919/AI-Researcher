@@ -269,7 +269,7 @@ pytest -q
 Current local baseline:
 
 - 490 tests passing
-- 46 dynamically registered tools
+- 45 dynamically registered tools
 - 5 dynamically registered agents
 
 Some dependency deprecation warnings remain and are tracked separately from
