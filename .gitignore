@@ -61,9 +61,13 @@ examples/*/paper.png
 # Non-essential directories (not required for running)
 examples/
 docs/*
+!docs/README.md
 !docs/design/
 docs/design/*
-!docs/design/experience-driven-research-loop.md
+!docs/design/*.md
+!docs/implementation/
+docs/implementation/*
+!docs/implementation/*.md
 paper_db/
 PHASE_2C_COMPLETION_REPORT.md
 PLUGIN_FRAMEWORK_COMPARISON.md

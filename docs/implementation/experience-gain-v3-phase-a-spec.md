@@ -3,7 +3,7 @@
 > 状态：Ready for implementation
 > 范围：仅 Phase A——打通可执行 Intervention、Manipulation Check 与 Trial Provenance
 > 预计工作量：2–3 engineer-days
-> 依据：[下一轮改进计划](NEXT_ROUND_EXPERIENCE_GAIN_PLAN.md)、[领域语言](../CONTEXT.md)、[经验驱动研究循环设计](../docs/design/experience-driven-research-loop.md)
+> 依据：[下一轮改进计划](experience-gain-next-round-plan.md)、[领域语言](../../CONTEXT.md)、[经验驱动研究循环设计](../design/experience-driven-research-loop.md)
 
 ## 1. 实施结论
 
@@ -51,15 +51,15 @@ Recall Context
 
 当前 VQ Attempt 的关键路径如下：
 
-1. [`setup_project_scaffold`](../research_agent/inno/environment/utils.py) 校验/解压 CIFAR-10，只在目标文件不存在时复制 `train.py -> protocol.py` 和固定入口，并写 `.experiment_seed`。
-2. [`ImprovementCycleRunner.run`](../research_agent/runtime/improvement_cycle.py) 每轮只传 `RecallContext`，不保留上一轮执行 config 或 verified feedback。
-3. [`InnoFlow.forward`](../research_agent/run_infer_plan.py) 把 recall 渲染成 prose，并完整重跑 prepare、survey、plan、implement、judge。
+1. [`setup_project_scaffold`](../../research_agent/inno/environment/utils.py) 校验/解压 CIFAR-10，只在目标文件不存在时复制 `train.py -> protocol.py` 和固定入口，并写 `.experiment_seed`。
+2. [`ImprovementCycleRunner.run`](../../research_agent/runtime/improvement_cycle.py) 每轮只传 `RecallContext`，不保留上一轮执行 config 或 verified feedback。
+3. [`InnoFlow.forward`](../../research_agent/run_infer_plan.py) 把 recall 渲染成 prose，并完整重跑 prepare、survey、plan、implement、judge。
 4. `FROZEN_VQ_TEMPLATES` 在 submit 前恢复 `protocol.py` 与 `run_training_testing.py`。
 5. `run_frozen_vq_protocol` 无 config 输入，直接执行固定入口。
-6. [`run_training_testing.py`](process/dataset_candidate/vq/run_training_testing.py) 只从 `.experiment_seed` 读取 seed，其余训练参数写死。
-7. [`train.py`](real_smoke/one_layer_vq/train.py) 使用单一 `Adam(model.parameters(), lr=...)`；manifest schema 1 只摘要当前 `protocol.py`，并用无 framing 的数组拼接生成 evidence digest。
-8. [`ExperienceRunAdapter._record_result`](../research_agent/runtime/experience_adapter.py) 在执行后扫描整个 project tree 作为 `code_revision`，再构造 Attempt 和 Observation。
-9. [`CommandVerifier`](../research_agent/inno/experience/evaluation.py) 运行 evaluator，但 evaluator 只检查固定预算与 raw arrays，不检查 proposal、config、source 和 manifest 的 provenance chain。
+6. [`run_training_testing.py`](../../benchmark/process/dataset_candidate/vq/run_training_testing.py) 只从 `.experiment_seed` 读取 seed，其余训练参数写死。
+7. [`train.py`](../../benchmark/real_smoke/one_layer_vq/train.py) 使用单一 `Adam(model.parameters(), lr=...)`；manifest schema 1 只摘要当前 `protocol.py`，并用无 framing 的数组拼接生成 evidence digest。
+8. [`ExperienceRunAdapter._record_result`](../../research_agent/runtime/experience_adapter.py) 在执行后扫描整个 project tree 作为 `code_revision`，再构造 Attempt 和 Observation。
+9. [`CommandVerifier`](../../research_agent/inno/experience/evaluation.py) 运行 evaluator，但 evaluator 只检查固定预算与 raw arrays，不检查 proposal、config、source 和 manifest 的 provenance chain。
 
 ### 2.2 当前 provenance 的具体错误
 
@@ -76,7 +76,7 @@ Recall Context
 
 ### 2.3 不可变 Ledger 的兼容约束
 
-[`ImmutableModel`](../research_agent/inno/experience/models.py) 使用 `extra="forbid"`、`frozen=True`，SQLite 的 `_append()` 又比较 canonical JSON 的精确字节。
+[`ImmutableModel`](../../research_agent/inno/experience/models.py) 使用 `extra="forbid"`、`frozen=True`，SQLite 的 `_append()` 又比较 canonical JSON 的精确字节。
 
 因此禁止给旧持久模型增加带默认值的 provenance 字段。否则会发生：
 

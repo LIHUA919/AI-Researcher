@@ -6,7 +6,7 @@
 
 范围：AI-Researcher 的经验记录、知识晋升、召回、闭环试验和 One-layer VQ 评测
 
-配套交付：[Phase A 代码级实施规格](EXPERIENCE_GAIN_V3_PHASE_A_IMPLEMENTATION_SPEC.md)
+配套交付：[Phase A 代码级实施规格](experience-gain-v3-phase-a-spec.md)
 
 ## 1. 执行摘要
 
@@ -68,8 +68,8 @@
 
 ### 3.1 已经成立的结论
 
-正式合并审计文件为
-[`one_layer_vq_closed_loop_v2_final_20260727_combined_audit.json`](runs/one_layer_vq_closed_loop_v2_final_20260727_combined_audit.json)。
+正式合并审计文件为本地生成的
+`benchmark/runs/one_layer_vq_closed_loop_v2_final_20260727_combined_audit.json`（实验产物不纳入版本控制）。
 
 | 项目 | 审计结果 |
 |---|---:|
@@ -103,9 +103,9 @@
 
 ### 3.2 核心设计缺陷：干预被冻死
 
-[`run_infer_plan.py`](../research_agent/run_infer_plan.py) 中的 `FROZEN_VQ_TEMPLATES` 把 `protocol.py` 和 `run_training_testing.py` 指向受信模板；`run_frozen_vq_protocol` 在每次训练前恢复这两个文件。
+[`run_infer_plan.py`](../../research_agent/run_infer_plan.py) 中的 `FROZEN_VQ_TEMPLATES` 把 `protocol.py` 和 `run_training_testing.py` 指向受信模板；`run_frozen_vq_protocol` 在每次训练前恢复这两个文件。
 
-同时，[`ml_agent.py`](../research_agent/inno/agents/inno_agent/ml_agent.py)：
+同时，[`ml_agent.py`](../../research_agent/inno/agents/inno_agent/ml_agent.py)：
 
 - 明确要求模型不得修改冻结文件；
 - 在 frozen mode 下移除了写文件和执行命令的工具。
@@ -122,9 +122,9 @@
 
 ### 3.3 知识不是“可行动知识”
 
-[`knowledge.py`](../research_agent/inno/experience/knowledge.py) 当前直接把 `experience.analysis` 复制成 `KnowledgeRecord.lesson`。
+[`knowledge.py`](../../research_agent/inno/experience/knowledge.py) 当前直接把 `experience.analysis` 复制成 `KnowledgeRecord.lesson`。
 
-冻结试验又在 [`run_infer_plan.py`](../research_agent/run_infer_plan.py) 中把每次 analysis 固定为：
+冻结试验又在 [`run_infer_plan.py`](../../research_agent/run_infer_plan.py) 中把每次 analysis 固定为：
 
 ```text
 Frozen evaluation contract executed. Scientific interpretation is deferred
@@ -144,7 +144,7 @@ to the independent evaluator over the preserved raw evidence.
 
 ### 3.4 召回相关性低且没有去重
 
-[`retrieval.py`](../research_agent/inno/experience/retrieval.py) 主要通过 query 与 lesson/conditions 的词面重叠排序，然后加入 outcome、confidence、recency 和较弱的 redundancy penalty。
+[`retrieval.py`](../../research_agent/inno/experience/retrieval.py) 主要通过 query 与 lesson/conditions 的词面重叠排序，然后加入 outcome、confidence、recency 和较弱的 redundancy penalty。
 
 本轮 15 个 treatment recall item 的 relevance 全部约为 `0.02272727`。完全相同的模板知识仍可被多次选择；系统没有先按“决策点和可用旋钮”做硬过滤，也没有按规则家族去重或执行 supersede。
 
@@ -152,8 +152,8 @@ to the independent evaluator over the preserved raw evidence.
 
 ### 3.5 科学证据有效，不等于研究经验可复用
 
-示例结构化报告
-[`seed-805 treatment eval report`](runs/one_layer_vq_closed_loop_v2_final_20260727_r19/seed-805/treatment/cache_one_layer_vq_openai__DeepSeek-V4-Pro/evals/report.json)
+示例结构化报告位于本地生成的
+`benchmark/runs/one_layer_vq_closed_loop_v2_final_20260727_r19/seed-805/treatment/cache_one_layer_vq_openai__DeepSeek-V4-Pro/evals/report.json`，它
 显示：
 
 - 目标是 `deliver an executable research plan`；
@@ -172,7 +172,7 @@ to the independent evaluator over the preserved raw evidence.
 
 ### 3.6 Provenance 不能代表真实执行差异
 
-[`experience_adapter.py`](../research_agent/runtime/experience_adapter.py) 在 Flow 结束后对整个 project tree 计算 `code_revision`，只忽略极少数结果文件。
+[`experience_adapter.py`](../../research_agent/runtime/experience_adapter.py) 在 Flow 结束后对整个 project tree 计算 `code_revision`，只忽略极少数结果文件。
 
 运行日志、生成产物、缓存或其他非源码内容都可能改变这个摘要。于是审计中出现：
 
@@ -191,7 +191,7 @@ to the independent evaluator over the preserved raw evidence.
 
 ### 3.7 成本结构失衡
 
-[`improvement_cycle.py`](../research_agent/runtime/improvement_cycle.py) 每次迭代都会调用同一个 `run_attempt`。而 [`run_infer_plan.py`](../research_agent/run_infer_plan.py) 的 `run_attempt` 每次新建完整 `InnoFlow`，重复 prepare、survey、plan、implement、judge、submit、analyze。
+[`improvement_cycle.py`](../../research_agent/runtime/improvement_cycle.py) 每次迭代都会调用同一个 `run_attempt`。而 [`run_infer_plan.py`](../../research_agent/run_infer_plan.py) 的 `run_attempt` 每次新建完整 `InnoFlow`，重复 prepare、survey、plan、implement、judge、submit、analyze。
 
 审计结果：
 
@@ -206,7 +206,7 @@ to the independent evaluator over the preserved raw evidence.
 
 ### 3.8 当前 VQ smoke 对方法变化不够敏感
 
-[`ONE_LAYER_VQ_REAL_TEST.md`](ONE_LAYER_VQ_REAL_TEST.md) 已明确：
+[`ONE_LAYER_VQ_REAL_TEST.md`](one-layer-vq-real-test.md) 已明确：
 
 - 当前是 CIFAR-10、8192 个训练样本、2 epoch、codebook size 128；
 - 初步 3-seed 中 vanilla 与 SimVQ-style 的平均 utilization 都是 5.208%；

@@ -309,7 +309,7 @@ real-data runner is under `benchmark/real_smoke/one_layer_vq/`. It is an
 execution/evidence smoke contract with a zero baseline, not a scientific
 improvement threshold. The checked three-seed method-smoke report found no mean
 utilization improvement for the SimVQ-style variant. See
-[`benchmark/ONE_LAYER_VQ_REAL_TEST.md`](benchmark/ONE_LAYER_VQ_REAL_TEST.md) for
+[`docs/implementation/one-layer-vq-real-test.md`](docs/implementation/one-layer-vq-real-test.md) for
 the calibration and paired no-recall/recall protocol.
 
 In `closed-loop` mode, each Experiment Attempt receives an isolated stage and
@@ -332,6 +332,8 @@ earlier Observation's artifacts.
 The implementation contracts, module seams, rollout phases, and acceptance
 criteria are defined in the
 [Experience-Driven Research Loop Design](docs/design/experience-driven-research-loop.md).
+The complete design and implementation document index is maintained in
+[`docs/README.md`](docs/README.md).
 
 The target is not the AI with the longest context window. It is the AI that
 learns the most from experience.
