@@ -29,6 +29,7 @@ benchmark/data/
 benchmark/results/one_layer_vq_real_smoke/*/
 
 # Generated experiment state
+/.ai_researcher/
 /benchmark/runs/
 /workplace_paper/
 /cache_soak*/
