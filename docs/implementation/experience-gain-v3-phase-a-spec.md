@@ -1,11 +1,17 @@
 # Experience Gain V3 Phase A 代码级实施规格
 
-> 状态：Ready for implementation
+> 状态：Implemented in `f585de4`（本文件保留为已实现 contract，不代表已证明 Experience Gain）
 > 范围：仅 Phase A——打通可执行 Intervention、Manipulation Check 与 Trial Provenance
-> 预计工作量：2–3 engineer-days
-> 依据：[下一轮改进计划](experience-gain-next-round-plan.md)、[领域语言](../../CONTEXT.md)、[经验驱动研究循环设计](../design/experience-driven-research-loop.md)
+> Owner：AI-Researcher maintainers
+> Last updated：2026-07-31
+> 原预计工作量：2–3 engineer-days
+> 依据：[下一轮改进计划](experience-gain-next-round-plan.md)、[领域语言](../../CONTEXT.md)、[经验驱动研究循环设计](../design/experience-driven-research-loop.md)、[Verified Research Memory](../design/verified-research-memory.md)、[实施计划](verified-research-memory-plan.md) 与 [有效性验收协议](memory-effectiveness-evaluation.md)
 
 ## 1. 实施结论
+
+阅读口径：第 2–21 节保留了实施前的“必须修复/必须交付/提交拆分”措辞，作为
+`f585de4` 的历史 contract 与审计依据，不是在描述当前未实现项；实际交付状态以
+本节和第 22 节已勾选的历史验收记录为准。能力增益仍须走独立确认性实验。
 
 本 Phase 的目标不是再次运行 A/B，也不是证明 Experience Gain，而是让下一轮实验第一次满足以下因果链：
 
@@ -44,6 +50,8 @@ Recall Context
 > semantic memory 已经带来统计显著的研究收益。
 
 后者仍需 Phase B 的响应面校准、Phase C 的知识治理以及 Phase D/E 的 Pilot 和确认性实验。
+Phase C 之后的当前代码契约和 `MEM-*` 门槛由上方 Verified Research Memory 文档
+维护；本规格不再拥有后续 memory schema、retrieval 或 claim threshold。
 
 ## 2. 当前代码事实与必须修复的问题
 
@@ -1972,26 +1980,28 @@ dry-run 必须：
 
 ## 22. Definition of Done
 
-Phase A 只有在下列条件全部满足时完成：
+以下 checklist 是保留的 pre-implementation contract；`[x]` 记录
+`f585de4` 当时的交付/验证状态。本轮文档审计没有重新执行该历史 commit 的测试，
+也不把这些 implementation checks 当作 Experience Gain 证据。
 
-- [ ] 旧 SQLite payload bytes 未被修改；
-- [ ] 旧 V2 tests 全绿；
-- [ ] 新 sidecar migration、FK、immutability tests 全绿；
-- [ ] 第一轮 baseline 不调用 planner；
-- [ ] 后续合法 proposal 能实际改变一个 optimizer/quantizer 参数；
-- [ ] 同 source、不同 config 的摘要关系正确；
-- [ ] output/log/data 不污染 source digest；
-- [ ] no-op 在训练前被识别；
-- [ ] runner 只消费 immutable spec；
-- [ ] manifest 回显的 config 与实际 optimizer/quantizer 一致；
-- [ ] evaluator 独立重算并能发现 tamper；
-- [ ] Attempt、Observation、Intervention、Trial Provenance lineage 完整；
-- [ ] baseline/no-op/invalid 不晋升 Knowledge；
-- [ ] task ID 与 dataset ID 已纠正；
-- [ ] 每个 Attempt evidence 目录隔离；
-- [ ] V3 cache disabled；
-- [ ] dry-run 无 LLM/GPU 完成；
-- [ ] `ruff` 与全量 `pytest` 通过。
+- [x] 旧 SQLite payload bytes 未被修改；
+- [x] 旧 V2 tests 全绿；
+- [x] 新 sidecar migration、FK、immutability tests 全绿；
+- [x] 第一轮 baseline 不调用 planner；
+- [x] 后续合法 proposal 能实际改变一个 optimizer/quantizer 参数；
+- [x] 同 source、不同 config 的摘要关系正确；
+- [x] output/log/data 不污染 source digest；
+- [x] no-op 在训练前被识别；
+- [x] runner 只消费 immutable spec；
+- [x] manifest 回显的 config 与实际 optimizer/quantizer 一致；
+- [x] evaluator 独立重算并能发现 tamper；
+- [x] Experiment Attempt、Observation、Intervention、Trial Provenance lineage 完整；
+- [x] baseline/no-op/invalid 不晋升 Knowledge；
+- [x] task ID 与 dataset ID 已纠正；
+- [x] 每个 Experiment Attempt evidence 目录隔离；
+- [x] V3 cache disabled；
+- [x] dry-run 无 LLM/GPU 完成；
+- [x] `ruff` 与全量 `pytest` 通过。
 
 Phase A gate 的最终机器可验证断言：
 

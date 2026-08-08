@@ -4,10 +4,37 @@
 
 **Audience:** maintainers and contributors implementing the next architecture phase
 
-**Scope:** turn verified research runs into reusable experience that measurably
-improves later runs
+**Scope:** turn verified Research Runs into reusable experience that measurably
+improves later Research Runs
 
-**Last updated:** 2026-07-25
+**Owner:** AI-Researcher maintainers
+
+**Last updated:** 2026-07-31
+
+**Implementation and validation documents:**
+[Experience Gain next-round plan](../implementation/experience-gain-next-round-plan.md),
+[Experience Gain V3 Phase A specification](../implementation/experience-gain-v3-phase-a-spec.md),
+[Verified Research Memory implementation plan](../implementation/verified-research-memory-plan.md),
+[Memory effectiveness evaluation protocol](../implementation/memory-effectiveness-evaluation.md),
+and the [historical V2 one-layer VQ protocol](../implementation/one-layer-vq-real-test.md)
+
+**Authority:** [`CONTEXT.md`](../../CONTEXT.md) is authoritative for domain
+identity and terminology. [Durable Research Runtime and Stage Continuation](durable-research-runtime.md)
+is authoritative for Research Run lifecycle, restart, effect, artifact, budget,
+reuse, and terminal-completion semantics. This document governs the experience,
+verification, and causal feedback loop. [Verified Research Memory](verified-research-memory.md)
+is authoritative for Knowledge Candidate/Family/Record, Procedure Record,
+lifecycle, Knowledge/Evidence/Recall Input Snapshots, Decision Intent, Evidence
+Card, Recall Context, Recall Decision Outcome, distillation, retrieval, and
+memory evaluation. This document
+remains authoritative for Hypothesis, Experiment Attempt, Observation,
+Verification, and Experience Record; where older text conflicts with an
+authoritative source, that source prevails.
+
+[Context-Aware Tool Use and Governed Tool Effects](context-aware-tool-use.md) is
+authoritative for Capability Catalog, Tool Interaction, Tool Decision Record,
+model-visible exposure, and ToolFeedback. ToolFeedback may contribute evidence
+to an Experiment Attempt Observation but never replaces that domain record.
 
 ## 1. Decision
 
@@ -20,12 +47,13 @@ The first implementation will deepen the existing runtime, evaluation, and
 memory Modules instead of adding another parallel agent framework. The loop
 will:
 
-1. retrieve relevant, verified experience before a run;
+1. retrieve relevant, verified experience before a governed Intervention decision;
 2. execute the existing research stages;
 3. evaluate actual artifacts and metrics with a task-specific evaluator;
-4. persist the attempt and its provenance as immutable experience;
+4. persist the Experiment Attempt and its provenance as immutable experience;
 5. promote reusable knowledge only through an explicit verification policy;
-6. expose the verified result to later runs with citations.
+6. expose the verified result with citations to a later Intervention decision,
+   either in the same Research Run or a later Research Run.
 
 The initial storage Implementation will use SQLite for structured records and
 the filesystem for large artifacts. Chroma remains a derived semantic index,
@@ -37,7 +65,7 @@ execution are deliberately deferred.
 The current repository already has most of the raw ingredients:
 
 - ordered research stages and artifact guardrails;
-- run status, hooks, heartbeats, restart support, and traces;
+- Research Run status, hooks, heartbeats, restart support, and traces;
 - Docker-backed execution;
 - structural evaluation;
 - session, episodic, semantic, code, paper, and tool memory primitives.
@@ -79,7 +107,8 @@ The missing behavior is not another memory class. It is the verified transition:
 
 ```text
 experiment -> independent evaluation -> immutable experience
-           -> promotion decision -> cited recall in a later run
+           -> comparative distillation disposition
+           -> cited recall in a later typed Decision Point
 ```
 
 ### 2.4 Iteration is text-driven
@@ -107,14 +136,15 @@ move behind one deep Module.
   writer and validator.
 - Make independent evaluation a hard requirement for completed research and
   reusable knowledge.
-- Persist successful, neutral, negative, failed, and invalid attempts across
+- Persist successful, neutral, negative, failed, and invalid Experiment Attempts across
   processes.
 - Preserve complete provenance from recalled knowledge to experiment artifacts
   and evaluator output.
 - Retrieve only scoped, reproducible, budgeted context for a later decision.
 - Support memory-off, record-only, recall-only, and closed-loop modes.
 - Make retries and restarts idempotent.
-- Measure whether prior verified experience improves later runs.
+- Measure whether prior verified experience improves later governed
+  Intervention decisions and Research Run outcomes.
 - Keep the first implementation runnable without Redis, Neo4j, or a hosted
   vector database.
 
@@ -129,18 +159,22 @@ move behind one deep Module.
 - Replacing Scientist-Bench.
 - Treating an LLM judge as ground truth when an executable evaluator exists.
 
-Candidate search is intentionally deferred until a single hypothesis can
-complete the verified loop reliably.
+Multi-Hypothesis candidate-search policy is intentionally deferred until a
+single Hypothesis can complete the verified loop reliably; this does not defer
+the shipped governed Intervention proposal/execution mechanism.
 
 ## 4. Domain language
 
-These terms are normative and should be used in code, tests, logs, and future
-documentation.
+The canonical, normative definitions live in [`CONTEXT.md`](../../CONTEXT.md).
+The summaries below are maintained for readability and may not narrow those
+definitions.
 
 ### Research Run
 
-One invocation of a research entrypoint for a task. A run may contain multiple
-Experiment Attempts.
+The durable top-level execution of one canonical request under pinned workflow,
+continuation policy, model/tool configuration, Evaluation Contract, Budget
+Envelope, and retention/execution policy. A Research Run may contain multiple
+Experiment Attempts and Research Context Snapshot generations.
 
 ### Hypothesis
 
@@ -149,8 +183,22 @@ conditions under which the claim is expected to hold.
 
 ### Experiment Attempt
 
-One execution of a Hypothesis under a fixed dataset, code revision, seed,
-budget, environment, and Evaluation Contract.
+One execution of a Hypothesis bound to an immutable canonical AttemptSpec:
+Research Run/spec and exact Research Context Snapshot generation; source and
+dataset identities; Intervention; seed and allocation; Evaluation Contract;
+decision-input/Recall citations; environment/code/container/model/tool digests;
+and Intervention Catalog digest. Its Trial Provenance must match that AttemptSpec.
+
+### Intervention
+
+The schema-valid executable configuration deliberately varied for one
+Experiment Attempt under a pinned Intervention Catalog.
+
+### Trial Provenance
+
+The immutable source, Intervention, execution configuration, dataset,
+environment, Evaluation Contract, and evidence identity for an Experiment
+Attempt, bound to the canonical AttemptSpec digest.
 
 ### Observation
 
@@ -171,24 +219,27 @@ is written by the evaluator, not by the research agent.
 ### Experience Record
 
 An immutable record combining a Hypothesis, Experiment Attempt, Observation,
-Verification Record, analysis, and provenance. Invalid attempts remain useful
+Verification Record, analysis, and provenance. Invalid Experiment Attempts remain useful
 audit records but cannot become Knowledge.
 
 ### Knowledge Record
 
-A reusable abstraction backed by one or more verified Experience Records.
-Positive and negative results may both become Knowledge. Invalid or
-unverifiable results may not.
+A versioned conditional action-effect rule backed by comparable, independently
+verified Experience Records. Positive and negative results may both support a
+Knowledge Candidate; invalid or unverifiable results may not. Full semantics
+and lifecycle are owned by the Verified Research Memory design.
 
 ### Recall Context
 
-A bounded, cited collection of Knowledge Records and verified Experience
-Records selected for one decision.
+An immutable, bounded set of Evidence Cards selected for one typed Decision
+Intent under a Recall Input Snapshot. Full semantics are owned by the Verified
+Research Memory design.
 
 ### Improvement Cycle
 
-The transition from Recall Context through hypothesis, experiment, evaluation,
-recording, and promotion to the next run.
+The transition from Recall Context through Hypothesis, Experiment Attempt,
+evaluation, recording, and promotion to a later Intervention decision in the
+same or a later Research Run.
 
 ## 5. Architecture vocabulary
 
@@ -213,23 +264,32 @@ These invariants are release blockers, not recommendations.
    never independent evidence for their own claims.
 3. **Evaluator authority.** Only an evaluator satisfying the Evaluation
    Contract may write verified metrics or a Verification Record.
-4. **Completion follows verification.** A run is not `completed` until its
-   required Verification Record is persisted.
+4. **Completion follows the full durable chain.** A Research Run is not
+   `COMPLETED` until every completion-required valid Verification Record and
+   durable Experience Record, one Recall Decision Outcome for every Run-owned
+   Decision Intent, one Experience Distillation Receipt for every
+   completion-required Experience, and the operational settlement barrier are
+   committed. A receipt may queue or defer later comparative distillation.
+   A valid negative Verification may complete; invalid evidence may not.
 5. **Immutable raw history.** Hypotheses, Observations, and Verification Records
    are append-only. Corrections use superseding records.
 6. **Traceable knowledge.** Every Knowledge Record names all source experience
    IDs, evaluator versions, artifact digests, and promotion policy version.
 7. **Comparable experiments.** Primary metric, direction, baseline, budget,
-   seed, evaluator version, dataset version, and code revision are required.
+   seed, evaluator/dataset versions, canonical AttemptSpec digest, and matching
+   Trial Provenance source/config/evidence digests are required. A mixed
+   `code_revision` is not an execution identity.
 8. **Private evaluation isolation.** Agents cannot read private labels or
    evaluator-only data.
 9. **Scoped recall.** Retrieval must enforce task/domain/dataset scope and must
    record the memory snapshot and ranking scores used.
-10. **Idempotent restart.** Re-running an iteration ID cannot duplicate an
-    attempt, evaluation, or knowledge promotion.
-11. **Behavioral cache identity.** Cache keys include task, prompt, model
-    configuration, Recall Context snapshot, code hash, data hash, and evaluator
-    version.
+10. **Idempotent restart.** Re-driving stable Research Run/Activity identities
+    cannot duplicate an Experiment Attempt, Verification, Experience Record, or
+    Experience Distillation Receipt.
+11. **Governed reuse identity.** Reuse follows the durable design's stage
+    policy and content + governance digests. Recall-dependent decision stages
+    are Run-local, and Attempt-scoped Observation/Verification/Experience may
+    never be reused as evidence for a new Experiment Attempt.
 12. **Bounded context.** Recall has explicit item and token budgets. More
     matching memories do not imply a larger prompt.
 
@@ -237,31 +297,41 @@ These invariants are release blockers, not recommendations.
 
 ```mermaid
 flowchart TD
-    Q["Task and goal"] --> R["Recall verified experience"]
-    R --> H["Generate a falsifiable hypothesis"]
-    H --> P["Prepare, survey, and plan"]
-    P --> X["Implement and execute"]
+    Q["Task and goal"] --> P["Prepare, survey, and method review"]
+    P --> S["Freeze Research Context Snapshot"]
+    S --> R["Recall for a typed Decision Point"]
+    R --> H["Make a governed hypothesis/intervention decision"]
+    H --> X["Implement and execute"]
     X --> O["Persist raw observation"]
     O --> V["Run independent evaluator"]
     V --> D{"Valid verification?"}
     D -- "No" --> A["Record invalid or failed experience"]
     D -- "Yes" --> E["Record verified experience"]
-    E --> G{"Knowledge promotion policy"}
-    G -- "Reject" --> N["Retain experience only"]
-    G -- "Promote" --> K["Write cited knowledge record"]
+    E --> G{"Experience ingestion receipt"}
+    G -- "Defer / not required" --> N["Experience durable; current run may continue"]
+    G -- "Queue" --> N
+    N -. "Asynchronous" .-> B["Later comparative distillation batch"]
+    B --> J{"Distillation Decision"}
+    J -- "Reject / defer" --> N
+    J -- "Promote" --> K["Write governed cited memory record"]
     A --> C{"Budget remains?"}
     N --> C
-    K --> C
     C -- "Yes" --> R
-    C -- "No" --> T["Terminal run result"]
+    C -- "No" --> T["Terminal Research Run result"]
 ```
 
 The evaluator is intentionally outside the agent-controlled execution path.
 The agent may propose metrics, but it may not declare them verified.
+The comparative distillation branch may execute asynchronously; Research Run
+completion waits for the durable ingestion receipt, not for global promotion.
 
 ## 8. Deep Modules and Interfaces
 
-The external Interface for the first loop should remain small:
+The current repository exposes the following migration Interface. It is a
+compatibility Adapter behind Runtime Activities, not the target application
+ordering authority. `LongTaskRuntime` and `StageContinuation` own ordering;
+target memory Interfaces are `KnowledgeDistiller.distill()` and
+`DecisionPointRetriever.recall()`.
 
 ```python
 class ExperienceLoop:
@@ -272,8 +342,9 @@ class ExperienceLoop:
         """Evaluate, record, promote, and return the next action."""
 ```
 
-This gives both entrypoints the same leverage and keeps learning behavior local.
-The following Modules live behind this Interface.
+This keeps old entrypoints compatible during migration. New callers do not use
+this Interface to schedule workflow stages. The following historical Modules
+explain the path that the current implementation is migrating from.
 
 ### 8.1 Stage Contract Module
 
@@ -328,7 +399,7 @@ class ExperimentLedger(Protocol):
 
 Adapters:
 
-- `SQLiteExperimentLedger` for real local runs;
+- `SQLiteExperimentLedger` for real local Research Runs;
 - `InMemoryExperimentLedger` for contract and loop tests.
 
 SQLite runs in WAL mode. Structured records live in the database; large logs,
@@ -388,7 +459,7 @@ The evaluator receives the attempt directory and evaluator-only data. It writes
 a machine-readable result. Its stdout is diagnostic, not the authoritative
 metric.
 
-### 8.4 Knowledge Gate Module
+### 8.4 Legacy Knowledge Gate Module (compatibility only)
 
 **Location:** `research_agent/inno/experience/knowledge.py`
 
@@ -420,7 +491,12 @@ Experience only.
 An LLM may draft a lesson, but the deterministic policy decides whether the
 record is eligible and preserves all citations.
 
-### 8.5 Experience Retrieval Module
+This single-Experience Interface is permitted only in `legacy_recall`. It does
+not supply `decision_memory` or `frozen_memory`; comparative distillation,
+candidate isolation, lifecycle, and promotion are specified by Verified
+Research Memory.
+
+### 8.5 Legacy Experience Retrieval Module (compatibility only)
 
 **Location:** `research_agent/inno/experience/retrieval.py`
 
@@ -452,12 +528,19 @@ The ranker filters scope before scoring and uses stable tie-breaking. Every
 returned item contains a citation ID, source experience IDs, score breakdown,
 and short lesson. Raw transcripts are not injected by default.
 
-### 8.6 Shared Research Pipeline Module
+These Adapters remain baselines. Active and confirmatory paths use the
+Decision-Point Retrieval Interface and acceptance gates in Verified Research
+Memory; a hash-derived vector is never a production semantic Adapter.
+
+### 8.6 Research Stage Adapters
 
 **Location:** `research_agent/runtime/research_pipeline.py`
 
-This Module owns the common prepare, survey, plan, implement, judge, submit,
-analyze, and verify sequence.
+The legacy shared pipeline is decomposed into Runtime Activity Adapters for
+prepare, survey, method review, decision, materialize/execute, verify, record,
+and distillation. `StageContinuation.plan()` owns their pure ordering and
+`LongTaskRuntime` owns durable lifecycle; no stage Adapter is a second
+coordinator.
 
 Idea-based and plan-based entry become strategy Implementations:
 
@@ -475,13 +558,12 @@ class ProvidedIdeaStrategy:
     ...
 ```
 
-The shared pipeline concentrates stage ordering, artifact writing, trace
-capture, evaluation, and loop callbacks. The two CLI files become thin
-Adapters that parse arguments and select a strategy.
-
-`MasterRuntime` remains responsible for lifecycle and resumption. It does not
-decide scientific truth. `RuntimeHooks` remains an observer Seam and is not
-used as the durable knowledge commit path.
+The two CLI files become thin application Adapters that parse arguments, select
+a strategy, and use only the public Runtime Interface. The migration-only
+`LegacyFlowStageAdapter` may temporarily wrap the old pipeline as one coarse
+Activity, but the durable plan removes `MasterRuntime` as an authority.
+`RuntimeHooks` remains an observer Seam and is not used as a durable knowledge
+commit path.
 
 ## 9. Data model
 
@@ -506,23 +588,35 @@ JSON serialization is stable and timestamps are UTC.
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `attempt_id` | yes | idempotency key |
-| `run_id` / `iteration_id` | yes | lineage |
-| `hypothesis_id` | yes | tested hypothesis |
-| `code_revision` | yes | Git SHA or workspace digest |
-| `dataset_id` / `dataset_digest` | yes | comparable input identity |
-| `model_config_digest` | yes | model and provider configuration |
+| `run_id` / `run_spec_digest` | yes | immutable Research Run lineage |
+| `snapshot_generation/ref/digest` | yes | exact Research Context Snapshot |
+| `hypothesis_ref/payload_digest` | yes | tested Hypothesis |
+| `intervention_ref/digest` | yes | governed executable change |
+| `source/dataset_identity_digests` | yes | comparable code/data identity |
 | `seed` | yes | deterministic seed |
-| `budget` | yes | time, token, GPU, and iteration limits |
-| `evaluation_contract_id` | yes | verifier contract |
-| `recall_snapshot_id` | yes | exact recalled context |
-| `status` | yes | completed, failed, invalid, or cancelled |
+| `attempt_allocation` | yes | immutable calls/tokens/wall/GPU allocation |
+| `evaluation_contract_ref/digest` | yes | verifier contract |
+| `decision_input_ref/digest/citations` | yes | exact Recall/decision context |
+| `environment/code/container/model/tool_digests` | yes | execution identity |
+| `intervention_catalog_digest` | yes | allowed decision surface |
+| `attempt_spec_digest` | yes | canonical digest over all preceding fields |
 
-### 9.3 Observation
+### 9.3 Trial Provenance
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `provenance_id` / `attempt_id` | yes | immutable lineage |
+| `attempt_spec_digest` | yes | exact canonical AttemptSpec |
+| `actual_execution_identity_digests` | yes | all spec-bound source/config/data/environment fields observed by runner |
+| `manipulation_status` | yes | `baseline | changed | no_effect`; rejected proposals never open an Experiment Attempt |
+| `execution_receipt/evidence_bundle_digest` | yes | immutable physical evidence |
+
+### 9.4 Observation
 
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `observation_id` | yes | immutable ID |
-| `attempt_id` | yes | source attempt |
+| `attempt_id` | yes | source Experiment Attempt |
 | `exit_code` | yes | execution result |
 | `metrics` | yes | unverified raw metric observations |
 | `artifact_refs` | yes | path, media type, size, and digest |
@@ -530,12 +624,13 @@ JSON serialization is stable and timestamps are UTC.
 | `environment_fingerprint` | yes | Python, packages, GPU, OS, container |
 | `error` | no | structured failure information |
 
-### 9.4 Verification Record
+### 9.5 Verification Record
 
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `verification_id` | yes | immutable ID |
-| `observation_id` | yes | evaluated observation |
+| `observation_ref/digest` | yes | exact immutable Observation evaluated |
+| `attempt_spec_digest` / `provenance_id` | yes | exact execution contract and Trial Provenance |
 | `contract_id` / `contract_version` | yes | evaluator identity |
 | `evaluator_digest` | yes | exact evaluator code |
 | `valid` | yes | whether evaluation is trustworthy |
@@ -546,7 +641,7 @@ JSON serialization is stable and timestamps are UTC.
 | `violations` | yes | failed validity rules |
 | `evidence_refs` | yes | evaluator outputs and artifact citations |
 
-### 9.5 Knowledge Record
+### 9.6 Legacy Knowledge Record (schema version 1; audit/compatibility only)
 
 | Field | Required | Meaning |
 | --- | --- | --- |
@@ -562,7 +657,13 @@ JSON serialization is stable and timestamps are UTC.
 
 ## 10. Persistence layout
 
-Default project-level state:
+This is the historical pre-Durable-Runtime layout. Durable Runtime exclusively
+owns Research Run state and artifact lifecycle; the Experiment Ledger stores
+artifact references and MUST NOT create a competing `research_runs` authority
+table. Current Knowledge/Recall schema revision 3 is specified in the
+[Verified Research Memory implementation plan](../implementation/verified-research-memory-plan.md).
+
+Historical project-level state:
 
 ```text
 .ai_researcher/
@@ -578,9 +679,11 @@ Default project-level state:
         ...
 ```
 
-Suggested SQLite tables:
+The illustrated `artifacts/` tree is Runtime-owned storage, not an Experience
+Ledger transaction domain. New ledger rows keep only immutable refs/digests.
 
-- `research_runs`
+Historical v1 SQLite tables:
+
 - `hypotheses`
 - `experiment_attempts`
 - `observations`
@@ -597,111 +700,142 @@ Foreign keys are enabled. Raw history tables reject updates and deletes through
 the public Interface. Retractions and superseding Knowledge Records are
 append-only.
 
-## 11. Run lifecycle
+## 11. Experience-loop overlay inside a Research Run
 
-### 11.1 Before a run
+This section does not define a second lifecycle or status union. Run acceptance,
+snapshot preparation, Continuation Decisions, waits, retry/cancel/failure, and
+terminal ordering are owned by the durable design.
 
-1. Resolve the task and Evaluation Contract.
-2. Compute task, dataset, model, code, and config scope.
-3. Create a `RecallRequest` with item and token budgets.
-4. Retrieve only verified, scoped records.
-5. Persist a Recall Context snapshot.
-6. Add cited lessons to `RunContext`.
-7. Generate the Hypothesis with explicit parent experience IDs.
+### 11.1 After snapshot freeze, before an Attempt decision
 
-If retrieval fails, the run continues with an empty Recall Context and records
-the retrieval failure. Retrieval cannot make the system unavailable.
+1. The accepted Research Run first completes or imports its pinned Research
+   Context Snapshot through `prepare → survey → method_review →
+   freeze_context`.
+2. Before `diagnose/intervention_plan` opens the next Experiment Attempt, build
+   and persist the sanitized `DecisionContractView`, then preallocate a typed
+   `DecisionIntent` binding task scope, Decision Point, allowed-action digest,
+   and logical artifact slot.
+3. Resolve the exact `RecallInputSnapshot`, construct a
+   `DecisionRecallRequest`, retrieve only verified/scoped/applicable records,
+   and persist/read back the bounded `DecisionRecallContext`.
+4. Generate or select the Hypothesis/Intervention with explicit source
+   Experience IDs and a Manipulation Check, then close the Intent with one
+   terminal `RecallDecisionOutcome`, including blocked/empty/degraded/rejected/
+   no-op/failure cases. The legacy `RecallRequest` is not used on this path.
 
-### 11.2 During a run
+A retrieval failure is a typed decision-stage result. `empty` is reserved for a
+healthy search with no eligible evidence. A pinned policy may continue only
+with an explicit `degraded` Recall Context for an allowed infrastructure/Adapter
+fallback; invalid request, private exposure, corruption, contamination, or
+identity mismatch is `blocked` and must wait/fail. None may silently change the
+Research Run lifecycle or bypass private-data and governance checks.
 
-1. Persist typed stage artifacts through the Stage Contract Module.
-2. Record all tool calls and agent steps with artifact references.
-3. Include the Recall Context snapshot in cache identity.
-4. Persist an Experiment Attempt before code execution.
-5. Persist the raw Observation immediately after execution.
+### 11.2 Open and execute the Experiment Attempt
 
-The research agent may inspect public metrics during refinement, but private
-evaluation data remains isolated.
+1. Commit the Hypothesis and immutable canonical AttemptSpec before execution.
+2. Persist typed stage artifacts and every external Effect/Physical Invocation
+   through the durable Runtime; Recall-dependent decision stages are Run-local.
+3. Keep private evaluator data isolated; the research agent may see only public
+   metrics allowed by the Evaluation Contract.
+4. After an execution receipt, atomically persist Trial Provenance matching all
+   AttemptSpec fields and the raw Observation.
 
-### 11.3 After execution
+### 11.3 Verify, record, promote, and continue
 
-1. Run the independent Verifier.
-2. Persist the Verification Record atomically.
+1. Run the independent Verifier against Observation, Trial Provenance, and the
+   canonical AttemptSpec digest/all pinned fields.
+2. Persist the Verification Record.
 3. Build and append the Experience Record.
-4. Run the Knowledge Gate.
-5. Persist either a Knowledge Record or a rejection decision.
-6. Mark the runtime completed only if required verification is valid.
-7. Return `continue`, `completed`, `failed_budget`, or `invalid`.
+4. Confirm every Run-owned Decision Intent has its unique terminal Recall
+   Decision Outcome; the Outcome remains owned by its Runtime Activity even if
+   no Experiment Attempt was opened.
+5. Persist one Experience Distillation Receipt for each completion-required
+   Experience: queued for comparison, deferred ineligible, or not required. It
+   is not a promotion decision; comparative distillation may run later as a
+   dedicated Runtime Activity.
+6. Feed these committed records back to `StageContinuation.plan()`, which may
+   open another Experiment Attempt, wait, or propose a terminal disposition
+   under the pinned workflow and budgets.
+7. Permit `COMPLETED` only after all required Verification/Experience pairs,
+   every Run-owned Recall Decision Outcome, the corresponding per-Experience
+   Distillation Receipts, and the durable design's operational settlement barrier. The
+   canonical lifecycle union remains the one defined there.
 
-If the process crashes after writing an Observation, restart resumes at
-verification. If it crashes after verification, restart resumes at promotion.
-Idempotency keys prevent duplicates.
+A crash replays only the missing suffix: after the atomic Trial-Provenance/
+Observation commit, verification is next; after Verification, Experience and
+its Distillation Receipt are next; completion also reconciles any missing
+Run-owned Recall Decision Outcome. Stable identities and fencing prevent
+duplicates.
 
 ## 12. Configuration and CLI
 
 Proposed settings:
 
 ```yaml
-experience:
-  mode: closed-loop       # off | record | recall | closed-loop
+memory:
+  mode: decision_memory   # off | record_only | legacy_recall | memory_shadow | decision_memory | frozen_memory
   store_path: .ai_researcher/experience.sqlite3
-  max_recall_items: 8
-  max_recall_tokens: 3000
-  semantic_index: chroma  # none | chroma
-  include_negative_results: true
-  cross_task_recall: false
+  knowledge_policy: policies/knowledge-v1.yaml
+  retrieval_policy: policies/retrieval-v1.yaml
+  knowledge_snapshot: latest-development
+  max_recall_items: 3
+  max_recall_tokens: 1200
 
 evaluation:
   contract: benchmark/evaluators/vq/one_layer_vq.yaml
   require_verification_for_completion: true
 
-loop:
-  max_iterations: 3
+budget_envelope:
+  max_attempts: 3
   stop_on_primary_metric: true
 ```
 
-Equivalent CLI flags:
+Target CLI flags:
 
 ```text
---experience-mode
+--memory-mode
 --experience-store
 --evaluation-contract
---max-loop-iterations
---recall-item-budget
---recall-token-budget
+--knowledge-policy
+--retrieval-policy
+--knowledge-snapshot
 ```
 
-Defaults during rollout:
+`--experience-mode` remains a one-release compatibility alias for legacy
+behavior and cannot be combined with `--memory-mode`. Defaults during rollout:
 
-- existing entrypoints: `record`;
-- benchmark closed-loop command: `closed-loop`;
-- after Phase 2 acceptance: `closed-loop` for supported tasks;
+- existing entrypoints: `record_only`;
+- new writer/retrieval path: `memory_shadow`;
+- after memory acceptance: `decision_memory` for supported development tasks;
+- confirmatory evaluation: exact `frozen_memory` snapshot;
 - unsupported tasks fail closed when verification is required and no contract
   exists.
 
 ## 13. Cache correctness
 
-Current cache identity is too coarse for trustworthy A/B evaluation. The new
-cache key is:
+Current cache identity is too coarse for trustworthy A/B evaluation. Cache and
+reuse identity are therefore delegated to the durable design, not a second
+experience-layer formula. Its stage key binds:
 
 ```text
-sha256(
-  task_id
-  + stage
-  + normalized_input
-  + model_provider_and_version
-  + tool_configuration
-  + recall_snapshot_id
-  + code_revision
-  + dataset_digest
-  + evaluation_contract_version
-)
+stage_contract_version / stage_name / canonical_scope_digest / input_digest
+/ workflow_digest / continuation_policy_digest / runtime_adapter_contract_digest
+/ reuse_governance_digest
 ```
 
-Unattended runs never prompt interactively about stale cache entries. Cache
-policy is explicit: `reuse`, `refresh`, or `disabled`.
+AttemptSpec separately binds source, Intervention/config, dataset, environment,
+model/tool, Evaluation Contract, and decision-input/Recall digests. A mixed
+`code_revision` is compatibility metadata only and never a cache, provenance,
+or comparability identity. Run-local Recall-dependent decision stages may replay
+only under exact inputs; Attempt-scoped Observation/Verification/Experience is
+never reused as evidence for a new Experiment Attempt.
 
-Memory-on and memory-off experiments must use distinct cache identities.
+Unattended Research Runs never prompt interactively about stale cache entries.
+Cache policy is explicit: `reuse`, `refresh`, or `disabled`, but may never widen
+the stage reuse policy.
+
+Memory-on and memory-off experiments use isolated namespaces and governance
+digests so no cross-arm state leaks.
 
 ## 14. Observability
 
@@ -723,7 +857,7 @@ The runtime emits these additional events:
 
 Required event fields:
 
-- run, iteration, attempt, and task IDs;
+- Research Run, iteration, Experiment Attempt, and task IDs;
 - memory snapshot ID;
 - evaluation contract and evaluator versions;
 - artifact IDs and digests;
@@ -752,10 +886,10 @@ Supporting metrics:
 - successful experiments per million tokens;
 - Recall Context precision;
 - percentage of recalled lessons cited in decisions;
-- Knowledge promotion precision;
+- Knowledge Writer promotion precision and recall;
 - contradiction and retraction rate;
-- run completion and restart-recovery rates;
-- Pass@k and variance across repeated runs.
+- Research Run completion and restart-recovery rates;
+- Pass@k and variance across repeated Research Runs.
 
 No claim of self-improvement is made until Experience Gain is positive across
 multiple tasks and repeated trials.
@@ -819,7 +953,7 @@ Additional cases:
 
 - verification failure does not promote;
 - crash after Observation resumes at verification;
-- crash after verification resumes at promotion;
+- crash after verification resumes at Experience/Distillation Receipt commit;
 - memory-off and memory-on caches remain isolated;
 - both provided-idea and reference-ideation strategies cross the same pipeline
   Interface.
@@ -831,6 +965,15 @@ or scheduled workflow runs a small real Docker experiment. GPU benchmarks
 remain outside normal PR CI until a dedicated runner exists.
 
 ## 17. Implementation plan
+
+Sections 17–19 preserve the original pre-Phase-A roadmap and file map for design
+history; they are not current implementation instructions. Shipped status is
+recorded in the linked Phase A specification, response-surface calibration in
+the next-round plan, current memory work in the Verified Research Memory
+implementation/evaluation documents, and Runtime replacement/removal work in
+the durable implementation plan. In
+particular, the durable plan supersedes any older suggestion to make
+`MasterRuntime` itself the durable authority.
 
 Each slice is independently reviewable and must leave the test suite green.
 
@@ -844,13 +987,14 @@ Each slice is independently reviewable and must leave the test suite green.
 - Fix `implement` and `submit` schema mismatches.
 - Separate structural evaluation from scientific verification terminology.
 - Remove self-generated plan/final text from independent evidence.
-- Make cache policy non-interactive for unattended runs.
+- Make cache policy non-interactive for unattended Research Runs.
 
 **Exit criteria**
 
 - Every stage written by a fixture flow passes its real guardrail.
 - No test fabricates a different schema from the writer.
-- A run cannot be marked completed before its configured checks pass.
+- A Research Run cannot be marked `COMPLETED` before every completion invariant
+  in the durable design passes.
 
 ### Phase 1 — Persist independently verified experience
 
@@ -860,7 +1004,7 @@ Each slice is independently reviewable and must leave the test suite green.
 - Add SQLite and in-memory ledger Adapters.
 - Add Evaluation Contract loading and validation.
 - Add callable and subprocess Verifier Adapters.
-- Record attempts, Observations, Verification Records, and provenance.
+- Record Experiment Attempts, Observations, Verification Records, and provenance.
 - Add one deterministic evaluator fixture.
 
 **Exit criteria**
@@ -868,7 +1012,7 @@ Each slice is independently reviewable and must leave the test suite green.
 - Records survive process restart.
 - Repeated commits are idempotent.
 - The evaluator is the sole writer of verified metrics.
-- Failed and invalid attempts are retained but cannot become Knowledge.
+- Failed and invalid Experiment Attempts are retained but cannot become Knowledge.
 
 ### Phase 2 — Close the single-hypothesis loop
 
@@ -906,9 +1050,11 @@ Each slice is independently reviewable and must leave the test suite green.
 - Results can be reproduced from stored config, code, data, evaluator, and
   memory snapshot IDs.
 
-### Phase 4 — Candidate search
+### Phase 4 — Multi-Hypothesis candidate search policy
 
-Only after Phase 3:
+Phase A already ships governed single-decision Intervention proposal/execution.
+Only after Phase 3 may the system add best-first/bandit selection across multiple
+Hypotheses:
 
 - generate multiple Hypotheses;
 - evaluate candidates under a shared budget;
@@ -1000,15 +1146,20 @@ demonstrably true:
 
 - Real flow writers and runtime validators share one versioned contract.
 - A task-specific evaluator independently verifies actual artifacts and metrics.
-- Runtime completion requires a persisted valid Verification Record.
-- Every attempt, including failures, survives restart with complete provenance.
-- Only verified experience can pass the Knowledge Gate.
-- A later run automatically retrieves a bounded cited Recall Context.
+- Research Run completion requires every completion-required persisted valid
+  Verification/Experience pair, one Recall Decision Outcome per Run-owned
+  Decision Intent, one Experience Distillation Receipt per completion-required
+  Experience, and the operational settlement barrier.
+- Every Experiment Attempt, including failures, survives restart with complete
+  AttemptSpec-bound Trial Provenance.
+- Only eligible, verified and comparable Experience can support active Knowledge.
+- A later Research Run can retrieve a bounded cited Recall Context for one typed
+  Decision Intent under a pinned Recall Input Snapshot.
 - The deterministic two-iteration test proves end-to-end feedback.
-- Memory-on/off runs have isolated caches and reproducible configuration.
+- Memory-on/off Research Runs have isolated caches and reproducible configuration.
 - The existing test suite and new contract suites pass in CI.
-- At least one benchmark report compares closed-loop and memory-off behavior
-  under the same model and budget.
+- The claim made by a benchmark report is no stronger than the passed level in
+  the Memory effectiveness evaluation protocol.
 
 Until these conditions hold, documentation and releases should describe memory
 as experimental infrastructure rather than self-improvement.

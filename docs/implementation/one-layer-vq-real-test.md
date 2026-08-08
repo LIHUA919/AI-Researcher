@@ -1,5 +1,26 @@
 # One-layer VQ real-test protocol
 
+**Status:** Calibration fixture; V2 paired protocol retired
+
+**Scope:** One-layer VQ real-data mechanics calibration and historical V2
+paired no-recall/recall reproduction
+
+**Owner:** AI-Researcher maintainers
+
+**Last updated:** 2026-07-31
+
+**Governing design:**
+[Experience-Driven Research Loop](../design/experience-driven-research-loop.md)
+
+**Current acceptance authority:**
+[Verified Research Memory effectiveness evaluation](memory-effectiveness-evaluation.md)
+
+Sections 1–3 may still be used for non-claiming mechanics calibration. Section
+4 documents the historical V2 five-seed, 8-item/3,000-token study and MUST NOT
+be used as the current confirmatory protocol. Current writer, retrieval,
+utilization, paired ITT, power, robustness, and claim gates are maintained only
+in the Memory effectiveness evaluation protocol.
+
 This protocol separates infrastructure smoke evidence from an Experience Gain
 claim. The checked contract at
 `benchmark/evaluators/one_layer_vq_smoke/contract.yaml` has a zero utilization
@@ -99,13 +120,14 @@ seeds, freeze a new versioned contract with:
 
 Do not copy ImageNet-128 paper numbers into this CIFAR-10 contract.
 
-## 4. Paired no-recall versus recall runs
+## 4. Historical V2 paired no-recall versus recall runs
 
-Use at least five fresh seeds. Both arms use `closed-loop` and the same
-three-attempt cap. The control arm sets `--recall-item-budget 0`, which preserves
-the same retry/evaluation machinery but withholds recalled Knowledge Records.
-The treatment arm sets the budget to 8. Give every arm and seed separate cache
-and ledger paths.
+Do not execute this section as release acceptance. It records the exact retired
+campaign so its artifacts remain reproducible. V2 used five fresh seeds; both
+arms used `closed-loop` and the same three-attempt cap. The control arm set
+`--recall-item-budget 0`, preserving the same retry/evaluation machinery while
+withholding recalled Knowledge Records. The treatment arm used 8 items. Every
+arm and seed had separate cache and ledger paths.
 
 Control-arm additions:
 
@@ -125,8 +147,8 @@ Treatment-arm additions:
 --recall-token-budget 3000
 ```
 
-Keep every other argument identical within a seed pair, including the frozen
-calibrated contract. Alternate arm order across seeds. Report all scores,
+The V2 launcher kept every other argument identical within a seed pair,
+including the frozen calibrated contract, and alternated arm order. Its report included all scores,
 paired deltas, validity rate, repeated-failure rate, attempts used, wall time,
 token use, and GPU hours. The existing deterministic benchmark is only an
 infrastructure fixture and must not be mixed into this report.

@@ -1,12 +1,34 @@
 # Experience Gain 下一轮改进计划
 
-状态：调研结论与实验设计草案
+状态：历史实验审计与策略背景；Phase B 校准仍适用，Phase C–E 由新规范接管
 
 日期：2026-07-29
 
 范围：AI-Researcher 的经验记录、知识晋升、召回、闭环试验和 One-layer VQ 评测
 
-配套交付：[Phase A 代码级实施规格](experience-gain-v3-phase-a-spec.md)
+Owner：AI-Researcher maintainers
+
+Last updated：2026-07-31
+
+配套交付：
+
+- [Experience-Driven Research Loop 治理设计](../design/experience-driven-research-loop.md)
+- [Phase A 代码级实施规格](experience-gain-v3-phase-a-spec.md)
+- [Durable Research Runtime 实施与验收计划](durable-research-runtime-plan.md)
+- [Verified Research Memory 治理设计](../design/verified-research-memory.md)
+- [Verified Research Memory 实施计划](verified-research-memory-plan.md)
+- [Memory effectiveness evaluation protocol](memory-effectiveness-evaluation.md)
+
+其中 Long-Task Runtime 和 Stage Continuation 的 Interface、恢复语义、成本口径
+与 release gates 由后一份治理设计/实施计划统一定义；本文件不再维护第二套标准。
+Phase A 的 Adaptive Experiment / governed Intervention / Trial Provenance 已在
+`f585de4` 实现；本文相关 Problem 段落是 V2 历史审计，当前未完成的是响应面校准、
+知识质量、确认性因果实验与 durable 1+2。
+
+Phase C 的代码契约与所有 `MEM-*` 验收阈值分别由 Verified Research Memory
+实施计划和 Memory effectiveness evaluation protocol 唯一维护。本文第 5.2/5.3、
+Gate 2–4、样本量和 Phase C 内容保留为研究动机与历史方案；冲突时以新文档及本次
+冻结的 Evaluation Contract/Memory Acceptance Manifest 为准。
 
 ## 1. 执行摘要
 
@@ -24,9 +46,11 @@
 - Control 与 Treatment 的平均 `codebook_utilization` 都是 `0.040625`，五个配对差值全部为 `0`；
 - Treatment 的召回条数为 `[0, 1, 2]`，但 30 次执行的 `source_sha256` 只有一个唯一值；
 - 30 条被晋升的 Knowledge Record 的 `lesson` 完全相同，都是“冻结合同已执行，科学解释交给独立评估器”；
-- 30 个尝试记录的 `code_revision` 各不相同，但真正执行的源码摘要完全相同，说明当前 revision 混入了运行产物，不能代表执行差异；
-- 10 个 trial 的结构化研究质量报告全部 `passed=false`、`evidence_coverage=0`，但 30 次经验仍全部通过知识晋升；
-- 训练总时间约 109.42 秒，只占正式 trial 总墙钟时间 26,568.60 秒的约 0.41%；绝大部分时间消耗在重复的 Agent 全流程，而不是训练。
+- 30 个尝试记录的 `code_revision` 各不相同，但真正执行的源码摘要完全相同，说明 V2 当时的 revision 混入了运行产物，不能代表执行差异；
+- V2 标作 10 个 `trial`（即 10 个 Research Runs）的结构化研究质量报告全部
+  `passed=false`、`evidence_coverage=0`，但 30 次经验仍全部通过知识晋升；
+- 训练总时间约 109.42 秒，只占这 10 个 Research Runs 总墙钟时间
+  26,568.60 秒的约 0.41%；绝大部分时间消耗在重复的 Agent 全流程，而不是训练。
 
 因此，下一轮不应该直接再跑一组 5-seed 对照实验。正确顺序是：
 
@@ -66,6 +90,10 @@
 
 ## 3. 上一轮实验审计
 
+本节沿用 V2 artifact 的历史标签：一个 `trial` 对应本文 canonical 的一个
+Research Run，一个 `attempt` 对应 Experiment Attempt；它们不是 infrastructure
+retry。
+
 ### 3.1 已经成立的结论
 
 正式合并审计文件为本地生成的
@@ -89,8 +117,8 @@
 这里能主张的是：
 
 - 原始训练证据是真实且完整的；
-- 账本、召回、重试和外部验证的 Plumbing 能运行；
-- 在这个冻结实现下，提供当前形式的 recalled text 没有带来指标改善。
+- 账本、召回、Experiment Attempt 循环和外部验证的 Plumbing 能运行；
+- 在这个冻结的 V2 实现下，提供当时形式的 recalled text 没有带来指标改善。
 
 这里不能主张的是：
 
@@ -122,7 +150,7 @@
 
 ### 3.3 知识不是“可行动知识”
 
-[`knowledge.py`](../../research_agent/inno/experience/knowledge.py) 当前直接把 `experience.analysis` 复制成 `KnowledgeRecord.lesson`。
+V2 的 [`knowledge.py`](../../research_agent/inno/experience/knowledge.py) 直接把 `experience.analysis` 复制成 `KnowledgeRecord.lesson`。
 
 冻结试验又在 [`run_infer_plan.py`](../../research_agent/run_infer_plan.py) 中把每次 analysis 固定为：
 
@@ -140,7 +168,7 @@ to the independent evaluator over the preserved raw evidence.
 - 实际效应和 guardrail 是什么；
 - 哪些独立种子支持或反驳它。
 
-当前 `KnowledgeGate` 还会因为同任务、同 outcome 的重复记录，把 confidence 每次提高 0.1。重复同一个负结果因此会被误当成更多独立支持，即使没有新的干预或新的因果信息。
+V2 的 `KnowledgeGate` 还会因为同任务、同 outcome 的重复记录，把 confidence 每次提高 0.1。重复同一个负结果因此会被误当成更多独立支持，即使没有新的干预或新的因果信息。
 
 ### 3.4 召回相关性低且没有去重
 
@@ -148,7 +176,7 @@ to the independent evaluator over the preserved raw evidence.
 
 本轮 15 个 treatment recall item 的 relevance 全部约为 `0.02272727`。完全相同的模板知识仍可被多次选择；系统没有先按“决策点和可用旋钮”做硬过滤，也没有按规则家族去重或执行 supersede。
 
-结果是“召回数量增加”，但“能指导当前选择的信息量”没有增加。
+结果是“召回数量增加”，但“能指导当轮选择的信息量”没有增加。
 
 ### 3.5 科学证据有效，不等于研究经验可复用
 
@@ -163,7 +191,7 @@ to the independent evaluator over the preserved raw evidence.
 
 10 个最终 trial 都是这一结果。但每次训练只要退出码正常、原始证据可验证、outcome 是 positive/negative，就仍可通过 `KnowledgeGate`。
 
-当前系统混淆了两类质量：
+V2 系统混淆了两类质量：
 
 1. **Scientific verification**：训练数据、指标和证据是否真实；
 2. **Knowledge usability**：从这次运行提炼出的经验是否新颖、可行动、可归因、可复用。
@@ -195,7 +223,7 @@ to the independent evaluator over the preserved raw evidence.
 
 审计结果：
 
-| 成本指标 | 总计 | 每 trial 平均 | 每 attempt 平均 |
+| 成本指标 | 总计 | 每 V2 `trial`（Research Run）平均 | 每 Experiment Attempt 平均 |
 |---|---:|---:|---:|
 | LLM token | 12,898,392 | 1,289,839 | 429,946 |
 | LLM call | 1,335 | 133.5 | 44.5 |
@@ -204,17 +232,17 @@ to the independent evaluator over the preserved raw evidence.
 
 训练只占墙钟约 0.41%。下一轮首先应该深化循环 Module，让一次研究准备可以服务多个实验尝试，而不是继续增加并行或 GPU。
 
-### 3.8 当前 VQ smoke 对方法变化不够敏感
+### 3.8 V2 VQ smoke 对方法变化不够敏感
 
-[`ONE_LAYER_VQ_REAL_TEST.md`](one-layer-vq-real-test.md) 已明确：
+[`one-layer-vq-real-test.md`](one-layer-vq-real-test.md) 已明确：
 
-- 当前是 CIFAR-10、8192 个训练样本、2 epoch、codebook size 128；
+- V2 使用 CIFAR-10、8192 个训练样本、2 epoch、codebook size 128；
 - 初步 3-seed 中 vanilla 与 SimVQ-style 的平均 utilization 都是 5.208%；
 - 这是 method smoke，不是论文复现。
 
-而 [SimVQ 原论文](https://arxiv.org/abs/2411.02038) 的核心结果来自更大数据、训练预算和 codebook；论文常用的 ImageNet 128×128 设置训练 50 epoch，默认 codebook size 为 65,536。当前 2-epoch 小型 smoke 很可能只足以验证执行，不足以区分合理干预。
+而 [SimVQ 原论文](https://arxiv.org/abs/2411.02038) 的核心结果来自更大数据、训练预算和 codebook；论文常用的 ImageNet 128×128 设置训练 50 epoch，默认 codebook size 为 65,536。该 2-epoch 小型 smoke 很可能只足以验证执行，不足以区分合理干预。
 
-当前合同中的 `baseline: 0.95` 也明确只是为了强制三次等预算迭代，并非校准得到的期望值。所有 attempt 必然被标成 negative，系统因而没有正负干预对比可学。
+V2 合同中的 `baseline: 0.95` 也明确只是为了强制三次等预算迭代，并非校准得到的期望值。所有 Experiment Attempt 必然被标成 negative，系统因而没有正负干预对比可学。
 
 ## 4. 外部研究给出的设计约束
 
@@ -273,7 +301,7 @@ to the independent evaluator over the preserved raw evidence.
 
 以下候选通过 deletion test：如果删除它们，核心闭环、因果归因或结果可信度会消失；因此它们应成为有深度的 Module，而不是继续往 prompt 中追加文字。
 
-### 5.1 Adaptive Experiment Module（P0）
+### 5.1 Adaptive Experiment Module（P0，Phase A 已实现）
 
 **Files**
 
@@ -282,11 +310,11 @@ to the independent evaluator over the preserved raw evidence.
 - `research_agent/inno/experience/models.py`
 - VQ protocol 与 contract
 
-**Problem**
+**V2 historical problem（已由 Phase A 修复）**
 
-当前循环 Module 的 Interface 只表达“重复运行并重新召回”，Implementation 却重跑完整研究 Flow。冻结 protocol 后，又没有任何合法干预 Seam，导致 recall 无法影响执行。
+V2 当时循环 Module 的 Interface 只表达“重复运行并重新召回”，Implementation 却重跑完整研究 Flow。冻结 protocol 后，又没有任何合法干预 Seam，导致 recall 无法影响执行。
 
-**Solution**
+**Shipped solution**
 
 保持评估器、数据身份、codebook size 和核心训练源码冻结，但增加一个受 schema 约束、带摘要、可审计的 `intervention` artifact。Agent 只能从预声明旋钮中选择值，不能任意改评估或数据。
 
@@ -319,7 +347,7 @@ recall
 
 **Problem**
 
-当前 Implementation 把单次 `analysis` 直接变成知识；重复同 outcome 会提高 confidence，缺少干预多样性、独立种子和反证要求。
+V2 Implementation 把单次 `analysis` 直接变成知识；重复同 outcome 会提高 confidence，缺少干预多样性、独立种子和反证要求。
 
 **Solution**
 
@@ -365,7 +393,7 @@ recall
 
 **Problem**
 
-当前排序以宽泛词面相似度为主，重复规则可同时出现，recall item 与本轮可修改旋钮之间没有强关联。
+V2 排序以宽泛词面相似度为主，重复规则可同时出现，recall item 与本轮可修改旋钮之间没有强关联。
 
 **Solution**
 
@@ -389,18 +417,18 @@ recall
 - 为 selective forgetting 提供清晰位置；
 - 让记忆采用率可直接测量。
 
-### 5.4 Trial Provenance Module（P0）
+### 5.4 Trial Provenance Module（P0，Phase A 已实现）
 
 **Files**
 
 - `research_agent/runtime/experience_adapter.py`
 - 外部 evaluator 与 manifest 生成逻辑
 
-**Problem**
+**V2 historical problem（已由 Phase A 修复）**
 
-当前 `code_revision` 混入运行产物，无法区分“执行源码变化”“配置变化”和“证据变化”。
+V2 当时的 `code_revision` 混入运行产物，无法区分“执行源码变化”“配置变化”和“证据变化”。
 
-**Solution**
+**Shipped solution**
 
 在执行前固化独立摘要：
 
@@ -414,9 +442,11 @@ recall
 
 增加 manipulation check：
 
-- 相邻 attempt 的 intervention digest 相同，则标记 `no_effect_decision`；
-- Pilot 阶段可直接停止无意义重复；
-- Confirmatory 阶段仍保留该 pair，并按 intention-to-treat 计为零效果或 policy failure，不能事后删除。
+- 非 baseline proposal 的 effective Intervention 与前一配置相同，则记录
+  `manipulation_status="no_effect"`；
+- Pilot 阶段返回 `rejected_no_effect`，可直接停止无意义重复；
+- Confirmatory 阶段返回 `executed_no_effect`，仍保留该 pair，并按
+  intention-to-treat 计为零效果或 policy failure，不能事后删除。
 
 **Benefits**
 
@@ -434,7 +464,7 @@ recall
 
 **Problem**
 
-当前 memory 在线增长，任务准备和试验执行混在一起；虽然 arm 隔离较好，但没有开发/评估记忆分离，也没有 pre-run manipulation gate。
+V2 memory 在线增长，任务准备和试验执行混在一起；虽然 arm 隔离较好，但没有开发/评估记忆分离，也没有 pre-run manipulation gate。
 
 **Solution**
 
@@ -454,35 +484,65 @@ recall
 - 防止边测边学和跨 arm 污染；
 - 让失败能定位在 Plumbing、Policy 或 Outcome 层。
 
-### 5.6 Stage Continuation Module（P1）
+### 5.6 Long-Task Runtime + Stage Continuation Modules（P1）
 
 **Files**
 
-- `research_agent/runtime/improvement_cycle.py`
-- `research_agent/run_infer_plan.py`
-- stage cache/state 管理
+- [`docs/design/durable-research-runtime.md`](../design/durable-research-runtime.md)
+- [`durable-research-runtime-plan.md`](durable-research-runtime-plan.md)
+- `research_agent/runtime/` 的 durable journal、worker 与 continuation
+- 两个 entry flow 的 Stage Adapters
 
 **Problem**
 
-每个 attempt 都重跑完整 InnoFlow，导致 99% 以上时间花在不随干预变化的 Agent 阶段。
+每个 Experiment Attempt 都重跑完整 InnoFlow，且 V2 状态由多份 JSON、artifact existence、
+heartbeat 和 ledger 分别表达。成本高之外，进程重启也不能安全回答“从哪个
+semantic Activity 继续、旧 worker 是否仍有提交权、外部 effect 是否已经发生”。
 
 **Solution**
 
-一次研究任务只执行一次 prepare、survey 和 method review。后续 attempt 从不可变 research context 继续，只运行：
+用两个深 Module、三个 programmatic Interface 入口统一恢复和 continuation；
+受 supervisor 调用的 launcher CLI 另有 operational contract，`worker.py` 仅作
+launcher 私有的 control/executor role entrypoint、不得直接部署。每个 canonical
+snapshot scope 只真实执行一次 prepare、survey 和 method review，冻结不可变
+Research Context Snapshot；其余 Research Runs 显式 import。后续执行顺序改为：
 
 ```text
-diagnose → choose intervention → execute → verify → reflect
+Research Run decision scope:
+diagnose → intervention_plan → validate Hypothesis/Intervention
+
+Experiment Attempt（validation 后才原子打开）：
+materialize → execute → verify → reflect → record → promotion_decision
 ```
 
-把 target 设为：
+新 Hypothesis 与其首个 immutable Experiment Attempt 在同一 Durable Transition
+创建；decision validation 或 cancellation 不得留下 zero-Attempt Hypothesis。
 
-- 每 attempt 不超过 5–7 次 LLM 调用；
-- 每 trial 不超过 100k token；
-- 相比当前 133.5 calls / 1.29M tokens 每 trial，调用减少至少 90%，token 减少至少 80%。
+Hard target：
+
+- 每个最终打开 Experiment Attempt 对应的 decision+execution path 不超过 7 次
+  outbound physical model invocations，最多 3 Attempts，允许 early stop；未打开
+  Attempt 的 proposal calls 仍计入 campaign；
+- Research Context Snapshot 的一次性成本单独报告；
+- 10 个相同 snapshot scope 的 distinct Research Runs（V2 标作 trials）合计
+  calls ≤ 255、tokens ≤ 2.5M、serial wall ≤ 90 分钟、throughput ≥ 6.5/hour；
+- 首个 unamortized Research Run 也须 calls ≤66、tokens ≤650k、wall ≤23 分钟；
+- 相比 V2 的 1,335 calls / 12.90M tokens 的 10-Run campaign，calls 至少下降
+  80%；scientific outcome 的 2 pp noninferiority gate 由独立、powered G8
+  formal corpus 验收，不能用这个 10-Run efficiency campaign 推断；
+- 同时报告第一个 Research Run 的 unamortized cost，不能只报摊销值。
+
+90% call reduction 和每 Research Run 100k tokens 改为 Stretch target。原“每 Attempt
+5–7 calls、固定 3 Attempts、每 trial calls 下降 90%”不能同时成立：三次
+Attempt 最少已有 15 calls，而 90% 上限是 13.35 calls。达到 Stretch target
+需要 ≤4 calls/Attempt，或在 12-call snapshot、5 calls/Attempt 时把 campaign
+总 Attempts 限制到 24（平均 ≤2.4）。即使 call gate 达标，100k-token gate 还
+要求平均 ≤7,519 tokens/call，必须另有 context/output compression。
 
 **Benefits**
 
-- 大幅提高 Depth：循环 Module 隐藏 continuation、cache 和恢复逻辑；
+- 通过两个深 Module 隐藏 continuation、lease/fencing、effect reconcile、预算和
+  verified completion；
 - 降低成本后才能负担足够的新种子；
 - 使预算真正用于候选比较，而不是重复写研究计划。
 
@@ -527,11 +587,14 @@ diagnose → choose intervention → execute → verify → reflect
 Control 与 Treatment 都获得：
 
 - 相同任务；
-- 相同即时 raw observation；
+- 分叉前相同的 initial baseline Observation；
 - 相同历史长度上限；
 - 相同模型、温度和 token budget；
 - 相同可用旋钮和 schema；
 - 相同执行与验证工具。
+
+分叉后每个 arm 只获得自己的 prior Observation、artifact 和 feedback；Treatment
+结果不得喂给 Control，Control 结果也不得作为 Treatment 的额外证据。
 
 唯一差异：
 
@@ -622,14 +685,11 @@ Pilot 可以并行生成一个不执行的 shadow no-memory decision，用来估
 
 #### Gate 2：离线知识审计
 
-通过条件：
-
-- active semantic rules 中 exact duplicate 为 0；
-- 100% 有可验证 source experience IDs；
-- 至少 90% 能映射到一个允许旋钮；
-- 每条确认性规则有独立种子支持或明确的 paired contrast；
-- 矛盾证据会降低权重、阻止晋升或 supersede 旧规则；
-- 失效规则不会被 retrieval 返回。
+通过条件只由
+[Memory effectiveness evaluation protocol](memory-effectiveness-evaluation.md)
+的 `MEM-SN-*`、`MEM-WR-*`、`MEM-RT-*` hard gates 定义；本文不复制第二套
+阈值。重点仍是 duplicate support 不涨强度、来源完整、actionable、比较式支持、
+冲突/lifecycle 正确和失效规则零返回。
 
 #### Gate 3：操纵 Pilot
 
@@ -637,16 +697,23 @@ Pilot 可以并行生成一个不执行的 shadow no-memory decision，用来估
 
 通过条件：
 
-- 至少 80% Treatment 决策产生合法且非 no-op 的干预；
-- 至少 80% 被采用 citation 映射到实际 config change；
-- 所有执行 manifest 的 digest 与 proposal 一致；
+- 至少 80% gold-eligible Treatment decisions 完成适用知识从召回、明确采用到
+  实际执行的端到端利用；
+- 所有声称 adopted 的 citation-to-action mapping fidelity 为 100%；
+- 所有 adopted action 的 effective-config/manifest fidelity 为 100%；
 - cross-arm / cross-seed leakage 为 0；
-- LLM call 至少下降 90%，token 至少下降 80%；
+- no-op、rejected、invalid、timeout 和 retrieval failure 全部按 ITT 保留；
+- Memory mechanism Pilot 只要求冻结预算、隔离、可恢复 evidence 和完整核算，
+  不依赖 Durable Runtime 的全部 production gates；production 发布必须同时引用
+  通过的 Memory 和 Durable Runtime release artifacts；
 - 指标显示足以支持样本量估计的非退化方差。
 
 任一关键操纵条件失败，停止并修 Module，不得用更多种子补救设计缺陷。
 
 #### Gate 4：确认性试验
+
+正式阈值与 claim 等级只由 Memory effectiveness evaluation protocol 的
+`MEM-CA-*` 定义。
 
 - memory snapshot 冻结；
 - 使用全新 evaluation seeds；
@@ -671,7 +738,8 @@ Pilot 可以并行生成一个不执行的 shadow no-memory decision，用来估
 n = ceil((1.96 + 0.84)^2 × σΔ² / δmin²)
 ```
 
-4. 根据成本将确认性范围预先限制在 12–40 个 fresh pairs；
+4. 由预注册 power analysis 决定确认性样本量；若所需样本超过可用预算，结论是
+   “证据不足”，不得截断为 40 pairs 后主张收益；
 5. 报告 paired bootstrap 置信区间和 exact paired permutation test；
 6. 若分布大量 ties 或零膨胀，同时报告 adoption/no-op 的二项指标；
 7. Pilot seeds 不进入确认性结果，除非在看结果前明确预注册合并规则。
@@ -685,13 +753,13 @@ n = ceil((1.96 + 0.84)^2 × σΔ² / δmin²)
 | Arm | 即时 raw observation | 通用 prose memory | 结构化 intervention memory | 成功 trajectory |
 |---|---:|---:|---:|---:|
 | A | 是 | 否 | 否 | 否 |
-| B | 是 | 是，当前 legacy | 否 | 否 |
+| B | 是 | 是，V2 legacy | 否 | 否 |
 | C | 是 | 否 | 是 | 否 |
 | D | 是 | 否 | 是 | 是 |
 
 目的：
 
-- A vs B：确认当前通用模板是否确实无效；
+- A vs B：确认 V2 通用模板是否确实无效；
 - A vs C：测结构化语义知识的净收益；
 - C vs D：测成功 trajectory 是否提供额外信息。
 
@@ -699,7 +767,7 @@ n = ceil((1.96 + 0.84)^2 × σΔ² / δmin²)
 
 ## 9. 实施路线图
 
-### Phase A：先打通真实因果 Seam（2–3 engineer-days）
+### Phase A：真实因果 Seam（已实现于 `f585de4`）
 
 - 引入 schema 化 intervention artifact；
 - 拆分 provenance digests；
@@ -729,6 +797,9 @@ n = ceil((1.96 + 0.84)^2 × σΔ² / δmin²)
 
 ### Phase C：深化知识与检索（3–5 days）
 
+本节只保留研究意图；实际文件、schema、Interfaces、PR slices、迁移、测试和 DoD
+由 [Verified Research Memory 实施计划](verified-research-memory-plan.md) 取代。
+
 - episodic / semantic 分层；
 - comparative distillation；
 - promotion quality gate；
@@ -757,13 +828,18 @@ n = ceil((1.96 + 0.84)^2 × σΔ² / δmin²)
 
 ## 10. 测试清单
 
-### Provenance
+状态口径：`[x]` 只表示 Phase A 在 `f585de4` 已由其代码/contract tests 交付；
+`[ ]` 是 Phase B–E 或 durable 1+2 尚待实现/运行的验收。Phase A 的勾选证明
+mechanism 与 provenance，不证明 Experience Gain；完整历史测试矩阵见
+[Phase A 规格](experience-gain-v3-phase-a-spec.md#19-测试矩阵)。
 
-- [ ] source digest 只覆盖受控执行源码；
-- [ ] config digest 对任一允许旋钮变化敏感；
-- [ ] output/log/cache 变化不影响 source digest；
-- [ ] proposal、runner、manifest、evaluator 中的 digest 一致；
-- [ ] clean workspace 下可复现。
+### Provenance（Phase A 已实现并测试）
+
+- [x] source digest 只覆盖受控执行源码；
+- [x] config digest 对任一允许旋钮变化敏感；
+- [x] output/log/cache 变化不影响 source digest；
+- [x] proposal、runner、manifest、evaluator 中的 digest 一致；
+- [x] clean workspace 下可复现。
 
 ### Knowledge promotion
 
@@ -782,20 +858,27 @@ n = ceil((1.96 + 0.84)^2 × σΔ² / δmin²)
 - [ ] citation 能映射到动作；
 - [ ] selective forgetting 有回归测试。
 
-### Manipulation
+### Manipulation（Phase A mechanism；Pilot/Confirmatory 结果未完成）
 
-- [ ] Treatment recall 可改变 decision；
-- [ ] decision 可改变执行 config；
-- [ ] no-op 被明确记录；
+- [x] Treatment recall 可改变 decision；
+- [x] decision 可改变执行 config；
+- [x] no-op 被明确记录；
 - [ ] shadow counterfactual 只用于 Pilot 诊断；
-- [ ] Confirmatory 不删除 no-op pair；
-- [ ] arm 和 seed 之间无隐式文件泄漏。
+- [x] Confirmatory harness contract 不删除 no-op pair；正式试验尚未运行；
+- [x] Phase A harness 的 arm/seed workspace 与 cache isolation tests 已交付；
+  正式 corpus 仍须重新验收 private-data leakage。
 
 ### Efficiency
 
-- [ ] prepare/survey/method review 每个任务只运行一次；
-- [ ] 每 attempt 最多 5–7 次 LLM 调用；
-- [ ] 每 trial 不超过 100k token；
+- [ ] prepare/survey/method review 每个 canonical snapshot scope 只真实构建
+  一次；其余 Research Runs 提交显式 snapshot import receipt；
+- [ ] 每个最终打开 Experiment Attempt 的 decision+execution path 最多 7 次
+  outbound physical model invocations，max_attempts=3 但允许 early stop；
+- [ ] snapshot build cost 与 Attempt cost 分开记账；
+- [ ] 10 个同 scope Research Runs：calls ≤255、tokens ≤2.5M、serial wall ≤90 分钟；
+- [ ] 首个 Run 的 unamortized cost ≤66 calls / 650k tokens / 23 分钟，且与
+  campaign amortized cost 同时报告；
+- [ ] 90% calls / 每 Research Run 100k tokens 仅作为 Stretch gate；
 - [ ] 超预算自动停止并保留可诊断记录。
 
 ## 11. 明确不做什么
@@ -803,7 +886,7 @@ n = ceil((1.96 + 0.84)^2 × σΔ² / δmin²)
 - 不直接重跑第三轮相同的 5-seed immutable-config 实验；
 - 不再把召回条数当作 Experience Gain；
 - 不仅因为 external verification valid 就晋升知识；
-- 不用不可达的 0.95 baseline 单纯强制重试；
+- 不用不可达的 0.95 baseline 单纯强制追加 Experiment Attempt；
 - 不在每个 attempt 重跑完整研究 Flow；
 - 不在确认性阶段让 memory 随 evaluation seeds 增长；
 - 不通过改变 codebook size、数据或 seed 来做高 utilization；
@@ -812,19 +895,25 @@ n = ceil((1.96 + 0.84)^2 × σΔ² / δmin²)
 
 ## 12. 优先级与最终建议
 
-推荐顺序不是“先优化 prompt”，而是：
+截至 `f585de4`，原先的第一项已经完成。当前顺序是：
 
-1. **P0：Adaptive Experiment Module + Trial Provenance Module**
+1. **已完成基础：Adaptive Experiment Module + Trial Provenance Module**
 
-   让经验第一次真正能够改变可执行干预，并证明它确实改变了。
+   已让经验能够提出受治理的可执行干预并固化 provenance；这仍不等于已经证明
+   Experience Gain。
 
-2. **P0：Comparative Knowledge Distillation Module**
+2. **当前 P0：Phase B 响应面校准 + Comparative Knowledge Distillation**
 
-   阻止模板句进入长期记忆，建立条件—动作—效应知识。
+   先找出对干预有响应的预算/指标，同时阻止模板句进入长期记忆，建立
+   条件—动作—效应知识。
 
-3. **P1：Stage Continuation Module**
+3. **P1：Long-Task Runtime + Stage Continuation Modules**
 
-   把单 trial 成本降一个数量级，释放足够的种子预算。
+   按
+   [治理设计](../design/durable-research-runtime.md)与
+   [实施/验收计划](durable-research-runtime-plan.md)
+   建立 durable semantic continuation；先通过 ≥80% campaign call reduction 的
+   Hard gate，只有 Stretch gate 通过后才称“数量级下降”。
 
 4. **P1：Decision-Point Retrieval + Benchmark Harness**
 
@@ -834,7 +923,8 @@ n = ceil((1.96 + 0.84)^2 × σΔ² / δmin²)
 
 一句话决策：
 
-> 下一步最值得实现的不是“更多记忆”，而是“一个受控、可审计、会被记忆改变的实验干预 Interface”；在它通过操纵 Gate 前，不应再启动长时间正式跑。
+> 可执行干预 Interface 已实现；下一步不是堆更多记忆，而是校准可响应任务、提高
+> 知识质量，并先完成 durable 1+2 的 Hard gates，再启动昂贵的确认性实验。
 
 ## 13. 一手资料
 

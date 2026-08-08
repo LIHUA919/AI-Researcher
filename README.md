@@ -57,11 +57,13 @@ selection problems:
 The purpose of memory is not to remember everything. It is to enable
 association, abstraction, and ultimately generalization.
 
-Raw messages and artifacts are useful as experience, but they should not all
-become durable knowledge. The intended progression is:
+Raw messages and artifacts may supply evidence, but they should not all become
+durable knowledge. The intended governed progression is:
 
 ```text
-run events -> episodes -> reflection -> consolidated facts -> reusable knowledge
+immutable evidence -> comparative verification -> untrusted candidate
+-> governed semantic/procedural record -> bounded decision-point recall
+-> recorded use -> independently verified outcome
 ```
 
 ### Verification is the boundary between output and knowledge
@@ -84,8 +86,10 @@ This fork extends the upstream research workflow with:
 - **Skill architecture** — discoverable `SKILL.md` bundles, lazy loading, JSON
   Schema tool descriptions, semantic search, lifecycle events, and A2A Agent
   Card export.
-- **Memory primitives** — typed session state, agent namespaces, episode
-  storage, append-only event logs, RAG-backed memory, and fact consolidation.
+- **Legacy memory primitives** — typed session state, agent namespaces, episode
+  storage, event logs, and source RAG. These are working/session/reference
+  mechanics; their summaries and consolidated facts are not trusted Research
+  Knowledge.
 - **Isolated experimentation** — Docker and browser environments for code,
   dataset, training, and evaluation workflows.
 
@@ -94,11 +98,11 @@ The conceptual loop maps to the current implementation as follows:
 | Loop stage | Current implementation | Maturity |
 | --- | --- | --- |
 | Experience | Run traces, stage artifacts, event logs, agent episodes | Implemented |
-| Reflection | Judge feedback, analysis stage, memory consolidation | Partial |
+| Reflection | Judge feedback, analysis stage, legacy consolidation | Partial; candidate input only |
 | Hypothesis | Idea, survey, and planning agents | Implemented |
 | Experiment | Docker-backed implementation and training workflow | Implemented, environment-dependent |
 | Evaluation | Stage guardrails, goal-driven metrics, judge reports | Implemented |
-| Knowledge | RAG memory, consolidated facts, code/paper/tool memory | Partial |
+| Knowledge | Verified Experience ledger and proposed governed Knowledge/Procedure records | Ledger implemented; governed memory proposed |
 | Feedback | Reuse of retrieved memory in later decisions | Opt-in; not yet a fully automatic cross-run loop |
 
 ## Project Status
@@ -112,6 +116,12 @@ correct or that every experiment completes successfully. Durable knowledge
 feedback across runs is also still partial. The current focus is making each
 transition observable, resumable, and verifiable before closing the
 self-improvement loop.
+
+In particular, the current supervisor/restart primitives do **not** yet provide
+the proposed durable semantic continuation contract (RPO=0 committed state,
+fenced takeover, effect reconciliation, and stage-level resume). Phase A does
+provide governed executable Interventions and Trial Provenance, but no accepted
+experiment has yet demonstrated an AI-for-AI capability gain.
 
 ## Project Structure
 
@@ -217,6 +227,11 @@ ai-researcher agent \
 
 Skills are modular tool bundles discovered from `SKILL.md` manifests:
 
+Today, production Agents still send stage-static callable lists;
+`search_tools()` below is not yet used to construct the next production model
+request. The governed per-turn migration is specified in the
+[Context-Aware Tool Use Design](docs/design/context-aware-tool-use.md).
+
 ```python
 from research_agent.inno.skills import skill_registry
 
@@ -235,7 +250,8 @@ experiment planning, and memory tools.
 
 ## Memory
 
-Memory can be added to MetaChain without changing its core loop:
+The following compatibility example adds process-level/session memory to
+MetaChain without changing its core loop:
 
 ```python
 from research_agent.inno.core import MetaChain
@@ -253,8 +269,11 @@ store.add_episode(
 )
 ```
 
-Memory is intentionally opt-in while retrieval quality, consolidation, and
-cross-run feedback are being hardened.
+This legacy Interface is intentionally opt-in. Episodes and consolidated facts
+from it cannot enter the trusted Knowledge Snapshot or confirmatory Recall
+Context. The target system uses comparative distillation, typed Decision Points,
+bounded Evidence Cards, Recall Decision Outcomes, and independently verified outcome
+gates.
 
 ## Validation
 
@@ -275,15 +294,20 @@ Current local baseline:
 Some dependency deprecation warnings remain and are tracked separately from
 functional test failures.
 
-## Verified Experience Loop (Experimental)
+## Verified Experience Loop (Experimental; legacy recall compatibility)
 
 Both research entrypoints support four explicit modes:
 
-- `off` — preserve the legacy one-run behavior;
-- `record` — independently verify and persist the attempt;
-- `recall` — retrieve scoped verified knowledge without recording;
-- `closed-loop` — recall, run, verify, promote eligible knowledge, and iterate
-  within the configured budget.
+- `off` — execute one legacy Research Run without Experience Loop recall/recording;
+- `record` — independently verify and persist the Experiment Attempt;
+- `recall` — retrieve scoped legacy schema-v1 lesson records without recording;
+- `closed-loop` — use that legacy recall path, run, independently verify, apply
+  the legacy KnowledgeGate, and iterate within the configured budget.
+
+These modes do **not** yet implement canonical Verified Research Memory.
+Schema-v1 lessons/`RecallContext` map to the implementation plan's
+`legacy_recall` compatibility profile; they are not governed Knowledge Records,
+Evidence Cards, or canonical Decision-Intent Recall Contexts.
 
 Recording modes require a task-specific evaluator contract:
 
@@ -310,28 +334,44 @@ execution/evidence smoke contract with a zero baseline, not a scientific
 improvement threshold. The checked three-seed method-smoke report found no mean
 utilization improvement for the SimVQ-style variant. See
 [`docs/implementation/one-layer-vq-real-test.md`](docs/implementation/one-layer-vq-real-test.md) for
-the calibration and paired no-recall/recall protocol.
+the mechanics calibration and retired V2 paired protocol; current confirmatory
+gates live in the memory effectiveness evaluation protocol above.
 
 In `closed-loop` mode, each Experiment Attempt receives an isolated stage and
-agent cache under `<cache>/attempts/iteration-NNN`. Verified Recall Context is
-rendered as cited decision guidance for the next attempt, so a retry cannot
-silently reuse the previous attempt's completed implementation and submission
-stages. Evaluator inputs are copied into immutable per-attempt evidence
-snapshots before verification, preventing a later attempt from overwriting an
-earlier Observation's artifacts.
+agent cache under `<cache>/attempts/iteration-NNN`. The legacy schema-v1
+`RecallContext` is rendered as cited compatibility guidance for the next
+Experiment Attempt, so a later
+Experiment Attempt cannot silently reuse the previous Experiment Attempt's
+completed implementation and submission stages. Evaluator inputs are copied
+into immutable per-attempt evidence snapshots before verification, preventing a
+later Experiment Attempt from overwriting an earlier Observation's artifacts.
 
 ## Remaining Validation Roadmap
 
 1. Calibrate versioned task-specific Evaluation Contracts on independent real
    runs for a representative Scientist-Bench subset.
-2. Run paired no-recall and closed-loop trials on more than one real task.
+2. Run paired no-recall and closed-loop Research Run arms on more than one real task.
 3. Add scheduled Docker/GPU benchmark execution outside normal pull-request CI.
 4. Add a ResearchClawBench Adapter after the internal subset is stable.
-5. Validate memory gain separately from the implemented candidate-search gain.
+5. Validate memory gain separately from the implemented governed Intervention
+   proposal/execution mechanism; neither gain is yet established by accepted
+   scientific evidence.
 
 The implementation contracts, module seams, rollout phases, and acceptance
 criteria are defined in the
 [Experience-Driven Research Loop Design](docs/design/experience-driven-research-loop.md).
+Canonical domain terms are defined in the [domain glossary](CONTEXT.md).
+The governed memory data plane is defined in the
+[Verified Research Memory Design](docs/design/verified-research-memory.md), its
+[implementation plan](docs/implementation/verified-research-memory-plan.md), and
+[effectiveness evaluation protocol](docs/implementation/memory-effectiveness-evaluation.md).
+The proposed durable execution and continuation architecture is defined in the
+[Durable Research Runtime Design](docs/design/durable-research-runtime.md) and its
+[implementation/acceptance plan](docs/implementation/durable-research-runtime-plan.md).
+Per-turn capability selection, governed tool Effects, migration, and acceptance
+are defined in the
+[Context-Aware Tool Use Design](docs/design/context-aware-tool-use.md) and its
+[implementation plan](docs/implementation/context-aware-tool-use-plan.md).
 The complete design and implementation document index is maintained in
 [`docs/README.md`](docs/README.md).
 
